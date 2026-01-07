@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Clock, Calendar, Users, ShieldCheck, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Clock, Calendar, Users, ShieldCheck, Settings, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,9 +14,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   
   const navItems = [
     { id: 'monitor', label: 'Live-Monitor', icon: <Clock size={20} /> },
-    { id: 'exams', label: 'Planung', icon: <Calendar size={20} /> },
+    { id: 'exams', label: 'Prüfungsplan', icon: <Calendar size={20} /> },
     { id: 'stats', label: 'Aufsichtsplan', icon: <ShieldCheck size={20} /> },
     { id: 'data', label: 'Datenbank', icon: <Users size={20} /> },
+    { id: 'settings', label: 'Einstellungen', icon: <Settings size={20} /> },
   ];
 
   const lastUpdated = new Date().toLocaleString('de-DE', { 
@@ -27,14 +28,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   return (
     <div className="flex flex-col h-screen w-full dashboard-gradient select-none relative">
       {/* Global Aurora Background Layers */}
-      <div className="aurora-container">
+      <div className="aurora-container print:hidden">
         <div className="aurora-glow" style={{ top: '-20%', left: '-20%' }}></div>
         <div className="aurora-glow-secondary" style={{ bottom: '0%', right: '0%' }}></div>
         <div className="aurora-glow" style={{ top: '40%', right: '-30%', animationDelay: '-15s', opacity: 0.15 }}></div>
       </div>
 
       {/* Header */}
-      <header className="h-12 border-b border-slate-700/30 flex items-center justify-between px-4 bg-slate-900/40 backdrop-blur-md shrink-0 z-20">
+      <header className="h-12 border-b border-slate-700/30 flex items-center justify-between px-4 bg-slate-900/40 backdrop-blur-md shrink-0 z-20 print:hidden">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 bg-cyan-600/20 rounded-lg flex items-center justify-center font-bold text-xs text-cyan-400 border border-cyan-500/20">L</div>
           <h1 className="font-bold text-sm tracking-tight text-slate-200">LinexioAbi</h1>
@@ -42,9 +43,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
         <div className="flex items-center gap-4"></div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden z-10">
+      <div className="flex flex-1 overflow-hidden z-10 print:block">
         <nav 
-          className={`bg-slate-900/10 border-r border-slate-700/20 flex flex-col p-2 select-none transition-all duration-500 ease-in-out shrink-0 ${
+          className={`bg-slate-900/10 border-r border-slate-700/20 flex flex-col p-2 select-none transition-all duration-500 ease-in-out shrink-0 print:hidden ${
             isCollapsed ? 'w-16' : 'w-56'
           }`}
         >
@@ -77,7 +78,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
               isCollapsed ? 'max-h-0 opacity-0' : 'max-h-24 opacity-100'
             }`}>
               <div className="p-3 bg-slate-800/20 rounded-xl">
-                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Version: 0.1</div>
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Version: 0.6</div>
                 <div className="text-[9px] text-slate-600 font-medium leading-tight text-left">zuletzt aktualisiert am: <br/> {lastUpdated}</div>
               </div>
             </div>
@@ -102,7 +103,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
           </div>
         </nav>
 
-        <main className="flex-1 relative flex flex-col overflow-hidden p-4 md:p-6">
+        <main className="flex-1 relative flex flex-col overflow-hidden p-4 md:p-6 print:p-0 print:overflow-visible">
           {children}
         </main>
       </div>

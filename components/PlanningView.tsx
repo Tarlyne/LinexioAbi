@@ -1,14 +1,15 @@
 
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { 
   PlusCircle, AlertCircle, MapPin, Clock, Trash2, 
-  X, Save, ChevronDown, Settings, Layers
+  X, Save, ChevronDown, Settings, Layers, Printer, FileText, Download
 } from 'lucide-react';
 import { Exam } from '../types';
 import { Modal } from './Modal';
 import { usePlanning } from '../hooks/usePlanning';
 import { BacklogSidebar } from './planning/BacklogSidebar';
 import { ExamCard } from './planning/ExamCard';
+import { ExportPrintView } from './ExportPrintView';
 
 export const PlanningView: React.FC = () => {
   const {
@@ -31,12 +32,12 @@ export const PlanningView: React.FC = () => {
     addExams, updateExam, deleteExam, checkCollision, showToast
   } = usePlanning();
   
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
   const SLOT_HEIGHT = 38; 
   const startHour = 8;
   const endHour = 18;
-  const HEADER_HEIGHT = 44; 
   
   const timeSlots = useMemo(() => {
     const slots = [];
@@ -102,31 +103,59 @@ export const PlanningView: React.FC = () => {
     setShowModal(false);
   };
 
+  const handlePrint = () => {
+    // 1. Titel setzen (wird oft als PDF-Dateiname genutzt)
+    const originalTitle = document.title;
+    const dayLabel = state.days[activeDay]?.label || "Prüfungsplan";
+    document.title = `Prüfungsplan_${dayLabel}_${new Date().toISOString().slice(0,10)}`;
+    
+    // 2. Fokus auf Main-Window erzwingen
+    window.focus();
+    
+    // 3. Kurzes Delay für iPad Safari Engine
+    setTimeout(() => {
+      window.print();
+      // Titel zurücksetzen
+      document.title = originalTitle;
+    }, 150);
+  };
+
   return (
-    <div className="flex flex-col h-full gap-4 overflow-hidden select-none">
+    <div className="flex flex-col h-full gap-4 overflow-hidden select-none print:hidden">
       
-      <div className="relative flex p-1 bg-slate-900/60 border border-slate-700/30 rounded-xl w-full max-w-xl shrink-0">
-        <div 
-          className="absolute top-1 bottom-1 left-1 bg-cyan-600 rounded-lg shadow-lg shadow-cyan-900/20 transition-all duration-300 ease-in-out"
-          style={{ 
-            width: `calc((100% - 8px) / ${state.days.length})`, 
-            transform: `translateX(calc(${activeDay} * 100%))` 
-          }}
-        />
-        {state.days.map((day, idx) => (
-          <button
-            key={day.id}
-            onClick={() => setActiveDay(idx)}
-            className={`relative z-10 flex-1 flex flex-col items-center justify-center py-2 transition-colors duration-300 rounded-lg outline-none ${
-              activeDay === idx ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <span className="text-xs font-bold uppercase tracking-wider">{day.label}</span>
-            <span className={`text-[9px] font-medium opacity-80 ${activeDay === idx ? 'text-white' : 'text-slate-600'}`}>
-              {new Date(day.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-            </span>
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-4 shrink-0">
+        <div className="relative flex p-1 bg-slate-900/60 border border-slate-700/30 rounded-xl w-full max-w-xl">
+          <div 
+            className="absolute top-1 bottom-1 left-1 bg-cyan-600 rounded-lg shadow-lg shadow-cyan-900/20 transition-all duration-300 ease-in-out"
+            style={{ 
+              width: `calc((100% - 8px) / ${state.days.length})`, 
+              transform: `translateX(calc(${activeDay} * 100%))` 
+            }}
+          />
+          {state.days.map((day, idx) => (
+            <button
+              key={day.id}
+              onClick={() => setActiveDay(idx)}
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center py-2 transition-colors duration-300 rounded-lg outline-none ${
+                activeDay === idx ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <span className="text-xs font-bold uppercase tracking-wider">{day.label}</span>
+              <span className={`text-[9px] font-medium opacity-80 ${activeDay === idx ? 'text-white' : 'text-slate-600'}`}>
+                {new Date(day.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <button 
+          onClick={() => setShowPrintPreview(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-800/40 border border-slate-700/50 rounded-xl text-slate-300 hover:text-white hover:border-cyan-500/50 transition-all active:scale-95 group"
+          title="Prüfungsplan Vorschau"
+        >
+          <Printer size={18} className="group-hover:text-cyan-400" />
+          <span className="text-xs font-bold uppercase tracking-wider hidden md:inline">Export PDF</span>
+        </button>
       </div>
 
       <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
@@ -456,6 +485,52 @@ export const PlanningView: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      </Modal>
+
+      {/* Export/Druck Vorschau Modal */}
+      <Modal isOpen={showPrintPreview} onClose={() => setShowPrintPreview(false)} maxWidth="max-w-4xl">
+        <div className="flex flex-col gap-6 h-full max-h-[85vh]">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
+                <FileText size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white tracking-tight">Export-Vorschau</h3>
+                <p className="text-xs text-slate-400">Prüfungsplan für {state.days[activeDay]?.label}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-900/40 transition-all active:scale-95"
+              >
+                <Download size={18} /> PDF speichern
+              </button>
+              <button onClick={() => setShowPrintPreview(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto bg-slate-900/40 rounded-2xl p-6 border border-slate-700/30 shadow-inner no-scrollbar">
+            <div className="mx-auto">
+               <ExportPrintView activeDayIdx={activeDay} isPreview={true} />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-6 py-2 shrink-0">
+            <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Format: A4 Hochformat
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Lining Ziffern aktiv
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Zebra-Look: Kommission
+            </div>
+          </div>
         </div>
       </Modal>
     </div>

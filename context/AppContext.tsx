@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppState, Teacher, Student, Room, Exam, Supervision, ExamDay, Subject } from '../types';
 import * as db from '../store/db';
 import { checkExamCollision, isEntityInUseInternal, calculateTeacherPoints } from '../utils/engine';
@@ -10,8 +10,8 @@ interface Toast { message: string; type: ToastType; id: string; }
 interface AppContextType {
   state: AppState;
   isLoading: boolean;
-  unlock: (password: string) => boolean;
-  setMasterPassword: (password: string) => void;
+  unlock: (password: string) => Promise<boolean>;
+  setMasterPassword: (password: string) => Promise<void>;
   lock: () => void;
   addTeacher: (t: Teacher) => void;
   updateTeacher: (t: Teacher) => void;
@@ -44,64 +44,56 @@ interface AppContextType {
   checkCollision: (exam: Exam) => { hasConflict: boolean, reason?: string };
   isEntityInUse: (type: 'teacher' | 'student' | 'room' | 'day' | 'subject', id: string) => boolean;
   getTeacherStats: (teacherId: string) => { points: number };
+  exportState: () => void;
+  importState: (file: File, password?: string) => Promise<boolean>;
+  resetForNewYear: () => void;
+  factoryReset: () => void;
 }
 
 const dummySubjects: Subject[] = [
-  { id: 'sub1', name: 'Deutsch' },
-  { id: 'sub2', name: 'Mathematik' },
-  { id: 'sub3', name: 'Englisch' },
-  { id: 'sub4', name: 'Biologie' },
-  { id: 'sub5', name: 'Physik' },
-  { id: 'sub6', name: 'Chemie' },
-  { id: 'sub7', name: 'Geschichte' },
-  { id: 'sub10', name: 'Kunst' },
-  { id: 'sub11', name: 'Musik' },
-  { id: 'sub12', name: 'Sport' },
-  { id: 'sub13', name: 'Informatik' },
-  { id: 'sub14', name: 'Religion' },
-  { id: 'sub15', name: 'Philosophie' },
-  { id: 'sub16', name: 'Sozialkunde' },
-  { id: 'sub17', name: 'Latein' },
+  { id: 'sub1', name: 'Deutsch' }, { id: 'sub2', name: 'Mathematik' }, { id: 'sub3', name: 'Englisch' },
+  { id: 'sub4', name: 'Biologie' }, { id: 'sub5', name: 'Physik' }, { id: 'sub6', name: 'Chemie' },
+  { id: 'sub7', name: 'Geschichte' }, { id: 'sub10', name: 'Kunst' }, { id: 'sub11', name: 'Musik' },
+  { id: 'sub12', name: 'Sport' }, { id: 'sub13', name: 'Informatik' }, { id: 'sub14', name: 'Religion' },
+  { id: 'sub15', name: 'Philosophie' }, { id: 'sub16', name: 'Sozialkunde' }, { id: 'sub17', name: 'Latein' },
   { id: 'sub18', name: 'Französisch' },
 ];
 
 const dummyTeachers: Teacher[] = [
-  { id: 't1', firstName: 'Max', lastName: 'Mustermann', shortName: 'MUS', isPartTime: false },
-  { id: 't2', firstName: 'Erika', lastName: 'Schmidt', shortName: 'SMI', isPartTime: true },
-  { id: 't3', firstName: 'Karl', lastName: 'Müller', shortName: 'MUE', isPartTime: false },
-  { id: 't4', firstName: 'Sabine', lastName: 'Fischer', shortName: 'FIS', isPartTime: false },
-  { id: 't5', firstName: 'Hans', lastName: 'Weber', shortName: 'WEB', isPartTime: true },
-  { id: 't6', firstName: 'Julia', lastName: 'Meyer', shortName: 'MEY', isPartTime: false },
-  { id: 't7', firstName: 'Peter', lastName: 'Wagner', shortName: 'WAG', isPartTime: false },
-  { id: 't8', firstName: 'Monika', lastName: 'Becker', shortName: 'BEC', isPartTime: true },
-  { id: 't9', firstName: 'Thomas', lastName: 'Schulz', shortName: 'SLZ', isPartTime: false },
-  { id: 't10', firstName: 'Petra', lastName: 'Hoffmann', shortName: 'HOF', isPartTime: false },
+  { id: 't1', firstName: 'Bernd', lastName: 'Buche', shortName: 'Buc', isPartTime: false },
+  { id: 't2', firstName: 'Erika', lastName: 'Eiche', shortName: 'Eic', isPartTime: true },
+  { id: 't3', firstName: 'Klaus', lastName: 'Kiefer', shortName: 'Kie', isPartTime: false },
+  { id: 't4', firstName: 'Monika', lastName: 'Moos', shortName: 'Moo', isPartTime: false },
+  { id: 't5', firstName: 'Dieter', lastName: 'Distel', shortName: 'Dis', isPartTime: false },
+  { id: 't6', firstName: 'Gabi', lastName: 'Ginster', shortName: 'Gin', isPartTime: true },
+  { id: 't7', firstName: 'Holger', lastName: 'Holunder', shortName: 'Hol', isPartTime: false },
+  { id: 't8', firstName: 'Irma', lastName: 'Iris', shortName: 'Iri', isPartTime: false },
+  { id: 't9', firstName: 'Jasmin', lastName: 'Jasmin', shortName: 'Jas', isPartTime: false },
+  { id: 't10', firstName: 'Kai', lastName: 'Kastanie', shortName: 'Kas', isPartTime: false },
 ];
 
-const dummyStudents: Student[] = Array.from({ length: 10 }).map((_, i) => ({
-  id: `s${i+1}`,
-  firstName: `Schüler${i+1}`,
-  lastName: `Abiturient${i+1}`,
-  examIds: []
-}));
+const dummyStudents: Student[] = [
+  { id: 's1', firstName: 'Leo', lastName: 'Languste', examIds: [] },
+  { id: 's2', firstName: 'Tom', lastName: 'Tiger', examIds: [] },
+  { id: 's3', firstName: 'Berta', lastName: 'Biene', examIds: [] },
+  { id: 's4', firstName: 'Dora', lastName: 'Dachs', examIds: [] },
+  { id: 's5', firstName: 'Emil', lastName: 'Elch', examIds: [] },
+  { id: 's6', firstName: 'Felix', lastName: 'Fuchs', examIds: [] },
+  { id: 's7', firstName: 'Gitti', lastName: 'Giraffe', examIds: [] },
+  { id: 's8', firstName: 'Hannes', lastName: 'Hase', examIds: [] },
+  { id: 's9', firstName: 'Igor', lastName: 'Igel', examIds: [] },
+  { id: 's10', firstName: 'Jette', lastName: 'Jaguar', examIds: [] },
+];
 
 const dummyRooms: Room[] = [
-  { id: 'r303', name: 'R303', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: false, requiredSupervisors: 1 },
-  { id: 'r304', name: 'R304', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: false, requiredSupervisors: 1 },
-  { id: 'r305', name: 'R305', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: false, requiredSupervisors: 1 },
-  { id: 'r306', name: 'R306', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: false, requiredSupervisors: 1 },
-  { id: 'r307', name: 'R307', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: false, requiredSupervisors: 1 },
-  { id: 'r301', name: 'R301 (Warteraum)', type: 'Warteraum', capacity: 30, isSupervisionStation: true, requiredSupervisors: 2 },
-  { id: 'r318', name: 'R318 (Vorb.)', type: 'Vorbereitungsraum', capacity: 1, isSupervisionStation: true, requiredSupervisors: 1 },
-  { id: 'r320', name: 'R320 (Vorb.)', type: 'Vorbereitungsraum', capacity: 1, isSupervisionStation: true, requiredSupervisors: 1 },
-  { id: 'taxi', name: 'Taxi', type: 'Aufsicht-Station', capacity: 5, isSupervisionStation: true, requiredSupervisors: 5 },
-  { id: 'rz', name: 'Rechenzentrum', type: 'Aufsicht-Station', capacity: 2, isSupervisionStation: true, requiredSupervisors: 2 },
+  { id: 'r1', name: 'R201', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: true, requiredSupervisors: 1 },
+  { id: 'r2', name: 'R202', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: true, requiredSupervisors: 1 },
+  { id: 'r3', name: 'V01', type: 'Vorbereitungsraum', capacity: 1, isSupervisionStation: false, requiredSupervisors: 1 },
 ];
 
 const dummyDays: ExamDay[] = [
-  { id: 'd1', date: '2026-01-06', label: '1. Prüfungstag' },
-  { id: 'd2', date: '2026-01-07', label: '2. Prüfungstag' },
-  { id: 'd3', date: '2026-01-08', label: '3. Prüfungstag' },
+  { id: 'd1', date: '2026-05-18', label: '1. Prüfungstag' },
+  { id: 'd2', date: '2026-05-19', label: '2. Prüfungstag' },
 ];
 
 const initialState: AppState = {
@@ -111,8 +103,10 @@ const initialState: AppState = {
   days: dummyDays, 
   subjects: dummySubjects,
   exams: [], 
-  supervisions: [],
-  isLocked: false, masterPassword: null, lastUpdate: Date.now(),
+  supervisions: [], 
+  isLocked: false, 
+  masterPassword: null, 
+  lastUpdate: Date.now(),
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -121,26 +115,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [state, setState] = useState<AppState>(initialState);
   const [isLoading, setIsLoading] = useState(true);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const sessionPassword = useRef<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
-      const saved = await db.loadState();
-      if (saved && saved.teachers && saved.teachers.length > 0) {
-        // Migration: Wenn Subjects noch nicht existieren, Dummys laden
-        const finalState = { ...saved, isLocked: false };
-        if (!finalState.subjects || finalState.subjects.length === 0) {
-          finalState.subjects = dummySubjects;
+      try {
+        const saved = await db.loadState();
+        if (saved) {
+          if (saved.isLocked && saved.masterPassword === 'SET') {
+            setState(prev => ({ ...prev, isLocked: true, masterPassword: 'SET' }));
+          } else {
+            // Falls wir bereits Daten in der DB haben, nehmen wir diese (wichtig für Persistenz)
+            setState({ ...saved, isLocked: false });
+          }
+        } else {
+          setState(initialState);
         }
-        setState(finalState);
-      } else {
+      } catch (err) {
         setState(initialState);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     init();
   }, []);
 
-  useEffect(() => { if (!isLoading) db.saveState(state); }, [state, isLoading]);
+  useEffect(() => { 
+    if (!isLoading && !state.isLocked) {
+      db.saveState(state, sessionPassword.current || undefined);
+    } 
+  }, [state, isLoading]);
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -149,21 +153,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const removeToast = useCallback((id: string) => setToasts(prev => prev.filter(t => t.id !== id)), []);
-  const unlock = useCallback((password: string) => {
-    if (!state.masterPassword || password === state.masterPassword) {
-      setState(prev => ({ ...prev, isLocked: false }));
-      return true;
+  
+  const unlock = useCallback(async (password: string) => {
+    try {
+      const decrypted = await db.loadState(password);
+      if (decrypted) {
+        sessionPassword.current = password;
+        setState({ ...decrypted, isLocked: false });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      return false;
     }
-    return false;
-  }, [state.masterPassword]);
+  }, []);
 
-  const lock = useCallback(() => setState(prev => ({ ...prev, isLocked: true })), []);
-  const setMasterPassword = useCallback((password: string) => setState(prev => ({ ...prev, masterPassword: password })), []);
+  const lock = useCallback(() => {
+    sessionPassword.current = null;
+    setState(prev => ({ ...prev, isLocked: true }));
+  }, []);
+
+  const setMasterPassword = useCallback(async (password: string) => {
+    sessionPassword.current = password;
+    setState(prev => ({ ...prev, masterPassword: 'SET', isLocked: false }));
+    await db.saveState({ ...state, masterPassword: 'SET', isLocked: false }, password);
+    showToast('Master-Passwort erfolgreich gesetzt', 'success');
+  }, [state, showToast]);
+  
   const isEntityInUse = useCallback((type: 'teacher' | 'student' | 'room' | 'day' | 'subject', id: string) => {
     const entity = (state as any)[type + 's']?.find((e: any) => e.id === id);
     const entityName = entity?.name || entity?.shortName;
     return isEntityInUseInternal(type, id, state.exams, state.supervisions, entityName);
-  }, [state.exams, state.supervisions, state.teachers, state.students, state.rooms, state.subjects, state.days]);
+  }, [state.exams, state.supervisions]);
 
   const addTeacher = useCallback((t: Teacher) => setState(prev => ({ ...prev, teachers: [...prev.teachers, t] })), []);
   const updateTeacher = useCallback((t: Teacher) => setState(prev => ({ ...prev, teachers: prev.teachers.map(curr => curr.id === t.id ? t : curr) })), []);
@@ -208,16 +229,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteExam = useCallback((id: string) => setState(prev => ({ ...prev, exams: prev.exams.filter(e => e.id !== id) })), []);
 
   const togglePresence = useCallback((id: string) => setState(prev => ({ ...prev, exams: prev.exams.map(e => e.id === id ? { ...e, isPresent: !e.isPresent } : e) })), []);
-  const completeExam = useCallback((id: string) => {
-    setState(prev => ({ ...prev, exams: prev.exams.map(e => e.id === id ? { ...e, status: 'completed' } : e) }));
-    showToast('Prüfung abgeschlossen', 'success');
-  }, [showToast]);
+  const completeExam = useCallback((id: string) => setState(prev => ({ ...prev, exams: prev.exams.map(e => e.id === id ? { ...e, status: 'completed' } : e) })), []);
 
   const addSupervision = useCallback((s: Supervision) => setState(prev => ({ ...prev, supervisions: [...prev.supervisions, s] })), []);
   const removeSupervision = useCallback((id: string) => setState(prev => ({ ...prev, supervisions: prev.supervisions.filter(s => s.id !== id) })), []);
 
   const checkCollision = useCallback((exam: Exam) => checkExamCollision(exam, state.exams), [state.exams]);
   const getTeacherStats = useCallback((teacherId: string) => ({ points: calculateTeacherPoints(teacherId, state.exams, state.supervisions) }), [state.exams, state.supervisions]);
+
+  const exportState = useCallback(async () => {
+    if (!sessionPassword.current) {
+      showToast('Export nur im angemeldeten Zustand möglich', 'error');
+      return;
+    }
+    try {
+      const blob = await db.encryptForFile(state, sessionPassword.current);
+      const dataUri = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 10);
+      const exportFileDefaultName = `LinexioAbi_Backup_${timestamp}.lxabi`;
+      
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+      URL.revokeObjectURL(dataUri);
+      showToast('Daten verschlüsselt exportiert (.lxabi)', 'success');
+    } catch (err) {
+      showToast('Export fehlgeschlagen', 'error');
+    }
+  }, [state, showToast]);
+
+  const importState = useCallback(async (file: File, password?: string) => {
+    try {
+      const buffer = await file.arrayBuffer();
+      const effectivePassword = password || sessionPassword.current;
+      if (!effectivePassword) throw new Error('NO_PASSWORD');
+      
+      const decrypted = await db.decryptFromFile(buffer, effectivePassword);
+      setState({ ...decrypted, isLocked: false, lastUpdate: Date.now() });
+      sessionPassword.current = effectivePassword;
+      showToast('Daten erfolgreich wiederhergestellt', 'success');
+      return true;
+    } catch (err) {
+      if (err instanceof Error && err.message === 'WRONG_PASSWORD') {
+        showToast('Passwort für Backup-Datei ist falsch', 'error');
+      } else {
+        showToast('Import fehlgeschlagen: Ungültige Datei', 'error');
+      }
+      return false;
+    }
+  }, [showToast]);
+
+  const resetForNewYear = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      students: [],
+      rooms: [],
+      days: [],
+      exams: [],
+      supervisions: [],
+      lastUpdate: Date.now()
+    }));
+    showToast('Planung für neues Jahr vorbereitet', 'success');
+  }, [showToast]);
+
+  const factoryReset = useCallback(async () => {
+    sessionPassword.current = null;
+    await db.clearDatabase();
+    setState({ ...initialState, lastUpdate: Date.now() });
+    showToast('System vollständig zurückgesetzt', 'info');
+  }, [showToast]);
 
   return (
     <AppContext.Provider value={{ 
@@ -230,7 +311,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addExams, updateExam, deleteExam, togglePresence, completeExam,
       addSupervision, removeSupervision,
       toasts, showToast, removeToast,
-      checkCollision, isEntityInUse, getTeacherStats
+      checkCollision, isEntityInUse, getTeacherStats,
+      exportState, importState, resetForNewYear, factoryReset
     }}>
       {children}
     </AppContext.Provider>
