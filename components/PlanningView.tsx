@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { 
   PlusCircle, AlertCircle, MapPin, Clock, Trash2, 
   X, Save, ChevronDown, Settings, Layers, Printer, FileText, Download, Loader2, CheckCircle
@@ -12,7 +12,11 @@ import { ExportPrintView } from './ExportPrintView';
 import { isAppleMobile } from '../utils/Platform';
 import { PdfExportService } from '../services/PdfExportService';
 
-export const PlanningView: React.FC = () => {
+interface PlanningViewProps {
+  onSetHeaderActions?: (actions: React.ReactNode) => void;
+}
+
+export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }) => {
   const {
     state,
     searchTerm, setSearchTerm,
@@ -107,9 +111,6 @@ export const PlanningView: React.FC = () => {
     setShowModal(false);
   };
 
-  /**
-   * Startet den PDF Export Prozess.
-   */
   const initiatePdfExport = () => {
     if (isAppleMobile()) {
       setShowDownloadAnleitung(true);
@@ -118,9 +119,6 @@ export const PlanningView: React.FC = () => {
     }
   };
 
-  /**
-   * Führt den eigentlichen PDF-Save via Service aus.
-   */
   const executePdfExport = async () => {
     setShowDownloadAnleitung(false);
     setIsExporting(true);
@@ -129,7 +127,6 @@ export const PlanningView: React.FC = () => {
     const filename = `Pruefungsplan_${dayLabel.replace(/\s/g, '_')}`;
 
     try {
-      // NATIVE EXPORT: Wir übergeben den State und den aktiven Tag
       await PdfExportService.generateAndDownload(state, activeDay, filename);
       showToast('PDF erfolgreich generiert.', 'success');
     } catch (err) {
@@ -140,11 +137,35 @@ export const PlanningView: React.FC = () => {
     }
   };
 
+  // Effekt zum Registrieren des Header-Buttons mit Cleanup
+  useEffect(() => {
+    if (onSetHeaderActions) {
+      onSetHeaderActions(
+        <button 
+          onClick={() => setShowPrintPreview(true)}
+          className="flex items-center gap-2 h-8 px-3 bg-slate-800/60 border border-slate-700/50 rounded-lg text-slate-300 hover:text-cyan-400 hover:border-cyan-500/50 transition-all active:scale-95 group"
+          title="Prüfungsplan Export"
+        >
+          <Printer size={14} className="group-hover:text-cyan-400 transition-colors" />
+          <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline group-hover:text-cyan-400 transition-colors">Export PDF</span>
+        </button>
+      );
+      
+      // Cleanup: Actions beim Verlassen des Tabs entfernen
+      return () => onSetHeaderActions(null);
+    }
+  }, [onSetHeaderActions]);
+
   return (
     <div className="flex flex-col h-full gap-4 overflow-hidden select-none print:hidden">
       
-      <div className="flex items-center justify-between gap-4 shrink-0">
-        <div className="relative flex p-1 bg-slate-900/60 border border-slate-700/30 rounded-xl w-full max-w-xl">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 shrink-0">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Prüfungsplan</h2>
+          <p className="text-cyan-500/80 text-xs font-medium">Verwaltung der Prüfungen</p>
+        </div>
+        
+        <div className="relative flex p-1 bg-slate-900/60 border border-slate-700/30 rounded-xl w-full max-w-md shrink-0">
           <div 
             className="absolute top-1 bottom-1 left-1 bg-cyan-600 rounded-lg shadow-lg shadow-cyan-900/20 transition-all duration-300 ease-in-out"
             style={{ 
@@ -167,15 +188,6 @@ export const PlanningView: React.FC = () => {
             </button>
           ))}
         </div>
-
-        <button 
-          onClick={() => setShowPrintPreview(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800/40 border border-slate-700/50 rounded-xl text-slate-300 hover:text-white hover:border-cyan-500/50 transition-all active:scale-95 group"
-          title="Prüfungsplan Vorschau"
-        >
-          <Printer size={18} className="group-hover:text-cyan-400" />
-          <span className="text-xs font-bold uppercase tracking-wider hidden md:inline">Export PDF</span>
-        </button>
       </div>
 
       <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
@@ -209,7 +221,7 @@ export const PlanningView: React.FC = () => {
               Keine Räume in der Datenbank hinterlegt.
             </div>
           ) : (
-            <div className="flex-1 overflow-auto relative scroll-smooth" ref={gridContainerRef}>
+            <div className="flex-1 overflow-auto relative scroll-smooth no-scrollbar" ref={gridContainerRef}>
               <div className="sticky top-0 z-40 flex bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/60 shadow-xl h-[44px] min-w-max w-full">
                 <div className="w-20 shrink-0 border-r border-slate-700/60 flex items-center justify-center bg-slate-900 sticky left-0 z-50">
                   <Clock size={16} className="text-slate-500" />
@@ -312,7 +324,6 @@ export const PlanningView: React.FC = () => {
       </div>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} maxWidth="max-w-lg">
-        {/* Modal Inhalt bleibt gleich */}
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
             <div className="flex items-center gap-4">
@@ -508,7 +519,6 @@ export const PlanningView: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Export/Druck Vorschau Modal */}
       <Modal isOpen={showPrintPreview} onClose={() => setShowPrintPreview(false)} maxWidth="max-w-4xl">
         <div className="flex flex-col gap-6 h-full max-h-[85vh]">
           <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
@@ -556,7 +566,6 @@ export const PlanningView: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Download Anleitung Modal (iPad Fresh Click) */}
       <Modal isOpen={showDownloadAnleitung} onClose={() => setShowDownloadAnleitung(false)} maxWidth="max-w-md">
         <div className="flex flex-col items-center text-center space-y-6 py-4">
           <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center border border-cyan-500/20 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.2)]">

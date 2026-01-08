@@ -7,9 +7,10 @@ interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  headerActions?: React.ReactNode;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, headerActions }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   
   const navItems = [
@@ -42,7 +43,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
           </div>
           <h1 className="font-bold text-sm tracking-tight text-slate-200">LinexioAbi</h1>
         </div>
-        <div className="flex items-center gap-4"></div>
+        
+        {/* Header Actions Slot */}
+        <div className="flex items-center gap-3">
+          {headerActions}
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden z-10 print:block">

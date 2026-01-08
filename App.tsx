@@ -13,6 +13,7 @@ import { ExportPrintView } from './components/ExportPrintView';
 const MainView: React.FC = () => {
   const { state, isLoading } = useApp();
   const [activeTab, setActiveTab] = useState('monitor');
+  const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
 
   useEffect(() => {
     if (navigator.storage && navigator.storage.persist) {
@@ -29,14 +30,14 @@ const MainView: React.FC = () => {
   return (
     <>
       <div className="no-print h-screen flex flex-col">
-        <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-          {/* 
-            KEY-TRICK: Durch den key={activeTab} erzwingen wir ein Re-Mounting,
-            wodurch die CSS-Einstiegsanimation (animate-page-in) jedes Mal getriggert wird.
-          */}
+        <Layout 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          headerActions={headerActions}
+        >
           <div key={activeTab} className="h-full w-full animate-page-in">
             {activeTab === 'monitor' && <LiveMonitor />}
-            {activeTab === 'exams' && <PlanningView />}
+            {activeTab === 'exams' && <PlanningView onSetHeaderActions={setHeaderActions} />}
             {activeTab === 'data' && <DataView />}
             {activeTab === 'stats' && <StatsView />}
             {activeTab === 'settings' && <SettingsView />}
@@ -45,7 +46,6 @@ const MainView: React.FC = () => {
         </Layout>
       </div>
       
-      {/* Zentraler Druck-Container: Im Screen-Modus unsichtbar, im Druckmodus sichtbar */}
       <div className="print-only w-full">
         {state.days.map((_, idx) => (
           <div key={idx} style={{ pageBreakAfter: 'always' }}>
