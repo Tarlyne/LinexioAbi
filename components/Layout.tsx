@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Clock, Calendar, Users, ShieldCheck, Settings, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { LinexioLogoIcon } from './LinexioLogoIcon';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -37,7 +37,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
       {/* Header */}
       <header className="h-12 border-b border-slate-700/30 flex items-center justify-between px-4 bg-slate-900/40 backdrop-blur-md shrink-0 z-20 print:hidden">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-cyan-600/20 rounded-lg flex items-center justify-center font-bold text-xs text-cyan-400 border border-cyan-500/20">L</div>
+          <div className="flex items-center justify-center text-slate-200">
+            <LinexioLogoIcon className="w-7 h-7 drop-shadow-[0_0_8px_rgba(6,182,212,0.3)]" />
+          </div>
           <h1 className="font-bold text-sm tracking-tight text-slate-200">LinexioAbi</h1>
         </div>
         <div className="flex items-center gap-4"></div>

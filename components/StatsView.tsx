@@ -1,16 +1,20 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { Clock } from 'lucide-react';
+import { Clock, Search, X, Info, AlertTriangle } from 'lucide-react';
 import { checkTeacherAvailability, getTeacherBlockedPeriods } from '../utils/engine';
 import { Supervision } from '../types';
+import { examSlotToMin } from '../utils/TimeService';
 
 export const StatsView: React.FC = () => {
   const { state, addSupervision, removeSupervision, getTeacherStats, showToast } = useApp();
   const [activeDayIdx, setActiveDayIdx] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
   const [hoveredSlot, setHoveredSlot] = useState<{ stationId: string; slotIdx: number; subIdx: number } | null>(null);
   const [draggingTeacherId, setDraggingTeacherId] = useState<string | null>(null);
   const [draggingSupId, setDraggingSupId] = useState<string | null>(null);
   const [isDraggingFromGrid, setIsDraggingFromGrid] = useState(false);
+  
+  const [workloadTimeInfo, setWorkloadTimeInfo] = useState<{ time: string, count: number } | null>(null);
 
   const SLOT_HEIGHT = 60; 
   const END_HOUR = 18.5;  
@@ -24,6 +28,42 @@ export const StatsView: React.FC = () => {
     }
     return slots;
   }, [END_HOUR]);
+
+  const workloadData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const dayExams = state.exams.filter(e => 
+      e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === activeDayIdx && e.status !== 'cancelled'
+    );
+
+    timeSlots.forEach(slotTime => {
+      const [h, m] = slotTime.split(':').map(Number);
+      const slotStart = h * 60 + m;
+      const slotEnd = slotStart + 30;
+
+      const concurrent = dayExams.filter(e => {
+        const examStart = examSlotToMin(e.startTime);
+        const examEnd = examStart + 30;
+        return examStart < slotEnd && examEnd > slotStart;
+      });
+
+      counts[slotTime] = concurrent.length;
+    });
+    return counts;
+  }, [state.exams, activeDayIdx, timeSlots]);
+
+  const getWorkloadColor = (count: number) => {
+    if (count <= 2) return 'bg-slate-700/40';
+    if (count <= 4) return 'bg-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.4)]';
+    return 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]';
+  };
+
+  // Fokus auf Cyan-Glow wie gewünscht
+  const getWorkloadGlowStyle = (count: number) => {
+    return { 
+      boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.9), 0 0 80px 4px rgba(6, 182, 212, 0.35)',
+      borderColor: count >= 5 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(6, 182, 212, 0.4)'
+    };
+  };
 
   const blockedPeriods = useMemo(() => {
     if (!draggingTeacherId) return [];
@@ -41,13 +81,22 @@ export const StatsView: React.FC = () => {
     state.rooms.filter(r => r.isSupervisionStation),
   [state.rooms]);
 
-  const sortedTeachers = useMemo(() => {
-    return [...state.teachers].sort((a, b) => {
+  const filteredTeachers = useMemo(() => {
+    const sorted = [...state.teachers].sort((a, b) => {
       const pA = getTeacherStats(a.id).points;
       const pB = getTeacherStats(b.id).points;
       return pA - pB;
     });
-  }, [state.teachers, getTeacherStats]);
+
+    if (!searchTerm.trim()) return sorted;
+    
+    const term = searchTerm.toLowerCase().trim();
+    return sorted.filter(t => 
+      t.lastName.toLowerCase().includes(term) ||
+      t.firstName.toLowerCase().includes(term) ||
+      t.shortName.toLowerCase().includes(term)
+    );
+  }, [state.teachers, getTeacherStats, searchTerm]);
 
   const resetDraggingState = () => {
     setDraggingTeacherId(null);
@@ -134,7 +183,7 @@ export const StatsView: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
+      <div className="flex-1 flex gap-4 overflow-hidden min-h-0 relative">
         <aside 
           onDragOver={e => { if (isDraggingFromGrid) e.preventDefault(); }}
           onDrop={e => {
@@ -150,8 +199,30 @@ export const StatsView: React.FC = () => {
           <div className="p-4 border-b border-slate-700/30 flex justify-between items-center h-[44px] shrink-0">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Lehrkräfte (Stunden)</h3>
           </div>
+
+          <div className="px-3 py-2 border-b border-slate-700/30 bg-slate-900/20">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+              <input 
+                type="text" 
+                placeholder="Name oder Kürzel..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl pl-9 pr-8 py-2 text-xs text-white focus:ring-1 focus:ring-cyan-500/40 outline-none transition-all"
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-white transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="flex-1 overflow-y-auto p-2 space-y-1 no-scrollbar">
-            {sortedTeachers.map(t => {
+            {filteredTeachers.map(t => {
               const { points } = getTeacherStats(t.id);
               return (
                 <div 
@@ -174,7 +245,7 @@ export const StatsView: React.FC = () => {
                       {t.isPartTime ? 'Teilzeit' : 'Vollzeit'}
                     </div>
                   </div>
-                  <div className="px-2 py-1 rounded-lg bg-slate-900/50 text-emerald-400 border border-slate-700/60 font-black text-xs min-w-[2.5rem] text-center">
+                  <div className="px-2 rounded-lg bg-slate-900/50 text-emerald-400 border border-slate-700/60 font-black text-xs min-w-[2.5rem] h-7 flex items-center justify-center">
                     {Math.round(points)}
                   </div>
                 </div>
@@ -182,12 +253,13 @@ export const StatsView: React.FC = () => {
             })}
           </div>
           <div className="bg-slate-900/60 border-t border-slate-700/30 px-4 py-2 flex justify-between items-center shrink-0">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{sortedTeachers.length} Einträge</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{filteredTeachers.length} Einträge</span>
           </div>
         </aside>
 
         <div className="flex-1 glass-nocturne border-slate-700/30 overflow-hidden flex flex-col min-w-0 relative">
-          <div className="flex-1 overflow-auto relative scroll-smooth no-scrollbar">
+          <div className="flex-1 overflow-auto relative scroll-smooth no-scrollbar" 
+               onClick={() => workloadTimeInfo && setWorkloadTimeInfo(null)}>
             <div className="sticky top-0 z-40 flex bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/60 shadow-xl h-[44px] min-w-max w-full">
               <div className="w-20 shrink-0 border-r border-slate-700/60 flex items-center justify-center bg-slate-900 sticky left-0 z-50">
                 <Clock size={16} className="text-slate-500" />
@@ -206,7 +278,6 @@ export const StatsView: React.FC = () => {
             </div>
 
             <div className="relative flex min-h-full">
-              {/* Central Background Layer for Full-Row Highlighting */}
               <div className="absolute inset-0 pointer-events-none z-0">
                 {timeSlots.map((time, idx) => (
                   <div 
@@ -217,27 +288,36 @@ export const StatsView: React.FC = () => {
                 ))}
               </div>
 
-              {/* Time Column */}
               <div className="w-20 shrink-0 border-r border-slate-700/60 bg-slate-900/40 sticky left-0 z-30 shadow-lg">
                 {timeSlots.map((time) => {
                   const blocked = isTimeBlocked(time);
                   const isFullHour = time.endsWith(':00');
+                  const count = workloadData[time] || 0;
+                  
                   return (
                     <div 
                       key={time} 
-                      className={`flex items-center justify-center transition-colors duration-300 border-b border-slate-800/40 ${
-                        blocked ? 'bg-red-500/20 text-red-200 font-bold' : 
-                        isFullHour ? 'text-cyan-400 font-bold text-[11px] bg-cyan-500/10' : 'text-slate-200 font-bold text-[10px]'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setWorkloadTimeInfo({ time, count });
+                      }}
+                      className={`relative flex items-center justify-center transition-colors duration-300 border-b border-slate-800/40 cursor-pointer group/time ${
+                        blocked ? 'bg-red-500/10 text-red-200/60' : 
+                        isFullHour ? 'text-cyan-400 font-bold text-[11px] bg-cyan-500/10' : 'text-slate-300 font-bold text-[10px]'
                       }`}
                       style={{ height: SLOT_HEIGHT }}
                     >
-                      {time}
+                      <div 
+                        className={`absolute left-0 top-[10%] bottom-[10%] w-1 rounded-r-full transition-all duration-500 ${getWorkloadColor(count)}`}
+                      />
+                      <span className="relative z-10 group-hover/time:scale-110 transition-transform">
+                        {time}
+                      </span>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Grid Body */}
               <div className="flex-1 flex bg-slate-900/5 relative min-w-max z-10">
                 {stations.map(station => (
                   <div key={station.id} className="min-w-[160px] flex-1 relative border-r border-slate-800/40 flex">
@@ -326,6 +406,55 @@ export const StatsView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Viewport-Fixed Workload Panel (Toast-Stil am unteren Rand) */}
+      {workloadTimeInfo && (
+        <div 
+          className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-6 fade-in duration-300"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div 
+            className="glass-modal p-5 flex items-center gap-6 min-w-[320px] max-w-[90vw] transition-all duration-500"
+            style={getWorkloadGlowStyle(workloadTimeInfo.count)}
+          >
+            {/* Zeit-Badge */}
+            <div className="flex flex-col items-center justify-center border-r border-slate-700/50 pr-5 shrink-0">
+              <Clock size={16} className={workloadTimeInfo.count >= 5 ? 'text-amber-500' : 'text-cyan-500'} />
+              <span className="text-sm font-black text-white uppercase tracking-widest mt-1">{workloadTimeInfo.time}</span>
+            </div>
+            
+            {/* Info-Bereich */}
+            <div className="flex-1 flex items-center gap-4 min-w-0">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/10 ${
+                getWorkloadColor(workloadTimeInfo.count)
+              } text-white shadow-xl shrink-0 transition-all`}>
+                {workloadTimeInfo.count}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[13px] font-bold text-slate-100 tracking-tight leading-none">
+                  {workloadTimeInfo.count === 1 ? 'Aktive Prüfung' : 'Zeitgleiche Prüfungen'}
+                </span>
+                <p className="text-[10px] text-slate-500 font-medium mt-1 leading-tight">
+                  {workloadTimeInfo.count >= 5 
+                    ? 'Achtung: Erhöhtes Aufkommen in diesem Zeitraum.' 
+                    : 'Reguläre Auslastung in diesem Zeitfenster.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Aktionen */}
+            <div className="flex flex-col gap-2 pl-2 border-l border-slate-700/30 shrink-0">
+              <button 
+                onClick={() => setWorkloadTimeInfo(null)}
+                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition-all active:scale-90"
+                title="Schließen"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

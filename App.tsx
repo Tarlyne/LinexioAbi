@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Layout } from './components/Layout';
@@ -31,7 +30,11 @@ const MainView: React.FC = () => {
     <>
       <div className="no-print h-screen flex flex-col">
         <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-          <div className="h-full w-full">
+          {/* 
+            KEY-TRICK: Durch den key={activeTab} erzwingen wir ein Re-Mounting,
+            wodurch die CSS-Einstiegsanimation (animate-page-in) jedes Mal getriggert wird.
+          */}
+          <div key={activeTab} className="h-full w-full animate-page-in">
             {activeTab === 'monitor' && <LiveMonitor />}
             {activeTab === 'exams' && <PlanningView />}
             {activeTab === 'data' && <DataView />}

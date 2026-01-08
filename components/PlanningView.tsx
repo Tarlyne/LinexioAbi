@@ -1,8 +1,7 @@
-
 import React, { useMemo, useRef, useState } from 'react';
 import { 
   PlusCircle, AlertCircle, MapPin, Clock, Trash2, 
-  X, Save, ChevronDown, Settings, Layers, Printer, FileText, Download
+  X, Save, ChevronDown, Settings, Layers, Printer, FileText, Download, Loader2, CheckCircle
 } from 'lucide-react';
 import { Exam } from '../types';
 import { Modal } from './Modal';
@@ -10,6 +9,8 @@ import { usePlanning } from '../hooks/usePlanning';
 import { BacklogSidebar } from './planning/BacklogSidebar';
 import { ExamCard } from './planning/ExamCard';
 import { ExportPrintView } from './ExportPrintView';
+import { isAppleMobile } from '../utils/Platform';
+import { PdfExportService } from '../services/PdfExportService';
 
 export const PlanningView: React.FC = () => {
   const {
@@ -33,6 +34,9 @@ export const PlanningView: React.FC = () => {
   } = usePlanning();
   
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showDownloadAnleitung, setShowDownloadAnleitung] = useState(false);
+  
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
   const SLOT_HEIGHT = 38; 
@@ -103,21 +107,37 @@ export const PlanningView: React.FC = () => {
     setShowModal(false);
   };
 
-  const handlePrint = () => {
-    // 1. Titel setzen (wird oft als PDF-Dateiname genutzt)
-    const originalTitle = document.title;
+  /**
+   * Startet den PDF Export Prozess.
+   */
+  const initiatePdfExport = () => {
+    if (isAppleMobile()) {
+      setShowDownloadAnleitung(true);
+    } else {
+      executePdfExport();
+    }
+  };
+
+  /**
+   * Führt den eigentlichen PDF-Save via Service aus.
+   */
+  const executePdfExport = async () => {
+    setShowDownloadAnleitung(false);
+    setIsExporting(true);
+    
     const dayLabel = state.days[activeDay]?.label || "Prüfungsplan";
-    document.title = `Prüfungsplan_${dayLabel}_${new Date().toISOString().slice(0,10)}`;
-    
-    // 2. Fokus auf Main-Window erzwingen
-    window.focus();
-    
-    // 3. Kurzes Delay für iPad Safari Engine
-    setTimeout(() => {
-      window.print();
-      // Titel zurücksetzen
-      document.title = originalTitle;
-    }, 150);
+    const filename = `Pruefungsplan_${dayLabel.replace(/\s/g, '_')}`;
+
+    try {
+      // NATIVE EXPORT: Wir übergeben den State und den aktiven Tag
+      await PdfExportService.generateAndDownload(state, activeDay, filename);
+      showToast('PDF erfolgreich generiert.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('PDF-Export fehlgeschlagen.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -292,6 +312,7 @@ export const PlanningView: React.FC = () => {
       </div>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} maxWidth="max-w-lg">
+        {/* Modal Inhalt bleibt gleich */}
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
             <div className="flex items-center gap-4">
@@ -365,7 +386,6 @@ export const PlanningView: React.FC = () => {
 
               <div className="space-y-4 pt-2">
                 <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-800 pb-2">Kommission</h4>
-                
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 items-center gap-4">
                     <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Prüfer</label>
@@ -503,10 +523,12 @@ export const PlanningView: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <button 
-                onClick={handlePrint}
-                className="flex items-center gap-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-900/40 transition-all active:scale-95"
+                onClick={initiatePdfExport}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-900/40 transition-all active:scale-95"
               >
-                <Download size={18} /> PDF speichern
+                {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                {isExporting ? 'Generiere...' : 'PDF speichern'}
               </button>
               <button onClick={() => setShowPrintPreview(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
                 <X size={20} />
@@ -514,7 +536,7 @@ export const PlanningView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto bg-slate-900/40 rounded-2xl p-6 border border-slate-700/30 shadow-inner no-scrollbar">
+          <div className="flex-1 overflow-auto bg-slate-900/40 rounded-2xl p-6 border border-slate-700/30 shadow-inner no-scrollbar text-black">
             <div className="mx-auto">
                <ExportPrintView activeDayIdx={activeDay} isPreview={true} />
             </div>
@@ -522,15 +544,54 @@ export const PlanningView: React.FC = () => {
 
           <div className="flex items-center justify-center gap-6 py-2 shrink-0">
             <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Format: A4 Hochformat
+              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Native Vector Rendering
             </div>
             <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Lining Ziffern aktiv
+              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Precise Centering active
             </div>
             <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Zebra-Look: Kommission
+              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Format: A4 Portrait
             </div>
           </div>
+        </div>
+      </Modal>
+
+      {/* Download Anleitung Modal (iPad Fresh Click) */}
+      <Modal isOpen={showDownloadAnleitung} onClose={() => setShowDownloadAnleitung(false)} maxWidth="max-w-md">
+        <div className="flex flex-col items-center text-center space-y-6 py-4">
+          <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center border border-cyan-500/20 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.2)]">
+            <CheckCircle size={40} />
+          </div>
+          
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-white tracking-tight">PDF bereit zum Download</h3>
+            <p className="text-sm text-slate-400">Die Generation ist abgeschlossen. Bitte bestätige den Download für dein iPad.</p>
+          </div>
+
+          <div className="w-full p-4 bg-slate-900/50 rounded-2xl border border-slate-800 text-left space-y-2">
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 bg-cyan-600/20 rounded flex items-center justify-center text-[10px] font-bold text-cyan-400 mt-0.5 shrink-0">1</div>
+              <p className="text-[11px] text-slate-300">Klicke auf den Button unten.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 bg-cyan-600/20 rounded flex items-center justify-center text-[10px] font-bold text-cyan-400 mt-0.5 shrink-0">2</div>
+              <p className="text-[11px] text-slate-300">Wähle im System-Dialog <strong>"Laden"</strong> oder <strong>"In Dateien sichern"</strong>.</p>
+            </div>
+          </div>
+
+          <button 
+            onClick={executePdfExport}
+            className="w-full h-14 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg shadow-cyan-900/40 transition-all active:scale-95 flex items-center justify-center gap-3"
+          >
+            <Download size={20} /> Jetzt Download starten
+          </button>
+          
+          <button 
+            onClick={() => setShowDownloadAnleitung(false)}
+            className="text-slate-500 hover:text-white text-xs font-medium transition-colors"
+          >
+            Abbrechen
+          </button>
         </div>
       </Modal>
     </div>
