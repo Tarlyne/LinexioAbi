@@ -1,3 +1,4 @@
+
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { 
   PlusCircle, AlertCircle, MapPin, Clock, Trash2, 
@@ -137,24 +138,37 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
     }
   };
 
+  const formattedDayInfo = useMemo(() => {
+    const day = state.days[activeDay];
+    if (!day) return '';
+    const dateStr = new Date(day.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    return `${day.label} (${dateStr})`;
+  }, [state.days, activeDay]);
+
   // Effekt zum Registrieren des Header-Buttons mit Cleanup
   useEffect(() => {
     if (onSetHeaderActions) {
       onSetHeaderActions(
         <button 
           onClick={() => setShowPrintPreview(true)}
-          className="flex items-center gap-2 h-8 px-3 bg-slate-800/60 border border-slate-700/50 rounded-lg text-slate-300 hover:text-cyan-400 hover:border-cyan-500/50 transition-all active:scale-95 group"
+          className="flex items-center gap-2 h-9 px-4 bg-cyan-600/20 border border-cyan-500/40 rounded-xl text-cyan-400 hover:bg-cyan-600/30 transition-all active:scale-95 group shadow-[0_0_15px_rgba(6,182,212,0.1)]"
           title="Prüfungsplan Export"
         >
-          <Printer size={14} className="group-hover:text-cyan-400 transition-colors" />
-          <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline group-hover:text-cyan-400 transition-colors">Export PDF</span>
+          <Printer size={15} className="group-hover:scale-110 transition-transform" />
+          <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
         </button>
       );
       
       // Cleanup: Actions beim Verlassen des Tabs entfernen
       return () => onSetHeaderActions(null);
     }
-  }, [onSetHeaderActions]);
+  }, [onSetHeaderActions, setShowPrintPreview]);
+
+  const getDeletingItemName = () => {
+    if (!editingExam?.studentId) return 'Prüfung';
+    const student = state.students.find(s => s.id === editingExam.studentId);
+    return student ? `${student.lastName}, ${student.firstName}` : 'Prüfung';
+  };
 
   return (
     <div className="flex flex-col h-full gap-4 overflow-hidden select-none print:hidden">
@@ -334,7 +348,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                 <h3 className="text-lg font-bold text-white tracking-tight">
                   {editingExam?.id ? 'Prüfung bearbeiten' : 'Prüfung erstellen'}
                 </h3>
-                <p className="text-xs text-slate-400">Details zur Prüfung</p>
+                <p className="text-xs text-cyan-500/80 font-medium">Details zur Prüfung</p>
               </div>
             </div>
             <button onClick={() => setShowModal(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
@@ -495,7 +509,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                 <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center text-red-400 mx-auto mb-2">
                   <AlertCircle size={24} />
                 </div>
-                <h4 className="text-white font-bold tracking-tight">Prüfung wirklich löschen?</h4>
+                <h4 className="text-white font-bold tracking-tight">"{getDeletingItemName()}" löschen?</h4>
                 <p className="text-xs text-slate-400">Diese Aktion kann nicht rückgängig gemacht werden.</p>
               </div>
               <div className="flex flex-col gap-3">
@@ -528,7 +542,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white tracking-tight">Export-Vorschau</h3>
-                <p className="text-xs text-slate-400">Prüfungsplan für {state.days[activeDay]?.label}</p>
+                <p className="text-xs text-cyan-500/80 font-medium">Prüfungsplan für {formattedDayInfo}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

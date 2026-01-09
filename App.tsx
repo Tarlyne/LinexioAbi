@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Layout } from './components/Layout';
@@ -39,7 +40,7 @@ const MainView: React.FC = () => {
             {activeTab === 'monitor' && <LiveMonitor />}
             {activeTab === 'exams' && <PlanningView onSetHeaderActions={setHeaderActions} />}
             {activeTab === 'data' && <DataView />}
-            {activeTab === 'stats' && <StatsView />}
+            {activeTab === 'stats' && <StatsView onSetHeaderActions={setHeaderActions} />}
             {activeTab === 'settings' && <SettingsView />}
           </div>
           <Toast />

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Trash2, Save, AlertTriangle, Check, User, School, DoorOpen, Calendar, Shield, GraduationCap } from 'lucide-react';
+import { X, Trash2, Save, AlertTriangle, Check, Users, DoorOpen, Calendar, Shield, GraduationCap, Library, ChevronDown } from 'lucide-react';
 import { Modal } from '../Modal';
 import { DataTab } from '../../hooks/useData';
 import { RoomType } from '../../types';
@@ -26,9 +26,26 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
   const updateField = (f: string, v: any) => setFormData({ ...formData, [f]: v });
 
   const getIcon = () => {
-    const icons = { teachers: User, students: School, rooms: DoorOpen, days: Calendar, subjects: GraduationCap };
+    const icons = { teachers: GraduationCap, students: Users, rooms: DoorOpen, days: Calendar, subjects: Library };
     const Icon = icons[activeTab];
     return <Icon size={20} className="text-cyan-400" />;
+  };
+
+  const getItemIdentifier = () => {
+    if (!editingItem) return 'Eintrag';
+    switch (activeTab) {
+      case 'teachers':
+      case 'students':
+        return `${editingItem.lastName}, ${editingItem.firstName}`;
+      case 'rooms':
+        return editingItem.name;
+      case 'days':
+        return editingItem.label;
+      case 'subjects':
+        return editingItem.name;
+      default:
+        return 'Eintrag';
+    }
   };
 
   const entityName = { teachers: 'Lehrkraft', students: 'SchülerIn', rooms: 'Raum', days: 'Prüfungstag', subjects: 'Fach' }[activeTab];
@@ -40,7 +57,7 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
           <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20">{getIcon()}</div>
           <div>
             <h3 className="text-lg font-bold text-white tracking-tight">{editingItem ? `${entityName} bearbeiten` : `${entityName} hinzufügen`}</h3>
-            <p className="text-xs text-slate-400">Stammdatenpflege</p>
+            <p className="text-xs text-cyan-500/80 font-medium">Stammdatenpflege</p>
           </div>
           <button onClick={onClose} className="ml-auto p-2 text-slate-500 hover:text-white rounded-lg transition-colors"><X size={20} /></button>
         </div>
@@ -104,12 +121,19 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Raumtyp</label>
-                  <select value={formData.type} onChange={e => updateField('type', e.target.value as RoomType)} className="w-full bg-[#0a0f1d] border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer">
-                    <option value="Prüfungsraum">Prüfungsraum</option>
-                    <option value="Vorbereitungsraum">Vorbereitungsraum</option>
-                    <option value="Warteraum">Warteraum</option>
-                    <option value="Aufsicht-Station">Aufsicht-Station</option>
-                  </select>
+                  <div className="relative group">
+                    <select 
+                      value={formData.type} 
+                      onChange={e => updateField('type', e.target.value as RoomType)} 
+                      className="w-full appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
+                    >
+                      <option value="Prüfungsraum">Prüfungsraum</option>
+                      <option value="Vorbereitungsraum">Vorbereitungsraum</option>
+                      <option value="Warteraum">Warteraum</option>
+                      <option value="Aufsicht-Station">Aufsicht-Station</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" size={18} />
+                  </div>
                 </div>
                 <label className="flex items-center gap-3 cursor-pointer group py-2">
                   <input type="checkbox" checked={formData.isSupervisionStation || false} onChange={e => updateField('isSupervisionStation', e.target.checked)} className="sr-only" />
@@ -166,7 +190,7 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
           <div className="space-y-6 py-4">
             <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl text-center space-y-3">
               <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center text-red-400 mx-auto mb-2"><AlertTriangle size={24} /></div>
-              <h4 className="text-white font-bold tracking-tight">Eintrag löschen?</h4>
+              <h4 className="text-white font-bold tracking-tight">"{getItemIdentifier()}" löschen?</h4>
               <p className="text-xs text-slate-400">Dies kann nicht rückgängig gemacht werden.</p>
             </div>
             <div className="flex flex-col gap-3">

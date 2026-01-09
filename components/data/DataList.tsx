@@ -24,6 +24,7 @@ export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exi
     switch (type) {
       case 'Prüfungsraum': return 'badge-cyan';
       case 'Vorbereitungsraum': return 'badge-amber';
+      case 'Aufsicht-Station': return 'badge-slate text-indigo-400 border-indigo-500/30 bg-indigo-500/10';
       default: return 'badge-slate';
     }
   };

@@ -1,13 +1,13 @@
 
 import React from 'react';
-import { Upload, Info, BarChart3, Calendar, GraduationCap } from 'lucide-react';
+import { Upload, Info, DoorOpen, Calendar, Library } from 'lucide-react';
 import { DataTab } from '../../hooks/useData';
 
 interface DataSidebarProps {
   activeTab: DataTab;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>, type: DataTab) => void;
   stats: {
-    rooms: { exams: number; prep: number; waiting: number; },
+    rooms: { exams: number; prep: number; supervision: number; waiting: number; },
     subjectsCount: number;
   };
 }
@@ -24,7 +24,7 @@ export const DataSidebar: React.FC<DataSidebarProps> = ({ activeTab, onFileUploa
           <label className="block group cursor-pointer rounded-2xl">
             <input type="file" accept=".csv" className="hidden" onChange={(e) => onFileUpload(e, activeTab)} />
             <div className="w-full py-8 bg-slate-800/20 border border-slate-700/50 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all hover:border-cyan-500/40 hover:bg-slate-800/40">
-              <span className="text-slate-300 text-sm font-medium">Datei ablegen</span>
+              <span className="text-slate-300 text-sm font-medium">Datei hochladen</span>
               <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">CSV (UTF-8)</span>
             </div>
           </label>
@@ -43,13 +43,14 @@ export const DataSidebar: React.FC<DataSidebarProps> = ({ activeTab, onFileUploa
       {activeTab === 'rooms' && (
         <div className="glass-nocturne p-5 border border-slate-700/30">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-400 shrink-0"><BarChart3 size={18} /></div>
+            <div className="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-400 shrink-0"><DoorOpen size={18} /></div>
             <h3 className="font-bold text-white text-sm">Raum-Bilanz</h3>
           </div>
           <div className="space-y-3">
             {[
               { label: 'Prüfungsräume', val: stats.rooms.exams, color: 'text-cyan-400 border-cyan-500/20 bg-cyan-500/5' },
               { label: 'Vorbereitungsräume', val: stats.rooms.prep, color: 'text-amber-500 border-amber-500/20 bg-amber-500/5' },
+              { label: 'Aufsicht-Stationen', val: stats.rooms.supervision, color: 'text-indigo-400 border-indigo-500/20 bg-indigo-500/10' },
               { label: 'Warteräume', val: stats.rooms.waiting, color: 'text-slate-300 border-slate-700/30 bg-slate-500/5' }
             ].map(stat => (
               <div key={stat.label} className="flex items-center justify-between p-3 bg-slate-900/40 rounded-xl border border-slate-800/50">
@@ -74,7 +75,7 @@ export const DataSidebar: React.FC<DataSidebarProps> = ({ activeTab, onFileUploa
       {activeTab === 'subjects' && (
         <div className="glass-nocturne p-5 border border-slate-700/30">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-400 shrink-0"><GraduationCap size={18} /></div>
+            <div className="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-400 shrink-0"><Library size={18} /></div>
             <h3 className="font-bold text-white text-sm">Fach-Katalog</h3>
           </div>
           <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-800/50 flex justify-between items-center">

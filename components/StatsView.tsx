@@ -1,11 +1,19 @@
-import React, { useState, useMemo, useCallback } from 'react';
+
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Clock, Search, X, Info, AlertTriangle } from 'lucide-react';
+import { Clock, Search, X, Info, AlertTriangle, Printer, FileText, Download, Loader2, CheckCircle } from 'lucide-react';
 import { checkTeacherAvailability, getTeacherBlockedPeriods } from '../utils/engine';
 import { Supervision } from '../types';
 import { examSlotToMin } from '../utils/TimeService';
+import { Modal } from './Modal';
+import { isAppleMobile } from '../utils/Platform';
+import { PdfExportService } from '../services/PdfExportService';
 
-export const StatsView: React.FC = () => {
+interface StatsViewProps {
+  onSetHeaderActions?: (actions: React.ReactNode) => void;
+}
+
+export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
   const { state, addSupervision, removeSupervision, getTeacherStats, showToast } = useApp();
   const [activeDayIdx, setActiveDayIdx] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,6 +22,10 @@ export const StatsView: React.FC = () => {
   const [draggingSupId, setDraggingSupId] = useState<string | null>(null);
   const [isDraggingFromGrid, setIsDraggingFromGrid] = useState(false);
   
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showDownloadAnleitung, setShowDownloadAnleitung] = useState(false);
+
   const [workloadTimeInfo, setWorkloadTimeInfo] = useState<{ time: string, count: number } | null>(null);
 
   const SLOT_HEIGHT = 60; 
@@ -28,6 +40,24 @@ export const StatsView: React.FC = () => {
     }
     return slots;
   }, [END_HOUR]);
+
+  // Effekt zum Registrieren des Header-Buttons
+  useEffect(() => {
+    if (onSetHeaderActions) {
+      onSetHeaderActions(
+        <button 
+          onClick={() => setShowPrintPreview(true)}
+          className="flex items-center gap-2 h-9 px-4 bg-cyan-600/20 border border-cyan-500/40 rounded-xl text-cyan-400 hover:bg-cyan-600/30 transition-all active:scale-95 group shadow-[0_0_15px_rgba(6,182,212,0.1)]"
+          title="Aufsichtsplan Export"
+        >
+          <Printer size={15} className="group-hover:scale-110 transition-transform" />
+          <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
+        </button>
+      );
+      
+      return () => onSetHeaderActions(null);
+    }
+  }, [onSetHeaderActions, setShowPrintPreview]);
 
   const workloadData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -57,7 +87,6 @@ export const StatsView: React.FC = () => {
     return 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]';
   };
 
-  // Fokus auf Cyan-Glow wie gewünscht
   const getWorkloadGlowStyle = (count: number) => {
     return { 
       boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.9), 0 0 80px 4px rgba(6, 182, 212, 0.35)',
@@ -149,6 +178,55 @@ export const StatsView: React.FC = () => {
   const getSupervisionsForDay = useMemo(() => 
     state.supervisions.filter(s => s.dayIdx === activeDayIdx),
   [state.supervisions, activeDayIdx]);
+
+  const initiatePdfExport = () => {
+    if (isAppleMobile()) {
+      setShowDownloadAnleitung(true);
+    } else {
+      executePdfExport();
+    }
+  };
+
+  const executePdfExport = async () => {
+    setShowDownloadAnleitung(false);
+    setIsExporting(true);
+    
+    const dayLabel = state.days[activeDayIdx]?.label || "Aufsichtsplan";
+    const filename = `Aufsichtsplan_${dayLabel.replace(/\s/g, '_')}`;
+
+    try {
+      await PdfExportService.generateSupervisionPdf(state, activeDayIdx, filename);
+      showToast('Aufsichtsplan erfolgreich generiert.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('PDF-Export fehlgeschlagen.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const formattedDayInfo = useMemo(() => {
+    const day = state.days[activeDayIdx];
+    if (!day) return { day: '', date: '' };
+    const dayStr = new Date(day.date).toLocaleDateString('de-DE', { weekday: 'long' });
+    const dateStr = new Date(day.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return { day: dayStr, date: dateStr };
+  }, [state.days, activeDayIdx]);
+
+  const dayColorClass = useMemo(() => {
+    const classes = ['text-cyan-600', 'text-amber-500', 'text-indigo-500'];
+    return classes[activeDayIdx] || classes[0];
+  }, [activeDayIdx]);
+
+  const footerStr = useMemo(() => {
+    const now = new Date();
+    const d = String(now.getDate()).padStart(2, '0');
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const y = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `Erstellt mit LinexioAbi am ${d}.${m}.${y} um ${hh}:${mm} Uhr.`;
+  }, []);
 
   return (
     <div className="h-full flex flex-col gap-4 overflow-hidden animate-in fade-in duration-500 select-none">
@@ -301,7 +379,7 @@ export const StatsView: React.FC = () => {
                         e.stopPropagation();
                         setWorkloadTimeInfo({ time, count });
                       }}
-                      className={`relative flex items-center justify-center transition-colors duration-300 border-b border-slate-800/40 cursor-pointer group/time ${
+                      className={`relative flex items-start justify-center pt-2 transition-colors duration-300 border-b border-slate-800/40 cursor-pointer group/time ${
                         blocked ? 'bg-red-500/10 text-red-200/60' : 
                         isFullHour ? 'text-cyan-400 font-bold text-[11px] bg-cyan-500/10' : 'text-slate-300 font-bold text-[10px]'
                       }`}
@@ -407,7 +485,6 @@ export const StatsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Viewport-Fixed Workload Panel (Toast-Stil am unteren Rand) */}
       {workloadTimeInfo && (
         <div 
           className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-6 fade-in duration-300"
@@ -417,13 +494,11 @@ export const StatsView: React.FC = () => {
             className="glass-modal p-5 flex items-center gap-6 min-w-[320px] max-w-[90vw] transition-all duration-500"
             style={getWorkloadGlowStyle(workloadTimeInfo.count)}
           >
-            {/* Zeit-Badge */}
             <div className="flex flex-col items-center justify-center border-r border-slate-700/50 pr-5 shrink-0">
               <Clock size={16} className={workloadTimeInfo.count >= 5 ? 'text-amber-500' : 'text-cyan-500'} />
               <span className="text-sm font-black text-white uppercase tracking-widest mt-1">{workloadTimeInfo.time}</span>
             </div>
             
-            {/* Info-Bereich */}
             <div className="flex-1 flex items-center gap-4 min-w-0">
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/10 ${
                 getWorkloadColor(workloadTimeInfo.count)
@@ -442,7 +517,6 @@ export const StatsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Aktionen */}
             <div className="flex flex-col gap-2 pl-2 border-l border-slate-700/30 shrink-0">
               <button 
                 onClick={() => setWorkloadTimeInfo(null)}
@@ -455,6 +529,152 @@ export const StatsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Export Preview Modal */}
+      <Modal isOpen={showPrintPreview} onClose={() => setShowPrintPreview(false)} maxWidth="max-w-[1200px]">
+        <div className="flex flex-col gap-6 h-full max-h-[85vh]">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
+                <FileText size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white tracking-tight">Export-Vorschau</h3>
+                <p className="text-xs text-slate-400 font-medium tracking-wide">
+                  Aufsichtsplan für <span className={`${dayColorClass} font-black`}>{formattedDayInfo.day}</span>, {formattedDayInfo.date}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={initiatePdfExport}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-900/40 transition-all active:scale-95"
+              >
+                {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                {isExporting ? 'Generiere...' : 'PDF speichern'}
+              </button>
+              <button onClick={() => setShowPrintPreview(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto bg-slate-900/40 rounded-2xl p-4 md:p-8 border border-slate-700/30 shadow-inner no-scrollbar flex flex-col items-center">
+             {/* DIN A4 Querformat Vorschau-Container */}
+             <div className="bg-white w-[1123px] min-h-[794px] shadow-2xl p-10 text-black font-sans origin-top transform scale-[0.6] md:scale-[0.75] lg:scale-[0.85] xl:scale-[1] flex flex-col">
+                <div className="border-b-2 border-black pb-1 mb-6 flex justify-between items-baseline font-bold">
+                   <h1 className="text-2xl text-black !important">Aufsichtsplan für <span className={`${dayColorClass} font-black`}>{formattedDayInfo.day}</span>, {formattedDayInfo.date}</h1>
+                   <span className="text-xs font-normal text-gray-500 uppercase tracking-widest">Abiturprüfung {state.days[activeDayIdx]?.date.split('-')[0]}</span>
+                </div>
+                
+                <div className="flex-1">
+                  <table className="w-full border-collapse border border-black text-[9px] leading-tight">
+                    <thead>
+                      <tr className="bg-gray-100 border-b-2 border-black !important">
+                        <th className="border border-black border-r-2 border-black !important p-2 w-20 bg-gray-200/50 text-black !important font-bold">Zeit</th>
+                        {stations.map(station => (
+                          <th key={station.id} colSpan={station.requiredSupervisors} className="border border-black border-r-2 border-black !important p-2 text-center uppercase tracking-wider bg-gray-200/50 text-black !important">
+                            <div className="font-black text-[11px] text-black !important">{station.name}</div>
+                            {station.type === 'Vorbereitungsraum' && (
+                              <div className="text-[8px] font-normal lowercase italic text-gray-500">(Vorb.-raum)</div>
+                            )}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {timeSlots.map((time, slotIdx) => {
+                        return (
+                          <tr key={time}>
+                            <td className="border border-black border-r-2 border-black !important p-1 pt-0.5 text-center align-top font-black bg-gray-100/50 text-[10px] text-black !important">{time}</td>
+                            {stations.map(station => (
+                              Array.from({ length: station.requiredSupervisors }).map((_, subIdx) => {
+                                // Logik zum Überspringen von Zellen bei Rowspan
+                                const prevTime = timeSlots[slotIdx - 1];
+                                if (prevTime) {
+                                   const prevSup = getSupervisionsForDay.find(s => 
+                                      s.stationId === station.id && s.subSlotIdx === subIdx && s.startTime === prevTime
+                                   );
+                                   if (prevSup) return null; // Zelle überspringen, da sie gemerged ist
+                                }
+
+                                const sup = getSupervisionsForDay.find(s => 
+                                  s.stationId === station.id && 
+                                  s.subSlotIdx === subIdx && 
+                                  s.startTime === time
+                                );
+                                const teacher = state.teachers.find(t => t.id === sup?.teacherId);
+                                const isLastSub = subIdx === station.requiredSupervisors - 1;
+                                
+                                return (
+                                  <td 
+                                    key={`${station.id}-${subIdx}`} 
+                                    rowSpan={sup ? 2 : 1}
+                                    className={`border border-black ${isLastSub ? 'border-r-2 border-black !important' : ''} p-1 text-center font-black italic text-gray-800 min-w-[35px] h-7 ${!sup ? 'bg-gray-200' : 'bg-white'}`}
+                                  >
+                                    {teacher?.shortName || ''}
+                                  </td>
+                                );
+                              })
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-gray-200 text-[9px] text-gray-400 italic flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                    <span>Ein-Seiten-Kompression (Matrix Mode) • Highlighting inaktivierter Slots</span>
+                  </div>
+                  <span>{footerStr}</span>
+                </div>
+             </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Download Anleitung Modal */}
+      <Modal isOpen={showDownloadAnleitung} onClose={() => setShowDownloadAnleitung(false)} maxWidth="max-w-md">
+        <div className="flex flex-col items-center text-center space-y-6 py-4">
+          <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center border border-cyan-500/20 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.2)]">
+            <CheckCircle size={40} />
+          </div>
+          
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-white tracking-tight">PDF bereit zum Download</h3>
+            <p className="text-sm text-slate-400">Der Aufsichtsplan wurde generiert. Bitte bestätige den Download.</p>
+          </div>
+
+          <div className="w-full p-4 bg-slate-900/50 rounded-2xl border border-slate-800 text-left space-y-2">
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 bg-cyan-600/20 rounded flex items-center justify-center text-[10px] font-bold text-cyan-400 mt-0.5 shrink-0">1</div>
+              <p className="text-[11px] text-slate-300">Klicke auf den Button unten.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 bg-cyan-600/20 rounded flex items-center justify-center text-[10px] font-bold text-cyan-400 mt-0.5 shrink-0">2</div>
+              <p className="text-[11px] text-slate-300">Wähle im System-Dialog <strong>"Laden"</strong> oder <strong>"In Dateien sichern"</strong>.</p>
+            </div>
+          </div>
+
+          <button 
+            onClick={executePdfExport}
+            className="w-full h-14 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg shadow-cyan-900/40 transition-all active:scale-95 flex items-center justify-center gap-3"
+          >
+            <Download size={20} /> Jetzt Download starten
+          </button>
+          
+          <button 
+            onClick={() => setShowDownloadAnleitung(false)}
+            className="text-slate-500 hover:text-white text-xs font-medium transition-colors"
+          >
+            Abbrechen
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

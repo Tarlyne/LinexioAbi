@@ -29,7 +29,23 @@ export const useData = () => {
     const data = [...(state[activeTab] || [])];
     if (activeTab === 'teachers') return (data as Teacher[]).sort((a, b) => a.lastName.localeCompare(b.lastName, 'de'));
     if (activeTab === 'students') return (data as Student[]).sort((a, b) => a.lastName.localeCompare(b.lastName, 'de'));
-    if (activeTab === 'rooms') return (data as Room[]).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    
+    if (activeTab === 'rooms') {
+      const typePriority: Record<RoomType, number> = {
+        'Prüfungsraum': 1,
+        'Vorbereitungsraum': 2,
+        'Aufsicht-Station': 3,
+        'Warteraum': 4
+      };
+      
+      return (data as Room[]).sort((a, b) => {
+        const pA = typePriority[a.type] || 99;
+        const pB = typePriority[b.type] || 99;
+        if (pA !== pB) return pA - pB;
+        return a.name.localeCompare(b.name, undefined, { numeric: true });
+      });
+    }
+    
     if (activeTab === 'days') return (data as ExamDay[]).sort((a, b) => a.date.localeCompare(b.date));
     return (data as Subject[]).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   }, [state, activeTab]);
@@ -38,6 +54,7 @@ export const useData = () => {
     rooms: {
       exams: state.rooms.filter(r => r.type === 'Prüfungsraum').length,
       prep: state.rooms.filter(r => r.type === 'Vorbereitungsraum').length,
+      supervision: state.rooms.filter(r => r.type === 'Aufsicht-Station').length,
       waiting: state.rooms.filter(r => r.type === 'Warteraum').length
     },
     subjectsCount: state.subjects?.length || 0
