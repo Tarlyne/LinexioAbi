@@ -132,6 +132,9 @@ export const PdfExportService = {
         const protocol = state.teachers.find(t => t.id === exam.protocolId);
         const prepRoom = state.rooms.find(r => r.id === exam.prepRoomId);
         
+        const subjectData = state.subjects.find(s => s.name === exam.subject);
+        const isCombined = subjectData?.isCombined;
+
         const commissionKey = `${exam.teacherId}-${exam.chairId}-${exam.protocolId}`;
         if (eIdx === 0) {
           lastCommissionKey = commissionKey;
@@ -162,14 +165,24 @@ export const PdfExportService = {
         drawCellText(student?.lastName || '???', x, currentY, colWidths[3], 'left', true); x += colWidths[3];
         pdf.line(x, currentY, x, currentY + rowHeight);
         pdf.setFontSize(8);
-        const fachStr = `${exam.subject}${exam.groupId ? ` (${exam.groupId})` : ''}`;
+        const fachStr = `${exam.subject}${isCombined ? '*' : ''}${exam.groupId ? ` (${exam.groupId})` : ''}`;
         drawCellText(fachStr, x, currentY, colWidths[4], 'left'); x += colWidths[4];
+        
+        // Lehrer-Sonderlogik
+        pdf.line(x, currentY, x, currentY + rowHeight);
+        let exDisp = teacher?.shortName || '-';
+        let prDisp = protocol?.shortName || '-';
+        if (isCombined && teacher && protocol) {
+          exDisp = `${teacher.shortName} / ${protocol.shortName}`;
+          prDisp = `${teacher.shortName} / ${protocol.shortName}`;
+        }
+        
+        pdf.setFontSize(isCombined ? 6 : 7.5);
+        drawCellText(exDisp, x, currentY, colWidths[5]); x += colWidths[5];
+        pdf.line(x, currentY, x, currentY + rowHeight);
+        drawCellText(prDisp, x, currentY, colWidths[6]); x += colWidths[6];
         pdf.line(x, currentY, x, currentY + rowHeight);
         pdf.setFontSize(7.5);
-        drawCellText(teacher?.shortName || '-', x, currentY, colWidths[5]); x += colWidths[5];
-        pdf.line(x, currentY, x, currentY + rowHeight);
-        drawCellText(protocol?.shortName || '-', x, currentY, colWidths[6]); x += colWidths[6];
-        pdf.line(x, currentY, x, currentY + rowHeight);
         drawCellText(chair?.shortName || '-', x, currentY, colWidths[7]);
         
         currentY += rowHeight;
@@ -191,8 +204,6 @@ export const PdfExportService = {
 
   /**
    * Generiert ein Aufsichtsplan PDF (A4 Landscape).
-   * OPTIMIERT: Merged 60-Minuten-Zellen, Thick Borders auf Tabelle begrenzt, kein Zebra.
-   * NEU: Leere Zellen grau hinterlegt, Zeiten oben ausgerichtet.
    */
   async generateSupervisionPdf(state: AppState, activeDayIdx: number, filename: string): Promise<void> {
     const activeDay = state.days[activeDayIdx];

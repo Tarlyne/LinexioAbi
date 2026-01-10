@@ -40,7 +40,7 @@ interface AppContextType {
   addSupervision: (s: Supervision) => void;
   removeSupervision: (id: string) => void;
   toasts: Toast[];
-  showToast: (message: string, type?: ToastType) => void;
+  showToast: (message: string, type?: ToastType, duration?: number | null) => void;
   removeToast: (id: string) => void;
   checkCollision: (exam: Exam) => { hasConflict: boolean, reason?: string };
   isEntityInUse: (type: 'teacher' | 'student' | 'room' | 'day' | 'subject', id: string) => boolean;
@@ -52,50 +52,30 @@ interface AppContextType {
 }
 
 const dummySubjects: Subject[] = [
-  { id: 'sub1', name: 'Deutsch' }, { id: 'sub2', name: 'Mathematik' }, { id: 'sub3', name: 'Englisch' },
-  { id: 'sub4', name: 'Biologie' }, { id: 'sub5', name: 'Physik' }, { id: 'sub6', name: 'Chemie' },
-  { id: 'sub7', name: 'Geschichte' }, { id: 'sub10', name: 'Kunst' }, { id: 'sub11', name: 'Musik' },
-  { id: 'sub12', name: 'Sport' }, { id: 'sub13', name: 'Informatik' }, { id: 'sub14', name: 'Religion' },
-  { id: 'sub15', name: 'Philosophie' }, { id: 'sub16', name: 'Sozialkunde' }, { id: 'sub17', name: 'Latein' },
-  { id: 'sub18', name: 'Französisch' },
+  { id: 'sub1', name: 'Deutsch', shortName: 'D' }, 
+  { id: 'sub2', name: 'Mathematik', shortName: 'Ma' }, 
+  { id: 'sub3', name: 'Englisch', shortName: 'E' },
+  { id: 'sub4', name: 'Biologie', shortName: 'Bio' }, 
+  { id: 'sub13', name: 'Informatik', shortName: 'Info' },
+  { id: 'sub16', name: 'Sozialkunde', shortName: 'Sk' },
+  { id: 'sub19', name: 'Erdkunde', shortName: 'Ek' },
 ];
 
 const dummyTeachers: Teacher[] = [
-  { id: 't1', firstName: 'Bernd', lastName: 'Buche', shortName: 'Buc', isPartTime: false },
-  { id: 't2', firstName: 'Erika', lastName: 'Eiche', shortName: 'Eic', isPartTime: true },
-  { id: 't3', firstName: 'Klaus', lastName: 'Kiefer', shortName: 'Kie', isPartTime: false },
-  { id: 't4', firstName: 'Monika', lastName: 'Moos', shortName: 'Moo', isPartTime: false },
-  { id: 't5', firstName: 'Dieter', lastName: 'Distel', shortName: 'Dis', isPartTime: false },
-  { id: 't6', firstName: 'Gabi', lastName: 'Ginster', shortName: 'Gin', isPartTime: true },
-  { id: 't7', firstName: 'Holger', lastName: 'Holunder', shortName: 'Hol', isPartTime: false },
-  { id: 't8', firstName: 'Irma', lastName: 'Iris', shortName: 'Iri', isPartTime: false },
-  { id: 't9', firstName: 'Jasmin', lastName: 'Jasmin', shortName: 'Jas', isPartTime: false },
-  { id: 't10', firstName: 'Kai', lastName: 'Kastanie', shortName: 'Kas', isPartTime: false },
+  { id: 't1', firstName: 'Bernd', lastName: 'Buche', shortName: 'Buc', isPartTime: false, subjectIds: ['sub1', 'sub16'] },
+  { id: 't2', firstName: 'Erika', lastName: 'Eiche', shortName: 'Eic', isPartTime: true, subjectIds: ['sub2', 'sub13'] },
+  { id: 't5', firstName: 'Dieter', lastName: 'Distel', shortName: 'Dis', isPartTime: false, subjectIds: ['sub4', 'sub19'] },
 ];
 
 const dummyStudents: Student[] = [
   { id: 's1', firstName: 'Leo', lastName: 'Languste', examIds: [] },
   { id: 's2', firstName: 'Tom', lastName: 'Tiger', examIds: [] },
-  { id: 's3', firstName: 'Berta', lastName: 'Biene', examIds: [] },
-  { id: 's4', firstName: 'Dora', lastName: 'Dachs', examIds: [] },
-  { id: 's5', firstName: 'Emil', lastName: 'Elch', examIds: [] },
-  { id: 's6', firstName: 'Felix', lastName: 'Fuchs', examIds: [] },
-  { id: 's7', firstName: 'Gitti', lastName: 'Giraffe', examIds: [] },
-  { id: 's8', firstName: 'Hannes', lastName: 'Hase', examIds: [] },
-  { id: 's9', firstName: 'Igor', lastName: 'Igel', examIds: [] },
-  { id: 's10', firstName: 'Jette', lastName: 'Jaguar', examIds: [] },
 ];
 
 const dummyRooms: Room[] = [
   { id: 'r1', name: 'R201', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: true, requiredSupervisors: 1 },
-  { id: 'r2', name: 'R202', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: true, requiredSupervisors: 1 },
-  { id: 'r3', name: 'V01', type: 'Vorbereitungsraum', capacity: 1, isSupervisionStation: false, requiredSupervisors: 1 },
 ];
 
-/**
- * Hilfsfunktion zur Generierung eines Datums-Strings im Format YYYY-MM-DD
- * relativ zum aktuellen Tag.
- */
 const getRelativeDateString = (offset: number): string => {
   const d = new Date();
   d.setDate(d.getDate() + offset);
@@ -107,8 +87,6 @@ const getRelativeDateString = (offset: number): string => {
 
 const dummyDays: ExamDay[] = [
   { id: 'd1', date: getRelativeDateString(0), label: '1. Prüfungstag' },
-  { id: 'd2', date: getRelativeDateString(1), label: '2. Prüfungstag' },
-  { id: 'd3', date: getRelativeDateString(2), label: '3. Prüfungstag' },
 ];
 
 const initialState: AppState = {
@@ -161,13 +139,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } 
   }, [state, isLoading]);
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+  const removeToast = useCallback((id: string) => setToasts(prev => prev.filter(t => t.id !== id)), []);
+
+  const showToast = useCallback((message: string, type: ToastType = 'info', duration: number | null = 4000) => {
     const id = Math.random().toString(36).substr(2, 9);
     setToasts(prev => [...prev, { message, type, id }]);
-    setTimeout(() => removeToast(id), 4000);
-  }, []);
-
-  const removeToast = useCallback((id: string) => setToasts(prev => prev.filter(t => t.id !== id)), []);
+    if (duration !== null) {
+      setTimeout(() => removeToast(id), duration);
+    }
+  }, [removeToast]);
   
   const unlock = useCallback(async (password: string) => {
     try {
@@ -198,8 +178,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isEntityInUse = useCallback((type: 'teacher' | 'student' | 'room' | 'day' | 'subject', id: string) => {
     const entity = (state as any)[type + 's']?.find((e: any) => e.id === id);
     const entityName = entity?.name || entity?.shortName;
-    return isEntityInUseInternal(type, id, state.exams, state.supervisions, entityName);
-  }, [state.exams, state.supervisions]);
+    return isEntityInUseInternal(type, id, state.exams, state.supervisions, entityName, state.teachers);
+  }, [state.exams, state.supervisions, state.teachers]);
 
   const addTeacher = useCallback((t: Teacher) => setState(prev => ({ ...prev, teachers: [...prev.teachers, t] })), []);
   const updateTeacher = useCallback((t: Teacher) => setState(prev => ({ ...prev, teachers: prev.teachers.map(curr => curr.id === t.id ? t : curr) })), []);
@@ -308,6 +288,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const resetForNewYear = useCallback(() => {
     setState(prev => ({
       ...prev,
+      teachers: [],
       students: [],
       rooms: [],
       days: [],

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Clock, Calendar, Database, ShieldCheck, Settings, ChevronsLeft, ChevronsRight, FolderKanban } from 'lucide-react';
+import { Clock, Calendar, Database, ShieldCheck, Settings, ChevronsLeft, ChevronsRight, FileStack } from 'lucide-react';
 import { LinexioLogoIcon } from './LinexioLogoIcon';
 
 interface LayoutProps {
@@ -16,7 +16,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   
   const navItems = [
     { id: 'monitor', label: 'Live-Monitor', icon: <Clock size={20} /> },
-    { id: 'protocols', label: 'Protokolle', icon: <FolderKanban size={20} /> },
+    { id: 'protocols', label: 'Protokolle', icon: <FileStack size={20} /> },
     { id: 'exams', label: 'Prüfungsplan', icon: <Calendar size={20} /> },
     { id: 'stats', label: 'Aufsichtsplan', icon: <ShieldCheck size={20} /> },
     { id: 'data', label: 'Datenbank', icon: <Database size={20} /> },

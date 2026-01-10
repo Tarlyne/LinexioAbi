@@ -1,3 +1,4 @@
+
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { minToTime, examSlotToMin } from '../utils/TimeService';
@@ -203,6 +204,9 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
                     const protocol = state.teachers.find(t => t.id === exam.protocolId);
                     const prepRoom = state.rooms.find(r => r.id === exam.prepRoomId);
                     
+                    const subjectData = state.subjects.find(s => s.name === exam.subject);
+                    const isCombined = subjectData?.isCombined;
+
                     const commissionKey = `${exam.teacherId}-${exam.chairId}-${exam.protocolId}`;
                     if (examIdx === 0) {
                       lastCommissionKey = commissionKey;
@@ -214,15 +218,24 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
 
                     const startTimeStr = minToTime(examSlotToMin(exam.startTime));
 
+                    // Sonderlogik für Anzeige
+                    let examinerDisplay = teacher?.shortName || '-';
+                    let protocolDisplay = protocol?.shortName || '-';
+                    
+                    if (isCombined && teacher && protocol) {
+                      examinerDisplay = `${teacher.shortName} / ${protocol.shortName}`;
+                      protocolDisplay = `${teacher.shortName} / ${protocol.shortName}`;
+                    }
+
                     return (
                       <tr key={exam.id} className={currentZebra ? 'print-zebra' : ''}>
                         <td><div className="cell-wrap justify-center" style={{ fontWeight: 'bold' }}>{startTimeStr}</div></td>
                         <td><div className="cell-wrap justify-center" style={{ fontSize: '8pt' }}>{prepRoom?.name || '-'}</div></td>
                         <td><div className="cell-wrap justify-center">{group.room.name}</div></td>
                         <td><div className="cell-wrap justify-start" style={{ fontWeight: 'bold' }}>{student?.lastName || '???'}</div></td>
-                        <td><div className="cell-wrap justify-start" style={{ fontSize: '8.5pt' }}>{exam.subject} {exam.groupId ? `(${exam.groupId})` : ''}</div></td>
-                        <td><div className="cell-wrap justify-center" style={{ fontSize: '8pt' }}>{teacher?.shortName || '-'}</div></td>
-                        <td><div className="cell-wrap justify-center" style={{ fontSize: '8pt' }}>{protocol?.shortName || '-'}</div></td>
+                        <td><div className="cell-wrap justify-start" style={{ fontSize: '8.5pt' }}>{exam.subject}{isCombined ? '*' : ''} {exam.groupId ? `(${exam.groupId})` : ''}</div></td>
+                        <td><div className="cell-wrap justify-center" style={{ fontSize: isCombined ? '6.5pt' : '8pt' }}>{examinerDisplay}</div></td>
+                        <td><div className="cell-wrap justify-center" style={{ fontSize: isCombined ? '6.5pt' : '8pt' }}>{protocolDisplay}</div></td>
                         <td><div className="cell-wrap justify-center" style={{ fontSize: '8pt' }}>{chair?.shortName || '-'}</div></td>
                       </tr>
                     );

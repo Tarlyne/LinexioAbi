@@ -113,7 +113,7 @@ export const ProtocolView: React.FC = () => {
                       <div className="flex items-center gap-1.5 text-slate-400 text-xs font-medium min-w-0">
                         <FileStack size={12} className="opacity-60 shrink-0" />
                         <span className="opacity-80 whitespace-nowrap">{block.examsCount} {block.examsCount === 1 ? 'Protokoll' : 'Protokolle'}:</span>
-                        <span className={`truncate font-bold ${block.isCollected ? 'text-slate-600' : 'text-slate-300'}`}>
+                        <span className={`truncate font-bold ${block.isCollected ? 'text-indigo-400/50' : 'text-indigo-400'}`}>
                           {block.studentNames.join(', ')}
                         </span>
                       </div>

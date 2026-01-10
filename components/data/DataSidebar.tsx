@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Upload, Info, DoorOpen, Calendar, Library } from 'lucide-react';
+import { Upload, Info, DoorOpen, Calendar, BookOpen } from 'lucide-react';
 import { DataTab } from '../../hooks/useData';
 
 interface DataSidebarProps {
@@ -34,7 +34,9 @@ export const DataSidebar: React.FC<DataSidebarProps> = ({ activeTab, onFileUploa
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Erwartetes Format</span>
             </div>
             <p className="text-[11px] text-slate-500 font-mono leading-relaxed">
-              {activeTab === 'teachers' ? 'Nachname; Vorname; Kürzel; Teilzeit (ja/leer)' : 'Nachname; Vorname'}
+              {activeTab === 'teachers' 
+                ? 'Nachname; Vorname; Kürzel; Fach 1; Fach 2; Fach 3; Teilzeit (ja/leer)' 
+                : 'Nachname; Vorname'}
             </p>
           </div>
         </div>
@@ -75,7 +77,7 @@ export const DataSidebar: React.FC<DataSidebarProps> = ({ activeTab, onFileUploa
       {activeTab === 'subjects' && (
         <div className="glass-nocturne p-5 border border-slate-700/30">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-400 shrink-0"><Library size={18} /></div>
+            <div className="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center text-cyan-400 shrink-0"><BookOpen size={18} /></div>
             <h3 className="font-bold text-white text-sm">Fach-Katalog</h3>
           </div>
           <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-800/50 flex justify-between items-center">

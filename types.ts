@@ -11,6 +11,8 @@ export interface ExamDay {
 export interface Subject {
   id: string;
   name: string;
+  shortName: string; // Neu: Kürzel des Fachs (z.B. Ma, Bio, Info)
+  isCombined?: boolean; 
 }
 
 export interface Teacher {
@@ -19,8 +21,9 @@ export interface Teacher {
   lastName: string;
   shortName: string;
   isPartTime: boolean;
+  subjectIds?: string[]; // Neu: IDs der unterrichteten Fächer (max 3)
   notes?: string;
-  targetHours?: number; // Soll-Punkte
+  targetHours?: number; 
 }
 
 export interface Student {
@@ -36,33 +39,33 @@ export interface Room {
   type: RoomType;
   capacity: number;
   isSupervisionStation: boolean;
-  requiredSupervisors: number; // Wie viele Lehrer werden hier zeitgleich benötigt?
+  requiredSupervisors: number; 
 }
 
 export interface Exam {
   id: string;
   studentId: string;
-  teacherId: string; // Erstprüfer
-  chairId?: string;  // Vorsitz
-  protocolId?: string; // Protokoll
-  roomId?: string;    // Geplant in Raum
+  teacherId: string; 
+  chairId?: string;  
+  protocolId?: string; 
+  roomId?: string;    
   prepRoomId?: string;
-  startTime: number;  // Coordinate: (TagIndex * 1000 + SlotIndex + 1)
   subject: string;
-  groupId?: string;   // Kennung für den Prüfungssatz/Block (z.B. "A")
+  groupId?: string;   
   status: 'backlog' | 'scheduled' | 'running' | 'completed' | 'cancelled';
+  startTime: number;  
   isPresent?: boolean;
 }
 
 export interface Supervision {
   id: string;
-  stationId: string; // Raum ID
+  stationId: string; 
   teacherId: string;
   dayIdx: number;
-  startTime: string; // Format: "HH:mm"
+  startTime: string; 
   durationMinutes: number;
   points: number; 
-  subSlotIdx: number; // Neu: Position innerhalb der Station (0 bis requiredSupervisors - 1)
+  subSlotIdx: number; 
 }
 
 export interface AppState {
@@ -73,7 +76,7 @@ export interface AppState {
   subjects: Subject[];
   exams: Exam[];
   supervisions: Supervision[];
-  collectedExamIds: string[]; // IDs der Prüfungen, deren Protokoll-Block abgeholt wurde
+  collectedExamIds: string[]; 
   isLocked: boolean;
   masterPassword: string | null;
   lastUpdate: number;

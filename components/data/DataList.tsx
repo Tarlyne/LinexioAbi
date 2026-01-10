@@ -2,11 +2,12 @@
 import React from 'react';
 import { Settings } from 'lucide-react';
 import { DataTab } from '../../hooks/useData';
-import { RoomType } from '../../types';
+import { RoomType, Teacher, Subject } from '../../types';
+import { useApp } from '../../context/AppContext';
 
 interface Column<T> {
   header: string;
-  key: keyof T | 'action' | 'index';
+  key: keyof T | 'action' | 'index' | 'subjects';
   width?: string;
   align?: 'left' | 'center' | 'right';
   render?: (item: T, idx: number) => React.ReactNode;
@@ -20,6 +21,8 @@ interface DataListProps {
 }
 
 export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exitingId }) => {
+  const { state } = useApp();
+
   const getRoomBadgeClass = (type: RoomType) => {
     switch (type) {
       case 'Prüfungsraum': return 'badge-cyan';
@@ -65,7 +68,12 @@ export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exi
       render: (item) => item.label
     });
   } else if (activeTab === 'subjects') {
-     // Keine zusätzliche Spalte für Subjects nötig
+    columns.push({
+      header: 'Kürzel',
+      key: 'shortName' as any,
+      width: 'w-24',
+      render: (item) => <span className="text-cyan-400 font-mono text-[11px] bg-cyan-500/5 px-2 py-0.5 rounded border border-cyan-500/20">{item.shortName}</span>
+    });
   } else {
     columns.push({ 
       header: 'Vorname',
@@ -74,8 +82,25 @@ export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exi
     });
   }
 
+  // Sonderfall Lehrer: Fächer & Kürzel
   if (activeTab === 'teachers') {
-    columns.splice(3, 0, {
+    columns.push({
+      header: 'Fächer',
+      key: 'subjects',
+      render: (item: Teacher) => {
+        const shortNames = (item.subjectIds || [])
+          .map(id => state.subjects.find(s => s.id === id)?.shortName)
+          .filter(Boolean);
+        
+        return (
+          <span className="text-[10px] font-mono text-slate-400 tracking-tight italic">
+            {shortNames.length > 0 ? shortNames.join(' / ') : '--'}
+          </span>
+        );
+      }
+    });
+
+    columns.push({
       header: 'Kürzel', key: 'shortName' as any, width: 'w-24',
       render: (item) => <span className="text-cyan-400 font-mono text-[11px] bg-cyan-500/5 px-2 py-0.5 rounded border border-cyan-500/20">{item.shortName}</span>
     });

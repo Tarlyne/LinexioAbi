@@ -1,4 +1,5 @@
-import { Exam, Teacher, Supervision } from '../types';
+
+import { Exam, Teacher, Supervision, AppState } from '../types';
 import { TIME_CONFIG, timeToMin, examSlotToMin } from './TimeService';
 
 export const EXAM_DURATION_SLOTS = TIME_CONFIG.EXAM_DURATION_SLOTS;
@@ -137,11 +138,23 @@ export const checkExamCollision = (exam: Exam, allExams: Exam[]): { hasConflict:
   return { hasConflict: false };
 };
 
-export const isEntityInUseInternal = (type: string, id: string, exams: Exam[], supervisions: Supervision[] = [], name?: string): boolean => {
+export const isEntityInUseInternal = (
+  type: string, 
+  id: string, 
+  exams: Exam[], 
+  supervisions: Supervision[] = [], 
+  name?: string,
+  teachers: Teacher[] = []
+): boolean => {
   if (type === 'teacher') return exams.some(e => e.teacherId === id || e.chairId === id || e.protocolId === id) || supervisions.some(s => s.teacherId === id);
   if (type === 'student') return exams.some(e => e.studentId === id);
   if (type === 'room') return exams.some(e => e.roomId === id || e.prepRoomId === id) || supervisions.some(s => s.stationId === id);
   if (type === 'day') return exams.some(e => Math.floor((e.startTime - 1) / 1000) === (parseInt(id.split('-')[1]) || -1));
-  if (type === 'subject' && name) return exams.some(e => e.subject === name);
+  if (type === 'subject') {
+    // Check in Prüfungen
+    if (name && exams.some(e => e.subject === name)) return true;
+    // Check in Lehrer-Profilen
+    if (teachers.some(t => t.subjectIds?.includes(id))) return true;
+  }
   return false;
 };

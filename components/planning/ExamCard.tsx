@@ -1,6 +1,8 @@
+
 import React from 'react';
 import { Exam, Student, Teacher, Room } from '../../types';
 import { Check, AlertCircle, Minus } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
 
 interface ExamCardProps {
   exam: Exam;
@@ -23,8 +25,13 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   hasConflict, onEdit, onRemove, slotHeight,
   isAnyDragging, onDragStart, onDragEnd
 }) => {
+  const { state } = useApp();
   const slotIdx = (exam.startTime - 1) % 1000;
   const isComplete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
+  
+  // Kombi-Check
+  const subjectData = state.subjects.find(s => s.name === exam.subject);
+  const isCombined = subjectData?.isCombined;
 
   return (
     <div 
@@ -77,7 +84,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
       </div>
       
       <div className="text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest truncate mb-2 pointer-events-none">
-        {exam.subject} {exam.groupId && `(${exam.groupId})`}
+        {exam.subject}{isCombined ? '*' : ''} {exam.groupId && `(${exam.groupId})`}
         {prepRoom && (
           <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>
         )}

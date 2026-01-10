@@ -25,6 +25,14 @@ export const useData = () => {
   const [formData, setFormData] = useState<any>({});
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  const displayNames: Record<DataTab, string> = {
+    teachers: 'Lehrkraft',
+    students: 'SchülerIn',
+    rooms: 'Raum',
+    days: 'Prüfungstag',
+    subjects: 'Fach'
+  };
+
   const sortedData = useMemo(() => {
     const data = [...(state[activeTab] || [])];
     if (activeTab === 'teachers') return (data as Teacher[]).sort((a, b) => a.lastName.localeCompare(b.lastName, 'de'));
@@ -66,13 +74,29 @@ export const useData = () => {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      if (type === 'teachers') upsertTeachers(parseTeachersCSV(text));
-      else if (type === 'students') upsertStudents(parseStudentsCSV(text));
-      showToast('Daten erfolgreich importiert', 'success');
+      if (type === 'teachers') {
+        const result = parseTeachersCSV(text, state.subjects);
+        
+        // STRIKTE ABBRUCH-STRATEGIE (Variante 2)
+        if (result.skippedSubjects.length > 0) {
+          showToast(
+            `Import abgebrochen! Die folgenden Fächer sind unbekannt: ${result.skippedSubjects.join(', ')}. Bitte legen Sie diese zuerst im Reiter 'Fächer' an.`, 
+            'error', 
+            null
+          );
+          return;
+        }
+
+        upsertTeachers(result.teachers);
+        showToast('Lehrer erfolgreich importiert', 'success');
+      } else if (type === 'students') {
+        upsertStudents(parseStudentsCSV(text));
+        showToast('Schüler erfolgreich importiert', 'success');
+      }
     };
     reader.readAsText(file);
     e.target.value = ''; 
-  }, [upsertTeachers, upsertStudents, showToast]);
+  }, [upsertTeachers, upsertStudents, showToast, state.subjects]);
 
   const openEditor = (item: any = null) => {
     setEditingItem(item);
@@ -82,11 +106,11 @@ export const useData = () => {
       setFormData({ ...item });
     } else {
       const defaults: any = {
-        teachers: { lastName: '', firstName: '', shortName: '', isPartTime: false },
+        teachers: { lastName: '', firstName: '', shortName: '', isPartTime: false, subjectIds: [] },
         students: { lastName: '', firstName: '' },
         rooms: { name: '', type: 'Prüfungsraum' },
         days: { date: new Date().toISOString().split('T')[0], label: `${state.days.length + 1}. Prüfungstag` },
-        subjects: { name: '' }
+        subjects: { name: '', shortName: '', isCombined: false }
       };
       setFormData(defaults[activeTab]);
     }
@@ -103,7 +127,10 @@ export const useData = () => {
       if (!formData.firstName?.trim()) return 'Vorname fehlt.';
     } else if (activeTab === 'rooms' && !formData.name?.trim()) return 'Raumnummer fehlt.';
     else if (activeTab === 'days' && (!formData.date || !formData.label?.trim())) return 'Datum oder Bezeichnung fehlt.';
-    else if (activeTab === 'subjects' && !formData.name?.trim()) return 'Fachbezeichnung fehlt.';
+    else if (activeTab === 'subjects') {
+      if (!formData.name?.trim()) return 'Fachbezeichnung fehlt.';
+      if (!formData.shortName?.trim()) return 'Fachkürzel fehlt.';
+    }
     return null;
   };
 
@@ -111,19 +138,22 @@ export const useData = () => {
     const error = validate();
     if (error) { setValidationError(error); return; }
     
+    const name = displayNames[activeTab];
     if (activeTab === 'teachers') editingItem ? updateTeacher(formData) : addTeacher({ ...formData, id: `t-${Date.now()}` });
     else if (activeTab === 'students') editingItem ? updateStudent(formData) : addStudent({ ...formData, id: `s-${Date.now()}`, examIds: [] });
     else if (activeTab === 'rooms') editingItem ? updateRoom(formData) : addRoom({ ...formData, id: `r-${Date.now()}`, capacity: 1 });
     else if (activeTab === 'days') editingItem ? updateDay(formData) : addDay({ ...formData, id: `d-${Date.now()}` });
     else editingItem ? updateSubject(formData) : addSubject({ ...formData, id: `sub-${Date.now()}` });
     
+    showToast(`${name} wurde erfolgreich ${editingItem ? 'aktualisiert' : 'gespeichert'}`, 'success');
     setShowModal(false);
   };
 
   const remove = () => {
     const id = editingItem.id;
+    const name = displayNames[activeTab];
     if (isEntityInUse(activeTab.slice(0, -1) as any, id)) {
-      setValidationError('Datensatz wird noch in Prüfungen verwendet.');
+      setValidationError('Datensatz wird noch verwendet.');
       setShowDeleteConfirm(false);
       return;
     }
@@ -132,6 +162,7 @@ export const useData = () => {
     setTimeout(() => {
       const deleteMap: any = { teachers: deleteTeacher, students: deleteStudent, rooms: deleteRoom, days: deleteDay, subjects: deleteSubject };
       deleteMap[activeTab](id);
+      showToast(`${name} wurde gelöscht`, 'success');
       setExitingId(null);
     }, 800);
   };

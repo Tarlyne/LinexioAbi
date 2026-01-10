@@ -1,21 +1,46 @@
 
-import { Teacher, Student, Room, Exam } from '../types';
+import { Teacher, Student, Room, Exam, Subject } from '../types';
 
 /**
- * Erwartet: Nachname; Vorname; Kürzel; Teilzeit ('Ja' oder leer)
+ * Erwartet: Nachname; Vorname; Kürzel; Fach 1; Fach 2; Fach 3; Teilzeit ('Ja' oder leer)
+ * Fächer werden über den Namen mit der Stammdatenliste abgeglichen.
+ * Gibt ein Objekt zurück, das die Lehrer und eine Liste unbekannter Fächer enthält.
  */
-export const parseTeachersCSV = (csv: string): Teacher[] => {
+export const parseTeachersCSV = (csv: string, subjects: Subject[]): { teachers: Teacher[], skippedSubjects: string[] } => {
   const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '');
-  return lines.map((line, index) => {
-    const [lastName, firstName, shortName, isPartTime] = line.split(';').map(s => s?.trim());
+  const skippedSubjectsSet = new Set<string>();
+  
+  const teachers = lines.map((line, index) => {
+    const parts = line.split(';').map(s => s?.trim());
+    // Struktur: Nachname(0), Vorname(1), Kürzel(2), Fach1(3), Fach2(4), Fach3(5), Teilzeit(6)
+    const [lastName, firstName, shortName, f1, f2, f3, isPartTime] = parts;
+    
+    const subjectIds: string[] = [];
+    [f1, f2, f3].forEach(fName => {
+      if (fName) {
+        const found = subjects.find(s => s.name.toLowerCase() === fName.toLowerCase());
+        if (found) {
+          subjectIds.push(found.id);
+        } else {
+          skippedSubjectsSet.add(fName);
+        }
+      }
+    });
+
     return {
       id: `t-${index}-${Date.now()}`,
       lastName: lastName || '',
       firstName: firstName || '',
       shortName: shortName || '',
       isPartTime: isPartTime?.toLowerCase() === 'ja',
+      subjectIds
     };
   });
+
+  return {
+    teachers,
+    skippedSubjects: Array.from(skippedSubjectsSet)
+  };
 };
 
 /**
@@ -63,7 +88,6 @@ export const parseRoomsCSV = (csv: string): Room[] => {
   const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '');
   return lines.map((line, index) => {
     const [name, capacity, isPrep] = line.split(';').map(s => s?.trim());
-    // FIX: Ergänzung fehlender Properties 'isSupervisionStation' und 'requiredSupervisors', um das Room-Interface zu erfüllen.
     return {
       id: `r-${index}-${Date.now()}`,
       name: name || '',

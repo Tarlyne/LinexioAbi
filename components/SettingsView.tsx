@@ -2,14 +2,10 @@
 import React, { useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
-  Settings, 
   Download, 
   Upload, 
-  Trash2, 
-  ShieldAlert, 
   Database, 
   Lock, 
-  Info,
   ChevronRight,
   AlertCircle,
   FileKey,
@@ -19,9 +15,9 @@ import {
 import { Modal } from './Modal';
 
 export const SettingsView: React.FC = () => {
-  const { state, exportState, importState, resetForNewYear, factoryReset, showToast } = useApp();
+  const { state, exportState, importState, resetForNewYear, showToast } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [resetType, setResetType] = useState<'newYear' | 'factory' | null>(null);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -38,9 +34,8 @@ export const SettingsView: React.FC = () => {
   };
 
   const confirmReset = () => {
-    if (resetType === 'newYear') resetForNewYear();
-    if (resetType === 'factory') factoryReset();
-    setResetType(null);
+    resetForNewYear();
+    setShowResetModal(false);
   };
 
   return (
@@ -135,33 +130,23 @@ export const SettingsView: React.FC = () => {
         <div className="mt-12 space-y-4">
           <h3 className="text-[11px] font-black text-red-500 uppercase tracking-[0.3em] ml-4">Gefahrenzone</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button 
-              onClick={() => setResetType('newYear')}
-              className="flex flex-col p-6 bg-slate-900/40 border border-red-900/20 rounded-3xl hover:bg-red-900/5 hover:border-red-900/40 transition-all group text-left"
-            >
-              <div className="w-10 h-10 bg-red-900/20 rounded-xl flex items-center justify-center text-red-500 mb-4 group-hover:scale-110 transition-transform">
-                <Database size={20} />
-              </div>
-              <span className="text-sm font-bold text-slate-200">Neues Prüfungsjahr</span>
-              <span className="text-[10px] text-slate-500 mt-1">Leert Pläne & Schüler, behält Lehrer</span>
-            </button>
-
-            <button 
-              onClick={() => setResetType('factory')}
-              className="flex flex-col p-6 bg-slate-900/40 border border-red-900/20 rounded-3xl hover:bg-red-600/10 hover:border-red-600/40 transition-all group text-left"
-            >
-              <div className="w-10 h-10 bg-red-600/20 rounded-xl flex items-center justify-center text-red-600 mb-4 group-hover:scale-110 transition-transform">
-                <Trash2 size={20} />
-              </div>
-              <span className="text-sm font-bold text-red-400">Werkseinstellung</span>
-              <span className="text-[10px] text-slate-500 mt-1">Vollständige Löschung aller Daten</span>
-            </button>
-          </div>
+          <button 
+            onClick={() => setShowResetModal(true)}
+            className="w-full flex items-center gap-6 p-6 bg-slate-900/40 border border-red-900/20 rounded-3xl hover:bg-red-900/10 hover:border-red-900/40 transition-all group text-left"
+          >
+            <div className="w-14 h-14 bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 transition-transform">
+              <Database size={28} />
+            </div>
+            <div>
+              <span className="block text-lg font-bold text-slate-200">Neues Prüfungsjahr vorbereiten</span>
+              <span className="block text-xs text-slate-500 mt-1">Löscht alle Prüfungsdaten, Schüler und Lehrer für den Neustart.</span>
+            </div>
+            <ChevronRight size={24} className="ml-auto text-red-900/40" />
+          </button>
         </div>
       </div>
 
-      <Modal isOpen={!!resetType} onClose={() => setResetType(null)} maxWidth="max-w-md">
+      <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} maxWidth="max-w-md">
         <div className="flex flex-col items-center text-center space-y-6">
           <div className="w-16 h-16 bg-red-900/20 rounded-2xl flex items-center justify-center border border-red-900/30 text-red-500 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
             <AlertCircle size={32} />
@@ -169,29 +154,21 @@ export const SettingsView: React.FC = () => {
           
           <div>
             <h3 className="text-xl font-bold text-white tracking-tight">
-              {resetType === 'newYear' ? 'Neues Jahr vorbereiten?' : 'Alles löschen?'}
+              Neues Jahr vorbereiten?
             </h3>
-            <p className="text-sm text-slate-400 mt-2">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+            <p className="text-sm text-slate-400 mt-2">Diese Aktion bereinigt die Datenbank für den nächsten Abitur-Jahrgang.</p>
           </div>
 
           <div className="w-full space-y-3 bg-slate-900/50 p-4 rounded-2xl border border-slate-800 text-left">
              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Auswirkungen:</div>
              
-             {resetType === 'newYear' ? (
-               <div className="space-y-2">
-                 <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Prüfungsplan & Aufsichten</div>
-                 <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Schüler-Daten & Räume</div>
-                 <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Prüfungstage</div>
-                 <div className="flex items-center gap-2 text-[11px] text-emerald-500"><CheckCircle2 size={14} /> Lehrerliste & Fächer</div>
-                 <div className="flex items-center gap-2 text-[11px] text-emerald-500"><CheckCircle2 size={14} /> Master-Passwort</div>
-               </div>
-             ) : (
-               <div className="space-y-2">
-                 <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Alle Datenbanken & Einstellungen</div>
-                 <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Master-Passwort & Verschlüsselung</div>
-                 <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Lokale Sitzung</div>
-               </div>
-             )}
+             <div className="space-y-2">
+               <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Prüfungsplan & Aufsichtsplan</div>
+               <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Schülerliste & Räume</div>
+               <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Prüfungstage & Lehrkräfte</div>
+               <div className="flex items-center gap-2 text-[11px] text-emerald-500"><CheckCircle2 size={14} /> Fachkatalog bleibt erhalten</div>
+               <div className="flex items-center gap-2 text-[11px] text-emerald-500"><CheckCircle2 size={14} /> Master-Passwort bleibt erhalten</div>
+             </div>
           </div>
 
           <div className="w-full flex flex-col gap-3">
@@ -199,10 +176,10 @@ export const SettingsView: React.FC = () => {
               onClick={confirmReset}
               className="w-full h-14 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg shadow-red-900/30 transition-all active:scale-95"
             >
-              Aktion jetzt ausführen
+              Bereinigung jetzt ausführen
             </button>
             <button 
-              onClick={() => setResetType(null)}
+              onClick={() => setShowResetModal(false)}
               className="w-full h-12 text-slate-400 hover:text-white font-medium transition-colors"
             >
               Abbrechen
@@ -210,15 +187,6 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       </Modal>
-
-      <div className="mt-auto pt-6 flex justify-center">
-        <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-900/40 border border-slate-700/30 rounded-full">
-          <Info size={12} className="text-cyan-500" />
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-            LinexioAbi Environment • V0.8
-          </span>
-        </div>
-      </div>
     </div>
   );
 };

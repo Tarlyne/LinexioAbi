@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { PlusCircle, Users, DoorOpen, Calendar, GraduationCap, Library } from 'lucide-react';
+import { PlusCircle, Users, DoorOpen, Calendar, GraduationCap, BookOpen } from 'lucide-react';
 import { useData } from '../hooks/useData';
 import { DataList } from './data/DataList';
 import { DataSidebar } from './data/DataSidebar';
@@ -22,7 +22,7 @@ export const DataView: React.FC = () => {
     { id: 'students', label: 'Schüler', icon: Users },
     { id: 'rooms', label: 'Räume', icon: DoorOpen },
     { id: 'days', label: 'Tage', icon: Calendar },
-    { id: 'subjects', label: 'Fächer', icon: Library },
+    { id: 'subjects', label: 'Fächer', icon: BookOpen },
   ];
 
   const entityName = { 
