@@ -73,6 +73,7 @@ export interface AppState {
   subjects: Subject[];
   exams: Exam[];
   supervisions: Supervision[];
+  collectedExamIds: string[]; // IDs der Prüfungen, deren Protokoll-Block abgeholt wurde
   isLocked: boolean;
   masterPassword: string | null;
   lastUpdate: number;

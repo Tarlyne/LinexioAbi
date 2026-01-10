@@ -36,6 +36,7 @@ interface AppContextType {
   deleteExam: (id: string) => void;
   togglePresence: (id: string) => void;
   completeExam: (id: string) => void;
+  toggleProtocolCollected: (examId: string) => void;
   addSupervision: (s: Supervision) => void;
   removeSupervision: (id: string) => void;
   toasts: Toast[];
@@ -91,9 +92,23 @@ const dummyRooms: Room[] = [
   { id: 'r3', name: 'V01', type: 'Vorbereitungsraum', capacity: 1, isSupervisionStation: false, requiredSupervisors: 1 },
 ];
 
+/**
+ * Hilfsfunktion zur Generierung eines Datums-Strings im Format YYYY-MM-DD
+ * relativ zum aktuellen Tag.
+ */
+const getRelativeDateString = (offset: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const dummyDays: ExamDay[] = [
-  { id: 'd1', date: '2026-05-18', label: '1. Prüfungstag' },
-  { id: 'd2', date: '2026-05-19', label: '2. Prüfungstag' },
+  { id: 'd1', date: getRelativeDateString(0), label: '1. Prüfungstag' },
+  { id: 'd2', date: getRelativeDateString(1), label: '2. Prüfungstag' },
+  { id: 'd3', date: getRelativeDateString(2), label: '3. Prüfungstag' },
 ];
 
 const initialState: AppState = {
@@ -104,6 +119,7 @@ const initialState: AppState = {
   subjects: dummySubjects,
   exams: [], 
   supervisions: [], 
+  collectedExamIds: [],
   isLocked: false, 
   masterPassword: null, 
   lastUpdate: Date.now(),
@@ -125,8 +141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (saved.isLocked && saved.masterPassword === 'SET') {
             setState(prev => ({ ...prev, isLocked: true, masterPassword: 'SET' }));
           } else {
-            // Falls wir bereits Daten in der DB haben, nehmen wir diese (wichtig für Persistenz)
-            setState({ ...saved, isLocked: false });
+            setState({ ...saved, isLocked: false, collectedExamIds: saved.collectedExamIds || [] });
           }
         } else {
           setState(initialState);
@@ -159,7 +174,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const decrypted = await db.loadState(password);
       if (decrypted) {
         sessionPassword.current = password;
-        setState({ ...decrypted, isLocked: false });
+        setState({ ...decrypted, isLocked: false, collectedExamIds: decrypted.collectedExamIds || [] });
         return true;
       }
       return false;
@@ -226,10 +241,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addExams = useCallback((exams: Exam[]) => setState(prev => ({ ...prev, exams: [...prev.exams, ...exams] })), []);
   const updateExam = useCallback((exam: Exam) => setState(prev => ({ ...prev, exams: prev.exams.map(e => e.id === exam.id ? exam : e) })), []);
-  const deleteExam = useCallback((id: string) => setState(prev => ({ ...prev, exams: prev.exams.filter(e => e.id !== id) })), []);
+  const deleteExam = useCallback((id: string) => setState(prev => ({ ...prev, exams: prev.exams.filter(e => e.id !== id), collectedExamIds: prev.collectedExamIds.filter(cid => cid !== id) })), []);
 
   const togglePresence = useCallback((id: string) => setState(prev => ({ ...prev, exams: prev.exams.map(e => e.id === id ? { ...e, isPresent: !e.isPresent } : e) })), []);
   const completeExam = useCallback((id: string) => setState(prev => ({ ...prev, exams: prev.exams.map(e => e.id === id ? { ...e, status: 'completed' } : e) })), []);
+
+  const toggleProtocolCollected = useCallback((examId: string) => setState(prev => {
+    const isCollected = prev.collectedExamIds.includes(examId);
+    return {
+      ...prev,
+      collectedExamIds: isCollected 
+        ? prev.collectedExamIds.filter(id => id !== examId) 
+        : [...prev.collectedExamIds, examId]
+    };
+  }), []);
 
   const addSupervision = useCallback((s: Supervision) => setState(prev => ({ ...prev, supervisions: [...prev.supervisions, s] })), []);
   const removeSupervision = useCallback((id: string) => setState(prev => ({ ...prev, supervisions: prev.supervisions.filter(s => s.id !== id) })), []);
@@ -266,7 +291,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!effectivePassword) throw new Error('NO_PASSWORD');
       
       const decrypted = await db.decryptFromFile(buffer, effectivePassword);
-      setState({ ...decrypted, isLocked: false, lastUpdate: Date.now() });
+      setState({ ...decrypted, isLocked: false, lastUpdate: Date.now(), collectedExamIds: decrypted.collectedExamIds || [] });
       sessionPassword.current = effectivePassword;
       showToast('Daten erfolgreich wiederhergestellt', 'success');
       return true;
@@ -288,6 +313,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       days: [],
       exams: [],
       supervisions: [],
+      collectedExamIds: [],
       lastUpdate: Date.now()
     }));
     showToast('Planung für neues Jahr vorbereitet', 'success');
@@ -309,6 +335,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addDay, updateDay, deleteDay,
       addSubject, updateSubject, deleteSubject,
       addExams, updateExam, deleteExam, togglePresence, completeExam,
+      toggleProtocolCollected,
       addSupervision, removeSupervision,
       toasts, showToast, removeToast,
       checkCollision, isEntityInUse, getTeacherStats,

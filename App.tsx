@@ -6,6 +6,7 @@ import { UnlockScreen } from './components/UnlockScreen';
 import { DataView } from './components/DataView';
 import { PlanningView } from './components/PlanningView';
 import { LiveMonitor } from './components/LiveMonitor';
+import { ProtocolView } from './components/ProtocolView';
 import { StatsView } from './components/StatsView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/Toast';
@@ -27,6 +28,7 @@ const MainView: React.FC = () => {
   }, []);
 
   if (isLoading) return null;
+  if (state.isLocked) return <UnlockScreen />;
   
   return (
     <>
@@ -38,6 +40,7 @@ const MainView: React.FC = () => {
         >
           <div key={activeTab} className="h-full w-full animate-page-in">
             {activeTab === 'monitor' && <LiveMonitor />}
+            {activeTab === 'protocols' && <ProtocolView />}
             {activeTab === 'exams' && <PlanningView onSetHeaderActions={setHeaderActions} />}
             {activeTab === 'data' && <DataView />}
             {activeTab === 'stats' && <StatsView onSetHeaderActions={setHeaderActions} />}

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Clock, Calendar, Database, ShieldCheck, Settings, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Clock, Calendar, Database, ShieldCheck, Settings, ChevronsLeft, ChevronsRight, FolderKanban } from 'lucide-react';
 import { LinexioLogoIcon } from './LinexioLogoIcon';
 
 interface LayoutProps {
@@ -16,6 +16,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   
   const navItems = [
     { id: 'monitor', label: 'Live-Monitor', icon: <Clock size={20} /> },
+    { id: 'protocols', label: 'Protokolle', icon: <FolderKanban size={20} /> },
     { id: 'exams', label: 'Prüfungsplan', icon: <Calendar size={20} /> },
     { id: 'stats', label: 'Aufsichtsplan', icon: <ShieldCheck size={20} /> },
     { id: 'data', label: 'Datenbank', icon: <Database size={20} /> },
@@ -86,7 +87,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
               isCollapsed ? 'max-h-0 opacity-0' : 'max-h-24 opacity-100'
             }`}>
               <div className="p-3 bg-slate-800/20 rounded-xl">
-                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Version: 0.6</div>
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Version: 0.8.1</div>
                 <div className="text-[9px] text-slate-600 font-medium leading-tight text-left">zuletzt aktualisiert am: <br/> {lastUpdated}</div>
               </div>
             </div>
