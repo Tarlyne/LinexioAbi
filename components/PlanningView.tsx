@@ -151,10 +151,10 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
       onSetHeaderActions(
         <button 
           onClick={() => setShowPrintPreview(true)}
-          className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20"
+          className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20 hover:border-cyan-500/50 text-slate-200"
           title="Prüfungsplan Export"
         >
-          <Printer size={15} />
+          <Printer size={15} className="text-cyan-400" />
           <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
         </button>
       );

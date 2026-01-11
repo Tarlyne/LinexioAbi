@@ -1,5 +1,5 @@
 
-import { Exam, Teacher, Supervision, AppState } from '../types';
+import { Exam, Teacher, Supervision, AppState, Subject } from '../types';
 import { TIME_CONFIG, timeToMin, examSlotToMin } from './TimeService';
 
 export const EXAM_DURATION_SLOTS = TIME_CONFIG.EXAM_DURATION_SLOTS;
@@ -25,6 +25,7 @@ export const calculateTeacherPoints = (teacherId: string, exams: Exam[], supervi
 
 /**
  * Berechnet alle gesperrten Zeiträume für einen Lehrer an einem Tag (inkl. Puffer).
+ * Dies sind Zeiträume, in denen der Lehrer selbst Teil einer Prüfungskommission ist.
  */
 export const getTeacherBlockedPeriods = (teacherId: string, dayIdx: number, exams: Exam[]): { start: number, end: number }[] => {
   return exams
@@ -38,6 +39,28 @@ export const getTeacherBlockedPeriods = (teacherId: string, dayIdx: number, exam
         start: start - TIME_CONFIG.SUPERVISION_BUFFER_MINUTES, 
         end: end + TIME_CONFIG.SUPERVISION_BUFFER_MINUTES 
       };
+    });
+};
+
+/**
+ * Berechnet Zeiträume, in denen Prüfungen in den Fächern des Lehrers stattfinden (ohne Puffer).
+ * Dient als informative "Amber"-Kollision.
+ */
+export const getTeacherSubjectPeriods = (teacherId: string, dayIdx: number, exams: Exam[], teachers: Teacher[], subjects: Subject[]): { start: number, end: number }[] => {
+  const teacher = teachers.find(t => t.id === teacherId);
+  if (!teacher || !teacher.subjectIds || teacher.subjectIds.length === 0) return [];
+
+  const teacherSubjectNames = teacher.subjectIds
+    .map(id => subjects.find(s => s.id === id)?.name)
+    .filter(Boolean) as string[];
+
+  return exams
+    .filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === dayIdx)
+    .filter(e => teacherSubjectNames.includes(e.subject))
+    .map(e => {
+      const start = examSlotToMin(e.startTime);
+      const end = start + (TIME_CONFIG.EXAM_DURATION_SLOTS * TIME_CONFIG.SLOT_MINUTES);
+      return { start, end };
     });
 };
 

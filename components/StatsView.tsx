@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Clock, Search, X, Info, AlertTriangle, Printer, FileText, Download, Loader2, CheckCircle } from 'lucide-react';
-import { checkTeacherAvailability, getTeacherBlockedPeriods } from '../utils/engine';
+import { checkTeacherAvailability, getTeacherBlockedPeriods, getTeacherSubjectPeriods } from '../utils/engine';
 import { Supervision } from '../types';
 import { examSlotToMin } from '../utils/TimeService';
 import { Modal } from './Modal';
@@ -47,10 +47,10 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
       onSetHeaderActions(
         <button 
           onClick={() => setShowPrintPreview(true)}
-          className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20"
+          className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20 hover:border-cyan-500/50 text-slate-200"
           title="Aufsichtsplan Export"
         >
-          <Printer size={15} />
+          <Printer size={15} className="text-cyan-400" />
           <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
         </button>
       );
@@ -94,17 +94,28 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
     };
   };
 
-  const blockedPeriods = useMemo(() => {
-    if (!draggingTeacherId) return [];
-    return getTeacherBlockedPeriods(draggingTeacherId, activeDayIdx, state.exams);
-  }, [draggingTeacherId, activeDayIdx, state.exams]);
+  // Kollisions-Daten für das Grid
+  const collisionZones = useMemo(() => {
+    if (!draggingTeacherId) return { red: [], amber: [] };
+    
+    return {
+      red: getTeacherBlockedPeriods(draggingTeacherId, activeDayIdx, state.exams),
+      amber: getTeacherSubjectPeriods(draggingTeacherId, activeDayIdx, state.exams, state.teachers, state.subjects)
+    };
+  }, [draggingTeacherId, activeDayIdx, state.exams, state.teachers, state.subjects]);
 
-  const isTimeBlocked = useCallback((timeStr: string) => {
-    if (!draggingTeacherId) return false;
+  const getTimeStatus = useCallback((timeStr: string) => {
+    if (!draggingTeacherId) return 'none';
     const [h, m] = timeStr.split(':').map(Number);
     const min = h * 60 + m;
-    return blockedPeriods.some(p => min >= p.start && min < p.end);
-  }, [draggingTeacherId, blockedPeriods]);
+    
+    // Rot (Busy/Puffer) hat Vorrang
+    if (collisionZones.red.some(p => min >= p.start && min < p.end)) return 'red';
+    // Amber (Fach-Prüfung läuft)
+    if (collisionZones.amber.some(p => min >= p.start && min < p.end)) return 'amber';
+    
+    return 'none';
+  }, [draggingTeacherId, collisionZones]);
 
   const stations = useMemo(() => 
     state.rooms.filter(r => r.isSupervisionStation),
@@ -151,8 +162,9 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
       teacherId, activeDayIdx, startMin, 60, state.exams, state.supervisions, oldSupId || undefined
     );
 
+    // Nur bei "Busy" (Rot) wird das Fallenlassen verweigert
     if (check.isBusy) {
-      showToast(`Kollision: ${check.reason}`, 'error');
+      showToast(`Blockiert: ${check.reason}`, 'error');
       resetDraggingState();
       return;
     }
@@ -324,7 +336,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
                     </div>
                   </div>
                   <div className="px-2 rounded-lg bg-slate-900/50 text-emerald-400 border border-slate-700/60 font-black text-xs min-w-[2.5rem] h-7 flex items-center justify-center">
-                    {Math.round(points)}
+                    {points}
                   </div>
                 </div>
               );
@@ -368,7 +380,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
 
               <div className="w-20 shrink-0 border-r border-slate-700/60 bg-slate-900/40 sticky left-0 z-30 shadow-lg">
                 {timeSlots.map((time) => {
-                  const blocked = isTimeBlocked(time);
+                  const status = getTimeStatus(time);
                   const isFullHour = time.endsWith(':00');
                   const count = workloadData[time] || 0;
                   
@@ -380,7 +392,8 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
                         setWorkloadTimeInfo({ time, count });
                       }}
                       className={`relative flex items-start justify-center pt-2 transition-colors duration-300 border-b border-slate-800/40 cursor-pointer group/time ${
-                        blocked ? 'bg-red-500/10 text-red-200/60' : 
+                        status === 'red' ? 'bg-red-500/10 text-red-200/60' : 
+                        status === 'amber' ? 'bg-amber-500/10 text-amber-200/60' :
                         isFullHour ? 'text-cyan-400 font-bold text-[11px] bg-cyan-500/10' : 'text-slate-300 font-bold text-[10px]'
                       }`}
                       style={{ height: SLOT_HEIGHT }}
@@ -402,32 +415,41 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
                     {Array.from({ length: station.requiredSupervisors }).map((_, subIdx) => (
                       <div key={subIdx} className="flex-1 relative border-r border-slate-800/20 last:border-r-0 h-full">
                         <div className="relative h-full">
-                          {timeSlots.map((time, slotIdx) => (
-                            <div 
-                              key={`${station.id}-${slotIdx}-${subIdx}`}
-                              onDragOver={(e) => {
-                                e.preventDefault();
-                                e.dataTransfer.dropEffect = 'move';
-                                if (hoveredSlot?.slotIdx !== slotIdx || hoveredSlot?.subIdx !== subIdx || hoveredSlot?.stationId !== station.id) {
-                                  setHoveredSlot({ stationId: station.id, slotIdx, subIdx });
-                                }
-                              }}
-                              onDragLeave={() => setHoveredSlot(null)}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                const tId = e.dataTransfer.getData('teacherId');
-                                const sId = e.dataTransfer.getData('supId');
-                                handleDropToGrid(tId, station.id, slotIdx, subIdx, sId);
-                              }}
-                              style={{ height: SLOT_HEIGHT }}
-                              className={`w-full relative border-b border-slate-800/10 transition-colors duration-300 ${isTimeBlocked(time) ? 'bg-red-500/5' : ''}`}
-                            />
-                          ))}
+                          {timeSlots.map((time, slotIdx) => {
+                            const status = getTimeStatus(time);
+                            return (
+                              <div 
+                                key={`${station.id}-${slotIdx}-${subIdx}`}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.dataTransfer.dropEffect = 'move';
+                                  if (hoveredSlot?.slotIdx !== slotIdx || hoveredSlot?.subIdx !== subIdx || hoveredSlot?.stationId !== station.id) {
+                                    setHoveredSlot({ stationId: station.id, slotIdx, subIdx });
+                                  }
+                                }}
+                                onDragLeave={() => setHoveredSlot(null)}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  const tId = e.dataTransfer.getData('teacherId');
+                                  const sId = e.dataTransfer.getData('supId');
+                                  handleDropToGrid(tId, station.id, slotIdx, subIdx, sId);
+                                }}
+                                style={{ height: SLOT_HEIGHT }}
+                                className={`w-full relative border-b border-slate-800/10 transition-colors duration-300 ${
+                                  status === 'red' ? 'bg-red-500/5' : status === 'amber' ? 'bg-amber-500/5' : ''
+                                }`}
+                              />
+                            );
+                          })}
 
                           {hoveredSlot?.stationId === station.id && hoveredSlot?.subIdx === subIdx && (
                             <div 
                               className={`absolute left-0 right-0 pointer-events-none ring-2 ring-inset z-20 rounded-lg ${
-                                isTimeBlocked(timeSlots[hoveredSlot.slotIdx]) ? 'ring-red-500 bg-red-500/20' : 'ring-cyan-500 bg-cyan-500/10'
+                                getTimeStatus(timeSlots[hoveredSlot.slotIdx]) === 'red' 
+                                  ? 'ring-red-500 bg-red-500/20' 
+                                  : getTimeStatus(timeSlots[hoveredSlot.slotIdx]) === 'amber'
+                                  ? 'ring-amber-500 bg-amber-500/10'
+                                  : 'ring-cyan-500 bg-cyan-500/10'
                               }`}
                               style={{ 
                                 top: hoveredSlot.slotIdx * SLOT_HEIGHT, 

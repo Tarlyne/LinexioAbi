@@ -45,8 +45,8 @@ interface AppContextType {
   checkCollision: (exam: Exam) => { hasConflict: boolean, reason?: string };
   isEntityInUse: (type: 'teacher' | 'student' | 'room' | 'day' | 'subject', id: string) => boolean;
   getTeacherStats: (teacherId: string) => { points: number };
-  exportState: () => void;
-  importState: (file: File, password?: string) => Promise<boolean>;
+  exportState: (password: string) => Promise<void>;
+  importState: (file: File, password: string) => Promise<boolean>;
   resetForNewYear: () => void;
   factoryReset: () => void;
 }
@@ -242,13 +242,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const checkCollision = useCallback((exam: Exam) => checkExamCollision(exam, state.exams), [state.exams]);
   const getTeacherStats = useCallback((teacherId: string) => ({ points: calculateTeacherPoints(teacherId, state.exams, state.supervisions) }), [state.exams, state.supervisions]);
 
-  const exportState = useCallback(async () => {
-    if (!sessionPassword.current) {
-      showToast('Export nur im angemeldeten Zustand möglich', 'error');
-      return;
-    }
+  const exportState = useCallback(async (password: string) => {
     try {
-      const blob = await db.encryptForFile(state, sessionPassword.current);
+      const blob = await db.encryptForFile(state, password);
       const dataUri = URL.createObjectURL(blob);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 10);
       const exportFileDefaultName = `LinexioAbi_Backup_${timestamp}.lxabi`;
@@ -264,20 +260,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [state, showToast]);
 
-  const importState = useCallback(async (file: File, password?: string) => {
+  const importState = useCallback(async (file: File, password: string) => {
     try {
       const buffer = await file.arrayBuffer();
-      const effectivePassword = password || sessionPassword.current;
-      if (!effectivePassword) throw new Error('NO_PASSWORD');
+      const decrypted = await db.decryptFromFile(buffer, password);
       
-      const decrypted = await db.decryptFromFile(buffer, effectivePassword);
-      setState({ ...decrypted, isLocked: false, lastUpdate: Date.now(), collectedExamIds: decrypted.collectedExamIds || [] });
-      sessionPassword.current = effectivePassword;
-      showToast('Daten erfolgreich wiederhergestellt', 'success');
+      // Wir behalten das aktuelle Master-Passwort der Instanz bei, 
+      // überschreiben aber die restlichen Daten.
+      setState({ 
+        ...decrypted, 
+        isLocked: false, 
+        lastUpdate: Date.now(), 
+        collectedExamIds: decrypted.collectedExamIds || [] 
+      });
+      showToast('Backup erfolgreich eingespielt', 'success');
       return true;
     } catch (err) {
       if (err instanceof Error && err.message === 'WRONG_PASSWORD') {
-        showToast('Passwort für Backup-Datei ist falsch', 'error');
+        showToast('Backup-Passwort ist falsch', 'error');
       } else {
         showToast('Import fehlgeschlagen: Ungültige Datei', 'error');
       }

@@ -8,29 +8,68 @@ import {
   Lock, 
   ChevronRight,
   AlertCircle,
+  AlertTriangle,
   FileKey,
   CheckCircle2,
-  XCircle
+  XCircle,
+  ShieldAlert,
+  Save,
+  KeyRound
 } from 'lucide-react';
 import { Modal } from './Modal';
 
 export const SettingsView: React.FC = () => {
   const { state, exportState, importState, resetForNewYear, showToast } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [backupPassword, setBackupPassword] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (file.name.endsWith('.lxabi')) {
-      if (window.confirm("Achtung: Das Einspielen eines Backups überschreibt alle aktuellen Daten. Fortfahren?")) {
-        await importState(file);
-      }
+      setSelectedFile(file);
+      setBackupPassword('');
+      setShowImportModal(true);
     } else {
       showToast('Ungültiges Dateiformat. Bitte .lxabi nutzen.', 'error');
     }
     e.target.value = '';
+  };
+
+  const handleExport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (backupPassword.length < 4) {
+      showToast('Passwort zu kurz (min. 4 Zeichen).', 'warning');
+      return;
+    }
+    setIsProcessing(true);
+    await exportState(backupPassword);
+    setIsProcessing(false);
+    setShowExportModal(false);
+    setBackupPassword('');
+  };
+
+  const handleImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile || !backupPassword) return;
+    
+    setIsProcessing(true);
+    const success = await importState(selectedFile, backupPassword);
+    setIsProcessing(false);
+    
+    if (success) {
+      setShowImportModal(false);
+      setSelectedFile(null);
+      setBackupPassword('');
+    }
   };
 
   const confirmReset = () => {
@@ -63,7 +102,7 @@ export const SettingsView: React.FC = () => {
           
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <button 
-              onClick={exportState}
+              onClick={() => { setShowExportModal(true); setBackupPassword(''); }}
               className="btn-secondary-glass flex items-center gap-4 p-5 rounded-2xl group text-left border-slate-700/50"
             >
               <div className="w-12 h-12 bg-cyan-600/10 rounded-xl flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform shadow-inner">
@@ -71,7 +110,7 @@ export const SettingsView: React.FC = () => {
               </div>
               <div className="flex-1">
                 <span className="block text-sm font-bold text-slate-200">Backup speichern</span>
-                <span className="block text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Verschlüsselt (.lxabi)</span>
+                <span className="block text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Separate Passwort-Vergabe</span>
               </div>
               <ChevronRight size={18} className="text-slate-700 group-hover:text-cyan-500 transition-colors" />
             </button>
@@ -85,7 +124,7 @@ export const SettingsView: React.FC = () => {
               </div>
               <div className="flex-1">
                 <span className="block text-sm font-bold text-slate-200">Backup laden</span>
-                <span className="block text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Vorhandene .lxabi Datei</span>
+                <span className="block text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Datenpaket einspielen</span>
               </div>
               <ChevronRight size={18} className="text-slate-700 group-hover:text-amber-500 transition-colors" />
             </button>
@@ -145,6 +184,130 @@ export const SettingsView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Export Password Modal */}
+      <Modal isOpen={showExportModal} onClose={() => setShowExportModal(false)} maxWidth="max-w-md">
+        <form onSubmit={handleExport} className="flex flex-col space-y-6">
+          <div className="flex items-center gap-4 pb-4 border-b border-slate-700/30">
+            <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
+              <FileKey size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white tracking-tight">Backup verschlüsseln</h3>
+              <p className="text-xs text-cyan-500/80 font-medium">Sicherer Export für Team-Transfer</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-900/50 rounded-2xl border border-slate-800 text-left space-y-2">
+              <div className="flex items-start gap-3">
+                <ShieldAlert size={16} className="text-amber-500 mt-0.5 shrink-0" />
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Dieses Passwort ist unabhängig von deinem Master-Passwort. Deine Kollegen benötigen es zum Einlesen der Datei.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Backup-Passwort festlegen</label>
+              <div className="relative">
+                <input 
+                  autoFocus
+                  type="password"
+                  value={backupPassword}
+                  onChange={e => setBackupPassword(e.target.value)}
+                  placeholder="Passwort wählen..."
+                  className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40"
+                />
+                <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button 
+              type="submit"
+              disabled={isProcessing}
+              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider disabled:opacity-50"
+            >
+              <Download size={18} /> Backup generieren
+            </button>
+            <button 
+              type="button"
+              onClick={() => setShowExportModal(false)}
+              className="btn-secondary-glass w-full h-12 rounded-xl"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Import Password Modal */}
+      <Modal isOpen={showImportModal} onClose={() => { setShowImportModal(false); setSelectedFile(null); }} maxWidth="max-w-md">
+        <form onSubmit={handleImport} className="flex flex-col space-y-6">
+          <div className="flex items-center gap-4 pb-4 border-b border-slate-700/30">
+            <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 text-amber-500">
+              <Upload size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white tracking-tight">Backup einspielen</h3>
+              <p className="text-xs text-amber-500/80 font-medium">Datei-Entschlüsselung</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-left space-y-2">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
+                <p className="text-[11px] text-slate-300 leading-relaxed font-bold">
+                  Achtung: Durch den Import werden alle aktuell vorhandenen Daten in dieser App unwiderruflich durch den Inhalt des Backups überschrieben!
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-center gap-3">
+              <FileKey size={16} className="text-amber-500" />
+              <div className="truncate text-[11px] font-mono text-slate-300">
+                {selectedFile?.name}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Backup-Passwort eingeben</label>
+              <div className="relative">
+                <input 
+                  autoFocus
+                  type="password"
+                  value={backupPassword}
+                  onChange={e => setBackupPassword(e.target.value)}
+                  placeholder="Passwort der Datei..."
+                  className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-amber-500/40"
+                />
+                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button 
+              type="submit"
+              disabled={isProcessing}
+              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}
+            >
+              Entschlüsseln & Laden
+            </button>
+            <button 
+              type="button"
+              onClick={() => { setShowImportModal(false); setSelectedFile(null); }}
+              className="btn-secondary-glass w-full h-12 rounded-xl"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} maxWidth="max-w-md">
         <div className="flex flex-col items-center text-center space-y-6">

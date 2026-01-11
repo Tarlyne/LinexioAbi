@@ -111,7 +111,7 @@
 
         /* --- Segmented Control --- */
         .segmented-control-wrapper {
-            background: rgba(7, 10, 19, 0.6);
+            background: rgba(30, 41, 59, 0.5);
             border: 1px solid rgba(51, 65, 85, 0.3);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
@@ -149,13 +149,20 @@
         }
 
         /* --- Generic Utility --- */
-        .grid-row {
+        .grid-row, .grid-row-hour {
             height: var(--slot-height);
             border-bottom: 1px solid rgba(51, 65, 85, 0.6);
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
+            width: 100%;
+        }
+
+        /* Volle Stunden visuell hervorheben */
+        .grid-row-hour {
+            border-bottom: 1.5px solid rgba(6, 182, 212, 0.35);
+            background: rgba(6, 182, 212, 0.05);
         }
 
         .badge {
