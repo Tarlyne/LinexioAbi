@@ -276,9 +276,13 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
               )}
               <div className="flex gap-4">
                 {editingItem && (
-                  <button type="button" onClick={() => setShowDeleteConfirm(true)} className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold text-sm transition-all"><Trash2 size={18} /> Löschen</button>
+                  <button type="button" onClick={() => setShowDeleteConfirm(true)} className="btn-secondary-glass flex-1 h-12 rounded-xl text-sm border-red-500/20 text-red-400">
+                    <Trash2 size={18} /> Löschen
+                  </button>
                 )}
-                <button type="submit" className="flex-[2] h-12 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/20 active:scale-95 transition-all"><Save size={18} /> Speichern</button>
+                <button type="submit" className="btn-primary-aurora flex-[2] h-12 rounded-xl text-sm">
+                  <Save size={18} /> Speichern
+                </button>
               </div>
             </div>
           </form>
@@ -291,7 +295,7 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
             </div>
             <div className="flex flex-col gap-3">
               <button type="button" onClick={onDelete} className="w-full h-14 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider transition-all">Jetzt löschen</button>
-              <button type="button" onClick={() => setShowDeleteConfirm(false)} className="w-full h-12 text-slate-400 hover:text-white font-medium rounded-xl">Abbrechen</button>
+              <button type="button" onClick={() => setShowDeleteConfirm(false)} className="btn-secondary-glass w-full h-12 rounded-xl">Abbrechen</button>
             </div>
           </div>
         )}

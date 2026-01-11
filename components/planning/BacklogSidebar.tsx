@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Search, FileJson, PlusCircle, Check, Minus } from 'lucide-react';
 import { Exam, Student, Teacher, Room } from '../../types';
@@ -94,7 +95,7 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
 
         <button 
           onClick={onAddExam}
-          className="flex items-center justify-center gap-2 w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-lg shadow-cyan-900/20 active:scale-[0.98]"
+          className="btn-primary-aurora w-full py-2.5 rounded-xl text-[11px] uppercase tracking-wider"
         >
           <PlusCircle size={14} /> Neue Prüfung
         </button>

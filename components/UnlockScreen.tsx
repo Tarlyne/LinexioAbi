@@ -72,12 +72,12 @@ export const UnlockScreen: React.FC = () => {
                   placeholder={isInitialSetup ? "Neues Passwort..." : "Passwort eingeben..."}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:ring-1 focus:ring-cyan-500/40 transition-all"
+                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:ring-1 focus:ring-cyan-500/40 transition-all shadow-inner"
                 />
                 {!isInitialSetup && (
                   <button 
                     type="submit"
-                    className="absolute right-2 top-1.5 bottom-1.5 px-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg flex items-center justify-center transition-colors shadow-lg"
+                    className="absolute right-2 top-1.5 bottom-1.5 w-10 btn-primary-aurora rounded-lg shadow-lg"
                   >
                     <ChevronRight size={18} />
                   </button>
@@ -91,11 +91,12 @@ export const UnlockScreen: React.FC = () => {
                     placeholder="Passwort bestätigen..."
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:ring-1 focus:ring-cyan-500/40 transition-all"
+                    className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:ring-1 focus:ring-cyan-500/40 transition-all shadow-inner"
                   />
                   <button 
                     type="submit"
-                    className="w-full mt-4 h-12 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg shadow-amber-900/30 transition-all flex items-center justify-center gap-2"
+                    className="btn-primary-aurora w-full mt-4 h-12 rounded-xl text-sm uppercase tracking-wider"
+                    style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}
                   >
                     Einrichtung abschließen <ChevronRight size={18} />
                   </button>

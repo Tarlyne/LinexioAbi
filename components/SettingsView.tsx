@@ -64,30 +64,30 @@ export const SettingsView: React.FC = () => {
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <button 
               onClick={exportState}
-              className="flex items-center gap-4 p-4 bg-slate-800/20 border border-slate-700/50 rounded-2xl hover:border-cyan-500/40 hover:bg-slate-800/40 transition-all group text-left"
+              className="btn-secondary-glass flex items-center gap-4 p-5 rounded-2xl group text-left border-slate-700/50"
             >
-              <div className="w-12 h-12 bg-cyan-600/10 rounded-xl flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 bg-cyan-600/10 rounded-xl flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform shadow-inner">
                 <FileKey size={24} />
               </div>
-              <div>
+              <div className="flex-1">
                 <span className="block text-sm font-bold text-slate-200">Backup speichern</span>
                 <span className="block text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Verschlüsselt (.lxabi)</span>
               </div>
-              <ChevronRight size={18} className="ml-auto text-slate-700 group-hover:text-cyan-500 transition-colors" />
+              <ChevronRight size={18} className="text-slate-700 group-hover:text-cyan-500 transition-colors" />
             </button>
 
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-4 p-4 bg-slate-800/20 border border-slate-700/50 rounded-2xl hover:border-amber-500/40 hover:bg-slate-800/40 transition-all group text-left"
+              className="btn-secondary-glass flex items-center gap-4 p-5 rounded-2xl group text-left border-slate-700/50"
             >
-              <div className="w-12 h-12 bg-amber-600/10 rounded-xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 bg-amber-600/10 rounded-xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform shadow-inner">
                 <Upload size={24} />
               </div>
-              <div>
+              <div className="flex-1">
                 <span className="block text-sm font-bold text-slate-200">Backup laden</span>
                 <span className="block text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Vorhandene .lxabi Datei</span>
               </div>
-              <ChevronRight size={18} className="ml-auto text-slate-700 group-hover:text-amber-500 transition-colors" />
+              <ChevronRight size={18} className="text-slate-700 group-hover:text-amber-500 transition-colors" />
             </button>
             <input 
               type="file" 
@@ -111,7 +111,7 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
           <div className="p-6">
-            <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl">
+            <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl shadow-inner">
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${state.masterPassword ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
                 <div>
@@ -132,16 +132,16 @@ export const SettingsView: React.FC = () => {
           
           <button 
             onClick={() => setShowResetModal(true)}
-            className="w-full flex items-center gap-6 p-6 bg-slate-900/40 border border-red-900/20 rounded-3xl hover:bg-red-900/10 hover:border-red-900/40 transition-all group text-left"
+            className="w-full flex items-center gap-6 p-6 bg-red-900/5 border border-red-900/20 rounded-3xl hover:bg-red-900/10 hover:border-red-900/40 transition-all group text-left"
           >
-            <div className="w-14 h-14 bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 transition-transform">
+            <div className="w-14 h-14 bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-red-950/20">
               <Database size={28} />
             </div>
-            <div>
+            <div className="flex-1">
               <span className="block text-lg font-bold text-slate-200">Neues Prüfungsjahr vorbereiten</span>
               <span className="block text-xs text-slate-500 mt-1">Löscht alle Prüfungsdaten, Schüler und Lehrer für den Neustart.</span>
             </div>
-            <ChevronRight size={24} className="ml-auto text-red-900/40" />
+            <ChevronRight size={24} className="text-red-900/40" />
           </button>
         </div>
       </div>
@@ -174,13 +174,14 @@ export const SettingsView: React.FC = () => {
           <div className="w-full flex flex-col gap-3">
             <button 
               onClick={confirmReset}
-              className="w-full h-14 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg shadow-red-900/30 transition-all active:scale-95"
+              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider bg-red-600 hover:bg-red-500 shadow-red-950/40"
+              style={{ background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)' }}
             >
               Bereinigung jetzt ausführen
             </button>
             <button 
               onClick={() => setShowResetModal(false)}
-              className="w-full h-12 text-slate-400 hover:text-white font-medium transition-colors"
+              className="btn-secondary-glass w-full h-12 rounded-xl"
             >
               Abbrechen
             </button>

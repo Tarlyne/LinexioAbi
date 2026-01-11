@@ -47,10 +47,10 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
       onSetHeaderActions(
         <button 
           onClick={() => setShowPrintPreview(true)}
-          className="flex items-center gap-2 h-9 px-4 bg-cyan-600/20 border border-cyan-500/40 rounded-xl text-cyan-400 hover:bg-cyan-600/30 transition-all active:scale-95 group shadow-[0_0_15px_rgba(6,182,212,0.1)]"
+          className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20"
           title="Aufsichtsplan Export"
         >
-          <Printer size={15} className="group-hover:scale-110 transition-transform" />
+          <Printer size={15} />
           <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
         </button>
       );
@@ -236,11 +236,11 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
           <p className="text-cyan-500/80 text-xs font-medium">Verwaltung der Aufsichten</p>
         </div>
         
-        <div className="relative flex p-1 bg-slate-900/60 border border-slate-700/30 rounded-xl w-full max-w-md shrink-0">
+        <div className="segmented-control-wrapper w-full max-w-md shrink-0">
           <div 
-            className="absolute top-1 bottom-1 left-1 bg-cyan-600 rounded-lg shadow-lg shadow-cyan-900/20 transition-all duration-300 ease-in-out"
+            className="segmented-control-slider"
             style={{ 
-              width: `calc((100% - 8px) / ${state.days.length})`, 
+              width: `calc((100% - 6px) / ${state.days.length})`, 
               transform: `translateX(calc(${activeDayIdx} * 100%))` 
             }}
           />
@@ -248,14 +248,14 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
             <button
               key={day.id}
               onClick={() => setActiveDayIdx(idx)}
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center py-2 transition-colors duration-300 rounded-lg outline-none ${
-                activeDayIdx === idx ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-              }`}
+              className={`segmented-control-item h-10 ${activeDayIdx === idx ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
             >
-              <span className="text-xs font-bold uppercase tracking-wider">{day.label}</span>
-              <span className={`text-[9px] font-medium opacity-80 ${activeDayIdx === idx ? 'text-white' : 'text-slate-600'}`}>
-                {new Date(day.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-              </span>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px]">{day.label}</span>
+                <span className="text-[8px] opacity-60 normal-case font-medium">
+                  {new Date(day.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                </span>
+              </div>
             </button>
           ))}
         </div>
@@ -549,7 +549,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
               <button 
                 onClick={initiatePdfExport}
                 disabled={isExporting}
-                className="flex items-center gap-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-900/40 transition-all active:scale-95"
+                className="btn-primary-aurora px-6 py-2.5 rounded-xl text-sm disabled:opacity-50"
               >
                 {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
                 {isExporting ? 'Generiere...' : 'PDF speichern'}
@@ -662,7 +662,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
 
           <button 
             onClick={executePdfExport}
-            className="w-full h-14 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg shadow-cyan-900/40 transition-all active:scale-95 flex items-center justify-center gap-3"
+            className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider"
           >
             <Download size={20} /> Jetzt Download starten
           </button>

@@ -40,16 +40,16 @@ export const DataView: React.FC = () => {
           <h2 className="text-2xl font-bold text-white tracking-tight">Datenbank</h2>
           <p className="text-cyan-500/80 text-xs font-medium">Zentrale Verwaltung der Stammdaten</p>
         </div>
-        <button onClick={() => openEditor()} className="flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-cyan-900/20 active:scale-95">
+        <button onClick={() => openEditor()} className="btn-primary-aurora px-6 py-2.5 rounded-xl text-xs">
           <PlusCircle size={16} /> {entityName} ergänzen
         </button>
       </div>
 
-      <div className="relative flex p-1 bg-slate-900/60 border border-slate-700/30 rounded-xl w-full max-w-2xl shrink-0 mb-6 overflow-x-auto no-scrollbar">
+      <div className="segmented-control-wrapper w-full max-w-2xl shrink-0 mb-6 overflow-hidden">
         <div 
-          className="absolute top-1 bottom-1 left-1 bg-cyan-600 rounded-lg shadow-lg shadow-cyan-900/20 transition-all duration-300 ease-in-out"
+          className="segmented-control-slider"
           style={{ 
-            width: `calc((100% - 8px) / ${tabs.length})`, 
+            width: `calc((100% - 6px) / ${tabs.length})`, 
             transform: `translateX(calc(${tabs.findIndex(t => t.id === activeTab)} * 100%))` 
           }}
         />
@@ -57,9 +57,9 @@ export const DataView: React.FC = () => {
           <button 
             key={tab.id} 
             onClick={() => setActiveTab(tab.id as any)} 
-            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-semibold transition-colors duration-300 rounded-lg outline-none whitespace-nowrap px-3 ${activeTab === tab.id ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`}
+            className={`segmented-control-item ${activeTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            <tab.icon size={13} /> {tab.label}
+            <tab.icon size={13} className="mr-2" /> {tab.label}
           </button>
         ))}
       </div>
