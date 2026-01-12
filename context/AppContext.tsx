@@ -4,6 +4,10 @@ import { AppState, Teacher, Student, Room, Exam, Supervision, ExamDay, Subject }
 import * as db from '../store/db';
 import { checkExamCollision, isEntityInUseInternal, calculateTeacherPoints } from '../utils/engine';
 
+// --- LIVE CONFIG ---
+const IS_DEV_MODE = false; 
+// ------------------
+
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 interface Toast { message: string; type: ToastType; id: string; }
 
@@ -51,45 +55,14 @@ interface AppContextType {
   factoryReset: () => void;
 }
 
-const dummySubjects: Subject[] = [
-  { id: 'sub1', name: 'Deutsch', shortName: 'D' }, 
-  { id: 'sub2', name: 'Mathematik', shortName: 'Ma' }, 
-  { id: 'sub3', name: 'Englisch', shortName: 'E' },
-  { id: 'sub4', name: 'Biologie', shortName: 'Bio' }, 
-  { id: 'sub13', name: 'Informatik', shortName: 'Info' },
-  { id: 'sub16', name: 'Sozialkunde', shortName: 'Sk' },
-  { id: 'sub19', name: 'Erdkunde', shortName: 'Ek' },
-];
-
-const dummyTeachers: Teacher[] = [
-  { id: 't1', firstName: 'Bernd', lastName: 'Buche', shortName: 'Buc', isPartTime: false, subjectIds: ['sub1', 'sub16'] },
-  { id: 't2', firstName: 'Erika', lastName: 'Eiche', shortName: 'Eic', isPartTime: true, subjectIds: ['sub2', 'sub13'] },
-  { id: 't5', firstName: 'Dieter', lastName: 'Distel', shortName: 'Dis', isPartTime: false, subjectIds: ['sub4', 'sub19'] },
-];
-
-const dummyStudents: Student[] = [
-  { id: 's1', firstName: 'Leo', lastName: 'Languste', examIds: [] },
-  { id: 's2', firstName: 'Tom', lastName: 'Tiger', examIds: [] },
-];
-
-const dummyRooms: Room[] = [
-  { id: 'r1', name: 'R201', type: 'Prüfungsraum', capacity: 1, isSupervisionStation: true, requiredSupervisors: 1 },
-];
-
-const getRelativeDateString = (offset: number): string => {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const dummyDays: ExamDay[] = [
-  { id: 'd1', date: getRelativeDateString(0), label: '1. Prüfungstag' },
-];
+const dummySubjects: Subject[] = [];
+const dummyTeachers: Teacher[] = [];
+const dummyStudents: Student[] = [];
+const dummyRooms: Room[] = [];
+const dummyDays: ExamDay[] = [];
 
 const initialState: AppState = {
+  // Fix: Corrected dummy variable assignment to match Teacher[] type
   teachers: dummyTeachers, 
   students: dummyStudents, 
   rooms: dummyRooms, 
@@ -98,7 +71,7 @@ const initialState: AppState = {
   exams: [], 
   supervisions: [], 
   collectedExamIds: [],
-  isLocked: false, 
+  isLocked: true, // FIX: Startet immer gesperrt für maximale Sicherheit
   masterPassword: null, 
   lastUpdate: Date.now(),
 };
@@ -116,12 +89,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const saved = await db.loadState();
         if (saved) {
-          if (saved.isLocked && saved.masterPassword === 'SET') {
+          const shouldLock = !IS_DEV_MODE && (saved.isLocked || saved.masterPassword === 'SET');
+          
+          if (shouldLock) {
             setState(prev => ({ ...prev, isLocked: true, masterPassword: 'SET' }));
           } else {
             setState({ ...saved, isLocked: false, collectedExamIds: saved.collectedExamIds || [] });
           }
         } else {
+          // Erster Start überhaupt
           setState(initialState);
         }
       } catch (err) {
@@ -265,8 +241,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const buffer = await file.arrayBuffer();
       const decrypted = await db.decryptFromFile(buffer, password);
       
-      // Wir behalten das aktuelle Master-Passwort der Instanz bei, 
-      // überschreiben aber die restlichen Daten.
       setState({ 
         ...decrypted, 
         isLocked: false, 

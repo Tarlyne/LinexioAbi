@@ -1,25 +1,28 @@
+
 {
   "name": "linexioabi",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
+  "description": "Professional exam management system for schools.",
   "dependencies": {
-    "react-dom": "^19.2.3",
     "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "localforage": "^1.10.0",
     "lucide-react": "0.460.0",
     "jspdf": "^2.5.1",
     "html2canvas": "^1.4.1"
   },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
-  }
+  "scripts": {
+    "start": "npx serve .",
+    "build": "echo 'App ist bereits als ESM strukturiert. Kopiere Dateien in den dist-Ordner...' && mkdir -p dist && cp -r . dist/ && rm -rf dist/node_modules",
+    "deploy": "npm run build && npx gh-pages -d dist"
+  },
+  "keywords": [
+    "school",
+    "exam",
+    "management",
+    "pwa"
+  ],
+  "author": "Linexio",
+  "license": "MIT"
 }
