@@ -1,18 +1,37 @@
 
-import { Teacher, Student, Room, Exam, Subject } from '../types';
+import { Teacher, Student, Room, Exam, Subject, ExamDay } from '../types';
+
+/**
+ * Normalisiert verschiedene Datumsformate (vorrangig TT.MM.JJJJ) zu ISO YYYY-MM-DD
+ */
+const normalizeCsvDate = (dateStr: string): string => {
+  if (!dateStr) return '';
+  
+  // Format TT.MM.JJJJ oder T.M.JJJJ
+  const parts = dateStr.split('.');
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    let year = parts[2];
+    if (year.length === 2) year = `20${year}`; // Handle JJ zu JJJJ
+    return `${year}-${month}-${day}`;
+  }
+  
+  // Bereits ISO Format?
+  if (dateStr.includes('-')) return dateStr;
+
+  return dateStr;
+};
 
 /**
  * Erwartet: Nachname; Vorname; Kürzel; Fach 1; Fach 2; Fach 3; Teilzeit ('Ja' oder leer)
- * Fächer werden über den Namen mit der Stammdatenliste abgeglichen.
- * Gibt ein Objekt zurück, das die Lehrer und eine Liste unbekannter Fächer enthält.
  */
 export const parseTeachersCSV = (csv: string, subjects: Subject[]): { teachers: Teacher[], skippedSubjects: string[] } => {
-  const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '');
+  const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '' && !line.startsWith('Nachname;')); 
   const skippedSubjectsSet = new Set<string>();
   
   const teachers = lines.map((line, index) => {
     const parts = line.split(';').map(s => s?.trim());
-    // Struktur: Nachname(0), Vorname(1), Kürzel(2), Fach1(3), Fach2(4), Fach3(5), Teilzeit(6)
     const [lastName, firstName, shortName, f1, f2, f3, isPartTime] = parts;
     
     const subjectIds: string[] = [];
@@ -47,7 +66,7 @@ export const parseTeachersCSV = (csv: string, subjects: Subject[]): { teachers: 
  * Erwartet: Nachname; Vorname
  */
 export const parseStudentsCSV = (csv: string): Student[] => {
-  const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '');
+  const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '' && !line.startsWith('Nachname;'));
   return lines.map((line, index) => {
     const [lastName, firstName] = line.split(';').map(s => s?.trim());
     return {
@@ -60,24 +79,37 @@ export const parseStudentsCSV = (csv: string): Student[] => {
 };
 
 /**
- * Erwartet: SchülerNachname; SchülerVorname; LehrerKürzel; Fach
+ * Spezial-Parser für den Abitur-Prüfungsplan (9 Spalten)
  */
-export const parseExamsCSV = (csv: string, students: Student[], teachers: Teacher[]): Exam[] => {
-  const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '');
-  return lines.map((line, index) => {
-    const [sNach, sVor, tKurz, subject] = line.split(';').map(s => s?.trim());
-    
-    const student = students.find(s => s.lastName.toLowerCase() === sNach?.toLowerCase() && s.firstName.toLowerCase() === sVor?.toLowerCase());
-    const teacher = teachers.find(t => t.shortName.toLowerCase() === tKurz?.toLowerCase());
+export interface RawExamCSVRow {
+  date: string;
+  time: string;
+  prepRoom: string;
+  examRoom: string;
+  studentName: string;
+  subject: string;
+  examiner: string;
+  protocol: string;
+  chair: string;
+}
 
+export const parseAbiturExamsCSV = (csv: string): RawExamCSVRow[] => {
+  const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '');
+  const startIdx = lines[0].toLowerCase().includes('datum') ? 1 : 0;
+  
+  return lines.slice(startIdx).map(line => {
+    const p = line.split(';').map(s => s?.trim());
     return {
-      id: `e-${index}-${Date.now()}`,
-      studentId: student?.id || 'unknown',
-      teacherId: teacher?.id || 'unknown',
-      subject: subject || 'Unbekannt',
-      startTime: 0, // Backlog
-      status: 'backlog',
-    } as Exam;
+      date: normalizeCsvDate(p[0] || ''),
+      time: p[1] || '',
+      prepRoom: p[2] || '',
+      examRoom: p[3] || '',
+      studentName: p[4] || '',
+      subject: p[5] || '',
+      examiner: p[6] || '',
+      protocol: p[7] || '',
+      chair: p[8] || ''
+    };
   });
 };
 

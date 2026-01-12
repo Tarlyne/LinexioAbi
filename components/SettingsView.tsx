@@ -337,8 +337,11 @@ export const SettingsView: React.FC = () => {
           <div className="w-full flex flex-col gap-3">
             <button 
               onClick={confirmReset}
-              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider bg-red-600 hover:bg-red-500 shadow-red-950/40"
-              style={{ background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)' }}
+              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider bg-red-600 hover:bg-red-500"
+              style={{ 
+                background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
+                boxShadow: '0 4px 12px -2px rgba(220, 38, 38, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3)'
+              }}
             >
               Bereinigung jetzt ausführen
             </button>

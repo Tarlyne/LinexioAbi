@@ -2,7 +2,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { 
   PlusCircle, AlertCircle, MapPin, Clock, Trash2, 
-  X, Save, ChevronDown, Settings, Layers, Printer, FileText, Download, Loader2, CheckCircle
+  X, Save, ChevronDown, Settings, Layers, Printer, FileText, Download, Loader2, CheckCircle, Upload
 } from 'lucide-react';
 import { Exam } from '../types';
 import { Modal } from './Modal';
@@ -12,6 +12,9 @@ import { ExamCard } from './planning/ExamCard';
 import { ExportPrintView } from './ExportPrintView';
 import { isAppleMobile } from '../utils/Platform';
 import { PdfExportService } from '../services/PdfExportService';
+import { parseAbiturExamsCSV, RawExamCSVRow } from '../utils/csvParser';
+import { ExamImportWizard } from './planning/ExamImportWizard';
+import { ImportInstructionsModal } from './planning/ImportInstructionsModal';
 
 interface PlanningViewProps {
   onSetHeaderActions?: (actions: React.ReactNode) => void;
@@ -42,6 +45,12 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
   const [isExporting, setIsExporting] = useState(false);
   const [showDownloadAnleitung, setShowDownloadAnleitung] = useState(false);
   
+  // Import States
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [showImportWizard, setShowImportWizard] = useState(false);
+  const [importRawData, setImportRawData] = useState<RawExamCSVRow[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
   const SLOT_HEIGHT = 38; 
@@ -61,6 +70,29 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
   const prepRooms = useMemo(() => 
     state.rooms.filter(r => r.type === 'Vorbereitungsraum'), 
   [state.rooms]);
+
+  const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      try {
+        const rows = parseAbiturExamsCSV(text);
+        if (rows.length === 0) {
+          showToast('Die Datei scheint leer zu sein.', 'warning');
+          return;
+        }
+        setImportRawData(rows);
+        setShowImportWizard(true);
+      } catch (err) {
+        showToast('Fehler beim Lesen der CSV-Datei.', 'error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const openAddModal = () => {
     setEditingExam({ subject: 'Deutsch', groupId: '' });
@@ -145,24 +177,44 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
     return `${day.label} (${dateStr})`;
   }, [state.days, activeDay]);
 
-  // Effekt zum Registrieren des Header-Buttons mit Cleanup
+  // Effekt zum Registrieren der Header-Buttons
   useEffect(() => {
     if (onSetHeaderActions) {
       onSetHeaderActions(
-        <button 
-          onClick={() => setShowPrintPreview(true)}
-          className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20 hover:border-cyan-500/50 text-slate-200"
-          title="Prüfungsplan Export"
-        >
-          <Printer size={15} className="text-cyan-400" />
-          <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Import Button */}
+          <button 
+            onClick={() => setShowInstructions(true)}
+            className="btn-secondary-glass h-9 px-4 rounded-xl border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
+            title="Prüfungen importieren (CSV)"
+          >
+            <Upload size={15} className="text-indigo-400" />
+            <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Import CSV</span>
+          </button>
+          
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept=".csv" 
+            onChange={handleCsvFileSelect} 
+          />
+
+          {/* Export Button */}
+          <button 
+            onClick={() => setShowPrintPreview(true)}
+            className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20 hover:border-cyan-500/50 text-slate-200"
+            title="Prüfungsplan Export"
+          >
+            <Printer size={15} className="text-cyan-400" />
+            <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
+          </button>
+        </div>
       );
       
-      // Cleanup: Actions beim Verlassen des Tabs entfernen
       return () => onSetHeaderActions(null);
     }
-  }, [onSetHeaderActions, setShowPrintPreview]);
+  }, [onSetHeaderActions, setShowPrintPreview, showToast]);
 
   const getDeletingItemName = () => {
     if (!editingExam?.studentId) return 'Prüfung';
@@ -617,6 +669,21 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
           </button>
         </div>
       </Modal>
+
+      <ImportInstructionsModal 
+        isOpen={showInstructions}
+        onClose={() => setShowInstructions(false)}
+        onSelectFile={() => fileInputRef.current?.click()}
+      />
+
+      <ExamImportWizard 
+        isOpen={showImportWizard} 
+        onClose={() => {
+          setShowImportWizard(false);
+          setImportRawData([]);
+        }}
+        rawData={importRawData}
+      />
     </div>
   );
 };
