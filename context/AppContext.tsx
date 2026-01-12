@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppState, Teacher, Student, Room, Exam, Supervision, ExamDay, Subject } from '../types';
 import * as db from '../store/db';
@@ -16,6 +15,7 @@ interface AppContextType {
   isLoading: boolean;
   unlock: (password: string) => Promise<boolean>;
   setMasterPassword: (password: string) => Promise<void>;
+  changeMasterPassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
   lock: () => void;
   addTeacher: (t: Teacher) => void;
   updateTeacher: (t: Teacher) => void;
@@ -62,7 +62,6 @@ const dummyRooms: Room[] = [];
 const dummyDays: ExamDay[] = [];
 
 const initialState: AppState = {
-  // Fix: Corrected dummy variable assignment to match Teacher[] type
   teachers: dummyTeachers, 
   students: dummyStudents, 
   rooms: dummyRooms, 
@@ -71,7 +70,7 @@ const initialState: AppState = {
   exams: [], 
   supervisions: [], 
   collectedExamIds: [],
-  isLocked: true, // FIX: Startet immer gesperrt für maximale Sicherheit
+  isLocked: true, 
   masterPassword: null, 
   lastUpdate: Date.now(),
 };
@@ -97,7 +96,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setState({ ...saved, isLocked: false, collectedExamIds: saved.collectedExamIds || [] });
           }
         } else {
-          // Erster Start überhaupt
           setState(initialState);
         }
       } catch (err) {
@@ -149,6 +147,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState(prev => ({ ...prev, masterPassword: 'SET', isLocked: false }));
     await db.saveState({ ...state, masterPassword: 'SET', isLocked: false }, password);
     showToast('Master-Passwort erfolgreich gesetzt', 'success');
+  }, [state, showToast]);
+
+  const changeMasterPassword = useCallback(async (oldPassword: string, newPassword: string) => {
+    try {
+      // 1. Altes Passwort verifizieren
+      const verified = await db.loadState(oldPassword);
+      if (!verified) return false;
+
+      // 2. Session und State aktualisieren
+      sessionPassword.current = newPassword;
+      const newState = { ...state, masterPassword: 'SET', lastUpdate: Date.now() };
+      
+      // 3. Mit neuem Passwort verschlüsselt in DB speichern
+      await db.saveState(newState, newPassword);
+      setState(newState);
+      
+      showToast('Master-Passwort erfolgreich geändert', 'success');
+      return true;
+    } catch (err) {
+      return false;
+    }
   }, [state, showToast]);
   
   const isEntityInUse = useCallback((type: 'teacher' | 'student' | 'room' | 'day' | 'subject', id: string) => {
@@ -283,7 +302,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{ 
-      state, isLoading, unlock, setMasterPassword, lock,
+      state, isLoading, unlock, setMasterPassword, changeMasterPassword, lock,
       addTeacher, updateTeacher, deleteTeacher, upsertTeachers, 
       addStudent, updateStudent, deleteStudent, upsertStudents, 
       addRoom, updateRoom, deleteRoom, upsertRooms,

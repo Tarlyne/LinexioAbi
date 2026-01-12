@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
@@ -14,21 +13,28 @@ import {
   XCircle,
   ShieldAlert,
   Save,
-  KeyRound
+  KeyRound,
+  RefreshCw
 } from 'lucide-react';
 import { Modal } from './Modal';
 
 export const SettingsView: React.FC = () => {
-  const { state, exportState, importState, resetForNewYear, showToast } = useApp();
+  const { state, exportState, importState, resetForNewYear, changeMasterPassword, showToast } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [showResetModal, setShowResetModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showChangePwModal, setShowChangePwModal] = useState(false);
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [backupPassword, setBackupPassword] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Form states for change password
+  const [oldPw, setOldPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,6 +75,35 @@ export const SettingsView: React.FC = () => {
       setShowImportModal(false);
       setSelectedFile(null);
       setBackupPassword('');
+    }
+  };
+
+  const handleChangePw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!oldPw || !newPw || !confirmPw) {
+      showToast('Bitte alle Felder ausfüllen.', 'warning');
+      return;
+    }
+    if (newPw.length < 4) {
+      showToast('Das neue Passwort muss mindestens 4 Zeichen lang sein.', 'warning');
+      return;
+    }
+    if (newPw !== confirmPw) {
+      showToast('Die neuen Passwörter stimmen nicht überein.', 'error');
+      return;
+    }
+
+    setIsProcessing(true);
+    const success = await changeMasterPassword(oldPw, newPw);
+    setIsProcessing(false);
+
+    if (success) {
+      setShowChangePwModal(false);
+      setOldPw('');
+      setNewPw('');
+      setConfirmPw('');
+    } else {
+      showToast('Aktuelles Passwort ist nicht korrekt.', 'error');
     }
   };
 
@@ -149,7 +184,7 @@ export const SettingsView: React.FC = () => {
               <p className="text-[10px] text-slate-500">Status der Zugangskontrolle</p>
             </div>
           </div>
-          <div className="p-6">
+          <div className="p-6 space-y-4">
             <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl shadow-inner">
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${state.masterPassword ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
@@ -162,6 +197,20 @@ export const SettingsView: React.FC = () => {
                 {state.masterPassword ? 'Verschlüsselt' : 'Ungeschützt'}
               </div>
             </div>
+
+            <button 
+              onClick={() => setShowChangePwModal(true)}
+              className="w-full flex items-center gap-4 p-4 bg-slate-800/20 border border-slate-700/40 rounded-2xl hover:bg-slate-800/40 hover:border-cyan-500/40 transition-all group text-left"
+            >
+              <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center text-cyan-400 group-hover:rotate-12 transition-transform">
+                <RefreshCw size={18} />
+              </div>
+              <div className="flex-1">
+                <span className="block text-xs font-bold text-slate-200">Master-Passwort ändern</span>
+                <span className="block text-[9px] text-slate-500 uppercase tracking-widest">Sicherheits-Key neu generieren</span>
+              </div>
+              <ChevronRight size={16} className="text-slate-700 group-hover:text-cyan-500" />
+            </button>
           </div>
         </div>
 
@@ -184,6 +233,76 @@ export const SettingsView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      <Modal isOpen={showChangePwModal} onClose={() => setShowChangePwModal(false)} maxWidth="max-w-md">
+        <form onSubmit={handleChangePw} className="flex flex-col space-y-6">
+          <div className="flex items-center gap-4 pb-4 border-b border-slate-700/30">
+            <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
+              <KeyRound size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white tracking-tight">Passwort ändern</h3>
+              <p className="text-xs text-cyan-500/80 font-medium">Sicherheits-Update</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Aktuelles Passwort</label>
+              <input 
+                type="password"
+                value={oldPw}
+                onChange={e => setOldPw(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40"
+                placeholder="Bisheriges Passwort..."
+              />
+            </div>
+
+            <div className="pt-2 space-y-4 border-t border-slate-800/50">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Neues Passwort</label>
+                <input 
+                  type="password"
+                  value={newPw}
+                  onChange={e => setNewPw(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40"
+                  placeholder="Neues Passwort festlegen..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Neues Passwort bestätigen</label>
+                <input 
+                  type="password"
+                  value={confirmPw}
+                  onChange={e => setConfirmPw(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40"
+                  placeholder="Wiederholen..."
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button 
+              type="submit"
+              disabled={isProcessing}
+              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider disabled:opacity-50"
+            >
+              {isProcessing ? <RefreshCw size={18} className="animate-spin" /> : <Save size={18} />}
+              Speichern & Neu verschlüsseln
+            </button>
+            <button 
+              type="button"
+              onClick={() => setShowChangePwModal(false)}
+              className="btn-secondary-glass w-full h-12 rounded-xl"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Export Password Modal */}
       <Modal isOpen={showExportModal} onClose={() => setShowExportModal(false)} maxWidth="max-w-md">
