@@ -1,4 +1,3 @@
-
 import { jsPDF } from 'jspdf';
 import { AppState, Room } from '../types';
 import { minToTime, examSlotToMin } from '../utils/TimeService';
@@ -165,7 +164,8 @@ export const PdfExportService = {
         drawCellText(student?.lastName || '???', x, currentY, colWidths[3], 'left', true); x += colWidths[3];
         pdf.line(x, currentY, x, currentY + rowHeight);
         pdf.setFontSize(8);
-        const fachStr = `${exam.subject}${isCombined ? '*' : ''}${exam.groupId ? ` (${exam.groupId})` : ''}`;
+        // Changed: Removed groupId from the subject string
+        const fachStr = `${exam.subject}${isCombined ? '*' : ''}`;
         drawCellText(fachStr, x, currentY, colWidths[4], 'left'); x += colWidths[4];
         
         // Lehrer-Sonderlogik

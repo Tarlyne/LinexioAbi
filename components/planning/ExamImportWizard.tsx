@@ -1,8 +1,8 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { RawExamCSVRow } from '../../utils/csvParser';
 import { useApp } from '../../context/AppContext';
+import { useData } from '../../context/DataContext';
 import { Exam, Student, Teacher, Room, Subject } from '../../types';
 import { 
   AlertCircle, CheckCircle, ChevronRight, User, GraduationCap, 
@@ -23,7 +23,7 @@ interface MappingResult {
   chairId?: string;
   roomId?: string;
   prepRoomId?: string;
-  subjectId?: string; // Neu: Um Fachtypos zu validieren
+  subjectId?: string; 
   dayIdx?: number;
   slotIdx?: number;
   error?: string;
@@ -31,10 +31,10 @@ interface MappingResult {
 }
 
 export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onClose, rawData }) => {
-  const { state, addExams, showToast } = useApp();
+  const { addExams, showToast } = useApp();
+  const { days, rooms, teachers, students, subjects } = useData();
   const [mappings, setMappings] = useState<Record<number, MappingResult>>({});
 
-  // Initiales Auto-Mapping
   useEffect(() => {
     if (!isOpen || rawData.length === 0) return;
     
@@ -43,8 +43,7 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
     rawData.forEach((row, idx) => {
       const result: MappingResult = { row };
       
-      // 1. Tag finden
-      const dayIdx = state.days.findIndex(d => d.date === row.date);
+      const dayIdx = days.findIndex(d => d.date === row.date);
       if (dayIdx !== -1) {
         result.dayIdx = dayIdx;
       } else {
@@ -52,7 +51,6 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
         result.error = `Prüfungstag "${displayDate}" nicht in Datenbank vorhanden.`;
       }
 
-      // 2. Uhrzeit / Slot finden
       if (row.time) {
         const timeParts = row.time.split(':').map(Number);
         if (timeParts.length >= 2) {
@@ -64,24 +62,20 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
         }
       }
 
-      // 3. Räume finden
-      result.roomId = state.rooms.find(r => r.name.toLowerCase() === row.examRoom.toLowerCase())?.id;
-      result.prepRoomId = state.rooms.find(r => r.name.toLowerCase() === row.prepRoom.toLowerCase())?.id;
+      result.roomId = rooms.find(r => r.name.toLowerCase() === row.examRoom.toLowerCase())?.id;
+      result.prepRoomId = rooms.find(r => r.name.toLowerCase() === row.prepRoom.toLowerCase())?.id;
 
-      // 4. Lehrer finden
-      result.examinerId = state.teachers.find(t => t.shortName.toLowerCase() === row.examiner.toLowerCase())?.id;
-      result.protocolId = state.teachers.find(t => t.shortName.toLowerCase() === row.protocol.toLowerCase())?.id;
-      result.chairId = state.teachers.find(t => t.shortName.toLowerCase() === row.chair.toLowerCase())?.id;
+      result.examinerId = teachers.find(t => t.shortName.toLowerCase() === row.examiner.toLowerCase())?.id;
+      result.protocolId = teachers.find(t => t.shortName.toLowerCase() === row.protocol.toLowerCase())?.id;
+      result.chairId = teachers.find(t => t.shortName.toLowerCase() === row.chair.toLowerCase())?.id;
 
-      // 5. Fach finden (Typoschutz)
-      result.subjectId = state.subjects.find(s => s.name.toLowerCase() === row.subject.toLowerCase())?.id;
+      result.subjectId = subjects.find(s => s.name.toLowerCase() === row.subject.toLowerCase())?.id;
 
-      // 6. Schüler Fuzzy-Match
       const csvNameParts = row.studentName.split(',').map(s => s.trim().toLowerCase());
       const csvLast = csvNameParts[0];
       const csvFirstPart = csvNameParts[1] || '';
 
-      const candidates = state.students.filter(s => {
+      const candidates = students.filter(s => {
         const dbLast = s.lastName.toLowerCase();
         const dbFirst = s.firstName.toLowerCase();
         if (dbLast !== csvLast) return false;
@@ -99,7 +93,7 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
     });
 
     setMappings(newMappings);
-  }, [isOpen, rawData, state]);
+  }, [isOpen, rawData, days, rooms, teachers, students, subjects]);
 
   const updateMapping = (idx: number, field: keyof MappingResult, value: any) => {
     setMappings(prev => ({
@@ -112,28 +106,27 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
     return Object.entries(mappings) as [string, MappingResult][];
   }, [mappings]);
 
-  // Prüfung auf fehlende Stammdaten für das globale Warn-Panel
   const missingData = useMemo(() => {
     const dates = new Set<string>();
-    const rooms = new Set<string>();
-    const teachers = new Set<string>();
-    const subjects = new Set<string>();
+    const unknownRooms = new Set<string>();
+    const unknownTeachers = new Set<string>();
+    const unknownSubjects = new Set<string>();
 
     mappingEntries.forEach(([_, m]) => {
       if (m.row.date && m.dayIdx === undefined) dates.add(m.row.date.split('-').reverse().join('.'));
-      if (m.row.examRoom && !m.roomId) rooms.add(m.row.examRoom);
-      if (m.row.prepRoom && !m.prepRoomId) rooms.add(m.row.prepRoom);
-      if (m.row.examiner && !m.examinerId) teachers.add(m.row.examiner);
-      if (m.row.protocol && !m.protocolId) teachers.add(m.row.protocol);
-      if (m.row.chair && !m.chairId) teachers.add(m.row.chair);
-      if (m.row.subject && !m.subjectId) subjects.add(m.row.subject);
+      if (m.row.examRoom && !m.roomId) unknownRooms.add(m.row.examRoom);
+      if (m.row.prepRoom && !m.prepRoomId) unknownRooms.add(m.row.prepRoom);
+      if (m.row.examiner && !m.examinerId) unknownTeachers.add(m.row.examiner);
+      if (m.row.protocol && !m.protocolId) unknownTeachers.add(m.row.protocol);
+      if (m.row.chair && !m.chairId) unknownTeachers.add(m.row.chair);
+      if (m.row.subject && !m.subjectId) unknownSubjects.add(m.row.subject);
     });
 
     return { 
       dates: Array.from(dates), 
-      rooms: Array.from(rooms),
-      teachers: Array.from(teachers),
-      subjects: Array.from(subjects)
+      rooms: Array.from(unknownRooms),
+      teachers: Array.from(unknownTeachers),
+      subjects: Array.from(unknownSubjects)
     };
   }, [mappingEntries]);
 
@@ -159,7 +152,7 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
         return baseValid && optionalValid;
       })
       .map((m, idx) => {
-        const subjectName = state.subjects.find(s => s.id === m.subjectId)?.name || m.row.subject;
+        const sub = subjects.find(s => s.id === m.subjectId);
         return {
           id: `e-import-${Date.now()}-${idx}`,
           studentId: m.studentId!,
@@ -168,7 +161,7 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
           protocolId: m.protocolId,
           roomId: m.roomId,
           prepRoomId: m.prepRoomId,
-          subject: subjectName,
+          subject: sub?.name || m.row.subject,
           startTime: m.dayIdx !== undefined && m.slotIdx !== undefined ? (m.dayIdx * 1000) + m.slotIdx + 1 : 0,
           status: m.dayIdx !== undefined ? 'scheduled' : 'backlog'
         };
@@ -195,7 +188,6 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
         </div>
 
         <div className="flex-1 overflow-y-auto py-6 space-y-4 no-scrollbar">
-          {/* Globales Health-Panel */}
           {(missingData.dates.length > 0 || missingData.rooms.length > 0 || missingData.teachers.length > 0 || missingData.subjects.length > 0) && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
               <AlertCircle size={24} className="text-amber-500 shrink-0 mt-0.5" />
@@ -270,7 +262,6 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    {/* Schüler Mapper */}
                     <div className="space-y-1.5">
                       <label className="text-[9px] uppercase font-bold text-slate-500 flex items-center gap-1 truncate">
                         <User size={10} /> Prüfling ({m.row.studentName})
@@ -284,13 +275,12 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
                           }`}
                         >
                           <option value="">-- Wählen --</option>
-                          {state.students.map(s => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName}</option>)}
+                          {students.map(s => <option key={s.id} value={s.id}>{s.lastName}, {s.firstName}</option>)}
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
                       </div>
                     </div>
 
-                    {/* Fach Mapper (Neu validiert) */}
                     <div className="space-y-1.5">
                       <label className="text-[9px] uppercase font-bold text-slate-500 flex items-center gap-1 truncate">
                         <BookOpen size={10} /> Fach ({m.row.subject})
@@ -304,13 +294,12 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
                           }`}
                         >
                           <option value="">-- Wählen --</option>
-                          {state.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
                       </div>
                     </div>
 
-                    {/* Prüfer Mapper */}
                     <div className="space-y-1.5">
                       <label className="text-[9px] uppercase font-bold text-slate-500 flex items-center gap-1 truncate">
                         <GraduationCap size={10} /> Prüfer ({m.row.examiner})
@@ -324,13 +313,12 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
                           }`}
                         >
                           <option value="">-- Wählen --</option>
-                          {state.teachers.map(t => <option key={t.id} value={t.id}>{t.shortName}</option>)}
+                          {teachers.map(t => <option key={t.id} value={t.id}>{t.shortName}</option>)}
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
                       </div>
                     </div>
 
-                    {/* Protokoll Mapper (Neu validiert) */}
                     <div className="space-y-1.5">
                       <label className="text-[9px] uppercase font-bold text-slate-500 flex items-center gap-1 truncate">
                         <GraduationCap size={10} /> Protokoll ({m.row.protocol || '-'})
@@ -344,13 +332,12 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
                           }`}
                         >
                           <option value="">-- Wählen --</option>
-                          {state.teachers.map(t => <option key={t.id} value={t.id}>{t.shortName}</option>)}
+                          {teachers.map(t => <option key={t.id} value={t.id}>{t.shortName}</option>)}
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
                       </div>
                     </div>
 
-                    {/* Vorsitz Mapper (Neu validiert) */}
                     <div className="space-y-1.5">
                       <label className="text-[9px] uppercase font-bold text-slate-500 flex items-center gap-1 truncate">
                         <GraduationCap size={10} /> Vorsitz ({m.row.chair || '-'})
@@ -364,13 +351,12 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
                           }`}
                         >
                           <option value="">-- Wählen --</option>
-                          {state.teachers.map(t => <option key={t.id} value={t.id}>{t.shortName}</option>)}
+                          {teachers.map(t => <option key={t.id} value={t.id}>{t.shortName}</option>)}
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
                       </div>
                     </div>
 
-                    {/* Raum Mapper */}
                     <div className="space-y-1.5">
                       <label className="text-[9px] uppercase font-bold text-slate-500 flex items-center gap-1 truncate">
                         <MapPin size={10} /> Raum ({m.row.examRoom})
@@ -384,7 +370,7 @@ export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onCl
                           }`}
                         >
                           <option value="">-- Wählen --</option>
-                          {state.rooms.filter(r => r.type === 'Prüfungsraum').map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                          {rooms.filter(r => r.type === 'Prüfungsraum').map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
                       </div>

@@ -1,8 +1,8 @@
-
 import React from 'react';
 import { Exam, Student, Teacher, Room } from '../../types';
 import { Check, AlertCircle, Minus } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useData } from '../../context/DataContext';
 
 interface ExamCardProps {
   exam: Exam;
@@ -25,24 +25,20 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   hasConflict, onEdit, onRemove, slotHeight,
   isAnyDragging, onDragStart, onDragEnd
 }) => {
-  const { state } = useApp();
+  const { subjects } = useData();
   const slotIdx = (exam.startTime - 1) % 1000;
   const isComplete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
   
   // Kombi-Check
-  const subjectData = state.subjects.find(s => s.name === exam.subject);
+  const subjectData = subjects.find(s => s.name === exam.subject);
   const isCombined = subjectData?.isCombined;
 
   return (
     <div 
       draggable
       onDragStart={(e) => {
-        // Snapshot-First: Daten sofort setzen, bevor React re-rendert
         e.dataTransfer.setData('examId', exam.id);
         e.dataTransfer.effectAllowed = 'move';
-        
-        // Timeout 0 erlaubt dem Browser, den Snapshot des Elements zu machen,
-        // bevor die Logik (Highlighting etc.) den State ändert.
         setTimeout(() => onDragStart(exam.id), 0);
       }}
       onDragEnd={onDragEnd}
@@ -56,9 +52,6 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         height: (slotHeight * 3) - 4,
         left: 4,
         right: 4,
-        // CRITICAL FIX: Wenn eine Prüfung gezogen wird, schalten wir die Pointer-Events
-        // für alle bereits im Grid liegenden Karten aus. 
-        // So landen Drop-Events sicher auf den Slots im Hintergrund statt auf bestehenden Karten.
         pointerEvents: isAnyDragging ? 'none' : 'auto'
       }}
       className={`rounded-xl p-2.5 shadow-2xl border transition-all z-[35] cursor-grab active:cursor-grabbing overflow-hidden flex flex-col group exam-card-shadow

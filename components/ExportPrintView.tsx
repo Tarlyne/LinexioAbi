@@ -1,24 +1,30 @@
-
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { minToTime, examSlotToMin } from '../utils/TimeService';
+import { PRINT_STYLES } from '../utils/printStyles';
 
 interface ExportPrintViewProps {
   activeDayIdx: number;
   isPreview?: boolean;
 }
 
+/**
+ * Standard Print Layout for Exam Plans.
+ * Category C Refactoring: Uses external PRINT_STYLES.
+ */
 export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, isPreview = false }) => {
-  const { state } = useApp();
+  const { exams } = useApp();
+  const { days, rooms, teachers, subjects, students } = useData();
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
-  const activeDay = state.days[activeDayIdx];
+  const activeDay = days[activeDayIdx];
   
   const examYear = useMemo(() => {
-    if (state.days.length === 0) return new Date().getFullYear();
-    return new Date(state.days[0].date).getFullYear();
-  }, [state.days]);
+    if (days.length === 0) return new Date().getFullYear();
+    return new Date(days[0].date).getFullYear();
+  }, [days]);
 
   const formattedDate = useMemo(() => {
     if (!activeDay) return '';
@@ -40,14 +46,13 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
     return `Erstellt mit LinexioAbi am ${d}.${m}.${y} um ${hh}:${mm} Uhr.`;
   }, []);
 
-  // iPad-Optimierung: Skalierung der Vorschau berechnen
   useEffect(() => {
     if (isPreview && containerRef.current) {
       const updateScale = () => {
         const parent = containerRef.current?.parentElement;
         if (parent) {
-          const parentWidth = parent.clientWidth - 48; // Padding abziehen
-          const targetWidth = 794; // A4 Breite in PX
+          const parentWidth = parent.clientWidth - 48; 
+          const targetWidth = 794; 
           if (parentWidth < targetWidth) {
             setScale(parentWidth / targetWidth);
           } else {
@@ -65,11 +70,11 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
   const roomsWithExams = useMemo(() => {
     if (!activeDay) return [];
     
-    const sortedRooms = [...state.rooms]
+    const sortedRooms = [...rooms]
       .filter(r => r.type === 'Prüfungsraum')
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
-    const dayExams = state.exams.filter(e => 
+    const dayExams = exams.filter(e => 
       e.startTime > 0 && 
       Math.floor((e.startTime - 1) / 1000) === activeDayIdx &&
       e.status !== 'cancelled'
@@ -82,7 +87,7 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
       
       return { room, exams: roomExams };
     }).filter(group => group.exams.length > 0);
-  }, [state.rooms, state.exams, activeDayIdx, activeDay]);
+  }, [rooms, exams, activeDayIdx, activeDay]);
 
   if (!activeDay) return null;
 
@@ -108,69 +113,7 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
           transform: `scale(${scale})`,
         } : {}}
       >
-        <style>{`
-          .export-table { 
-            font-family: "Times New Roman", Times, Baskerville, Georgia, serif;
-            font-variant-numeric: lining-nums tabular-nums;
-            border-collapse: separate; 
-            border-spacing: 0;
-            width: 100%; 
-            border: none !important;
-          }
-          .export-table th, .export-table td { 
-            padding: 0; 
-            color: black !important;
-            border: 0.4pt solid #000;
-          }
-          .export-table th { 
-            height: 22pt;
-            background-color: #f3f4f6 !important; 
-            font-weight: bold; 
-            font-size: 8pt; 
-            font-family: 'Inter', sans-serif;
-            text-align: center;
-          }
-          .export-table td { 
-            height: 16pt; /* Kompakter: Von 18pt auf 16pt */
-            font-size: 9.5pt; 
-            overflow: hidden;
-          }
-          
-          /* CRITICAL: Flex-Wrapper für garantierte vertikale Zentrierung im PDF-Export */
-          .cell-wrap {
-            display: flex;
-            align-items: center;
-            height: 16pt;
-            width: 100%;
-            padding: 0 6px;
-            box-sizing: border-box;
-          }
-          .justify-center { justify-content: center; }
-          .justify-start { justify-content: flex-start; }
-
-          .print-zebra { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; }
-          
-          .header-grid { 
-            display: flex !important; 
-            flex-direction: row !important;
-            justify-content: space-between !important; 
-            align-items: baseline !important; 
-            margin-bottom: 24px; 
-            border-bottom: 1.8pt solid #000; 
-            padding-bottom: 4px; 
-            width: 100%;
-            font-family: 'Inter', sans-serif;
-          }
-          .header-left { font-weight: 700; font-size: 14pt; margin: 0; }
-          .header-right { font-size: 10pt; font-weight: 400; color: #333; }
-
-          .room-spacer td { 
-            border: 0px solid transparent !important;
-            height: 14pt;
-            padding: 0 !important;
-            background: transparent !important;
-          }
-        `}</style>
+        <style>{PRINT_STYLES}</style>
 
         <div className="header-grid">
           <h1 className="header-left">Mündliche Abiturprüfung {examYear}</h1>
@@ -198,13 +141,13 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
               return (
                 <React.Fragment key={group.room.id}>
                   {group.exams.map((exam, examIdx) => {
-                    const student = state.students.find(s => s.id === exam.studentId);
-                    const teacher = state.teachers.find(t => t.id === exam.teacherId);
-                    const chair = state.teachers.find(t => t.id === exam.chairId);
-                    const protocol = state.teachers.find(t => t.id === exam.protocolId);
-                    const prepRoom = state.rooms.find(r => r.id === exam.prepRoomId);
+                    const student = (students || []).find(s => s.id === exam.studentId);
+                    const teacher = (teachers || []).find(t => t.id === exam.teacherId);
+                    const chair = (teachers || []).find(t => t.id === exam.chairId);
+                    const protocol = (teachers || []).find(t => t.id === exam.protocolId);
+                    const prepRoom = (rooms || []).find(r => r.id === exam.prepRoomId);
                     
-                    const subjectData = state.subjects.find(s => s.name === exam.subject);
+                    const subjectData = (subjects || []).find(s => s.name === exam.subject);
                     const isCombined = subjectData?.isCombined;
 
                     const commissionKey = `${exam.teacherId}-${exam.chairId}-${exam.protocolId}`;
@@ -218,7 +161,6 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
 
                     const startTimeStr = minToTime(examSlotToMin(exam.startTime));
 
-                    // Sonderlogik für Anzeige
                     let examinerDisplay = teacher?.shortName || '-';
                     let protocolDisplay = protocol?.shortName || '-';
                     
@@ -233,7 +175,8 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
                         <td><div className="cell-wrap justify-center" style={{ fontSize: '8pt' }}>{prepRoom?.name || '-'}</div></td>
                         <td><div className="cell-wrap justify-center">{group.room.name}</div></td>
                         <td><div className="cell-wrap justify-start" style={{ fontWeight: 'bold' }}>{student?.lastName || '???'}</div></td>
-                        <td><div className="cell-wrap justify-start" style={{ fontSize: '8.5pt' }}>{exam.subject}{isCombined ? '*' : ''} {exam.groupId ? `(${exam.groupId})` : ''}</div></td>
+                        {/* Changed: Removed groupId from the subject cell display */}
+                        <td><div className="cell-wrap justify-start" style={{ fontSize: '8.5pt' }}>{exam.subject}{isCombined ? '*' : ''}</div></td>
                         <td><div className="cell-wrap justify-center" style={{ fontSize: isCombined ? '6.5pt' : '8pt' }}>{examinerDisplay}</div></td>
                         <td><div className="cell-wrap justify-center" style={{ fontSize: isCombined ? '6.5pt' : '8pt' }}>{protocolDisplay}</div></td>
                         <td><div className="cell-wrap justify-center" style={{ fontSize: '8pt' }}>{chair?.shortName || '-'}</div></td>

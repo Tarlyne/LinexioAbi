@@ -1,6 +1,6 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { Exam, Room, Student } from '../types';
 import { getExamTimes, getLivePhase, formatCountdown } from '../utils/timeEngine';
 
@@ -26,7 +26,8 @@ export interface LiveExamData {
 }
 
 export const useLive = () => {
-  const { state, togglePresence, completeExam } = useApp();
+  const { exams, togglePresence, completeExam } = useApp();
+  const { days, students, rooms } = useData();
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -35,35 +36,31 @@ export const useLive = () => {
   }, []);
 
   const todayStr = useMemo(() => now.toISOString().split('T')[0], [now]);
-  const currentDayIdx = useMemo(() => state.days.findIndex(d => d.date === todayStr), [state.days, todayStr]);
+  const currentDayIdx = useMemo(() => days.findIndex(d => d.date === todayStr), [days, todayStr]);
 
   const liveExams = useMemo((): LiveExamData[] => {
     if (currentDayIdx === -1) return [];
     
-    return state.exams
+    return exams
       .filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === currentDayIdx && e.status !== 'completed')
       .map(exam => {
         const times = getExamTimes(exam.startTime, now);
         const { phase, label, isBlinking } = getLivePhase(now, times, !!exam.isPresent);
         
-        // Logik-Korrektur: Worauf zählen wir gerade hin?
         let targetTime: Date | null = null;
         if (phase === 'WAITING' || phase === 'TAXI_TO_PREP') {
-          // Vor der Vorbereitung zählen wir zum Vorbereitungsstart
           targetTime = times.prepStart;
         } else if (phase === 'IN_PREP' || phase === 'TAXI_TO_EXAM') {
-          // In der Vorbereitung zählen wir zum Prüfungsstart
           targetTime = times.examStart;
         } 
-        // Bei IN_EXAM oder CHECK_IN_WARNING gibt es kein Zeit-Ziel mehr für den Countdown
 
         const countdown = formatCountdown(now, targetTime, times.examStart);
 
         return {
           exam,
-          student: state.students.find(s => s.id === exam.studentId),
-          room: state.rooms.find(r => r.id === exam.roomId),
-          prepRoom: state.rooms.find(r => r.id === exam.prepRoomId),
+          student: students.find(s => s.id === exam.studentId),
+          room: rooms.find(r => r.id === exam.roomId),
+          prepRoom: rooms.find(r => r.id === exam.prepRoomId),
           status: { phase, label, isBlinking, countdown },
           isUrgent: phase === 'CHECK_IN_WARNING',
           examTimeStr: times.examStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
@@ -72,13 +69,13 @@ export const useLive = () => {
         };
       })
       .sort((a, b) => a.exam.startTime - b.exam.startTime);
-  }, [state.exams, state.students, state.rooms, currentDayIdx, now]);
+  }, [exams, students, rooms, currentDayIdx, now, days]);
 
   const stats = useMemo(() => {
-    const total = state.exams.filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === currentDayIdx).length;
-    const completed = state.exams.filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === currentDayIdx && e.status === 'completed').length;
+    const total = exams.filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === currentDayIdx).length;
+    const completed = exams.filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === currentDayIdx && e.status === 'completed').length;
     return { total, completed, percent: total > 0 ? (completed / total) * 100 : 0 };
-  }, [state.exams, currentDayIdx]);
+  }, [exams, currentDayIdx]);
 
-  return { liveExams, stats, togglePresence, completeExam, now, hasData: state.days.length > 0 };
+  return { liveExams, stats, togglePresence, completeExam, now, hasData: days.length > 0 };
 };

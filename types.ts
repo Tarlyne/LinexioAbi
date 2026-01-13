@@ -1,4 +1,3 @@
-
 export type SupervisionStationType = 'Taxi' | 'Rechenzentrum' | 'Warteraum' | 'Vorbereitung' | 'Sonstiges';
 export type RoomType = 'Prüfungsraum' | 'Vorbereitungsraum' | 'Warteraum' | 'Aufsicht-Station';
 
@@ -68,6 +67,10 @@ export interface Supervision {
   subSlotIdx: number; 
 }
 
+export interface AppSettings {
+  autoLockMinutes: number; // 0 = Deaktiviert
+}
+
 export interface AppState {
   teachers: Teacher[];
   students: Student[];
@@ -79,5 +82,6 @@ export interface AppState {
   collectedExamIds: string[]; 
   isLocked: boolean;
   masterPassword: string | null;
+  settings: AppSettings;
   lastUpdate: number;
 }

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -109,22 +108,24 @@
             background: radial-gradient(circle at 50% -20%, #1e293b 0%, #0a0f1d 80%);
         }
 
-        .btn-primary-aurora {
+        /* Aurora Button Base & Shared Logic */
+        .btn-aurora-base, .btn-primary-aurora, .btn-indigo-aurora, .btn-warning-aurora, .btn-danger-aurora {
             position: relative;
-            background: linear-gradient(135deg, #0891b2 0%, #155e75 100%);
             color: white;
             font-weight: 700;
             overflow: hidden;
             transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-            box-shadow: 0 4px 12px -2px rgba(6, 182, 212, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            white-space: nowrap !important;
         }
 
-        .btn-primary-aurora::after {
+        .btn-aurora-base::after, .btn-primary-aurora::after, .btn-indigo-aurora::after, .btn-warning-aurora::after, .btn-danger-aurora::after {
             content: '';
             position: absolute;
             top: -50%; left: -60%; width: 25%; height: 200%;
@@ -132,17 +133,49 @@
             transform: rotate(25deg);
             transition: all 0.6s ease;
         }
+        
+        .btn-aurora-base:hover::after, .btn-primary-aurora:hover::after, .btn-indigo-aurora:hover::after, .btn-warning-aurora:hover::after, .btn-danger-aurora:hover::after { 
+            left: 130%; 
+        }
+        
+        .btn-aurora-base:active, .btn-primary-aurora:active, .btn-indigo-aurora:active, .btn-warning-aurora:active, .btn-danger-aurora:active { 
+            transform: scale(0.965); 
+        }
 
+        .btn-primary-aurora {
+            background: linear-gradient(135deg, #0891b2 0%, #155e75 100%);
+            box-shadow: 0 4px 12px -2px rgba(6, 182, 212, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3);
+        }
         .btn-primary-aurora:hover {
             transform: translateY(-1.5px);
             box-shadow: 0 8px 16px -4px rgba(6, 182, 212, 0.55), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.4);
         }
 
-        .btn-primary-aurora:hover::after { left: 130%; }
+        .btn-indigo-aurora {
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3);
+        }
+        .btn-indigo-aurora:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 8px 16px -4px rgba(79, 70, 229, 0.55), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.4);
+        }
 
-        .btn-primary-aurora:active {
-            transform: scale(0.965);
-            box-shadow: 0 2px 6px -1px rgba(6, 182, 212, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.15);
+        .btn-warning-aurora {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            box-shadow: 0 4px 12px -2px rgba(245, 158, 11, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3);
+        }
+        .btn-warning-aurora:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 8px 16px -4px rgba(245, 158, 11, 0.55), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.4);
+        }
+
+        .btn-danger-aurora {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            box-shadow: 0 4px 12px -2px rgba(220, 38, 38, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3);
+        }
+        .btn-danger-aurora:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 8px 16px -4px rgba(220, 38, 38, 0.55), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.4);
         }
 
         .btn-secondary-glass {
@@ -157,6 +190,7 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+            white-space: nowrap !important;
         }
 
         .btn-secondary-glass:hover {

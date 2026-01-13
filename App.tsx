@@ -1,5 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { DataProvider, useData } from './context/DataContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Layout } from './components/Layout';
 import { UnlockScreen } from './components/UnlockScreen';
@@ -11,24 +12,25 @@ import { StatsView } from './components/StatsView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/Toast';
 import { ExportPrintView } from './components/ExportPrintView';
+import { AutoLockWarningModal } from './components/AutoLockWarningModal';
 
 const MainView: React.FC = () => {
-  const { state, isLoading } = useApp();
+  const { isLocked } = useAuth();
+  const { isLoading } = useApp();
+  const { days } = useData();
   const [activeTab, setActiveTab] = useState('monitor');
   const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
 
   useEffect(() => {
     if (navigator.storage && navigator.storage.persist) {
       navigator.storage.persist().then((persistent) => {
-        if (persistent) {
-          console.debug("Storage persistent");
-        }
+        if (persistent) console.debug("Storage persistent");
       });
     }
   }, []);
 
   if (isLoading) return null;
-  if (state.isLocked) return <UnlockScreen />;
+  if (isLocked) return <UnlockScreen />;
   
   return (
     <>
@@ -47,11 +49,13 @@ const MainView: React.FC = () => {
             {activeTab === 'settings' && <SettingsView />}
           </div>
           <Toast />
+          <AutoLockWarningModal />
         </Layout>
       </div>
       
       <div className="print-only w-full">
-        {state.days.map((_, idx) => (
+        {/* Guard: Sicherstellen, dass days existiert, bevor gemappt wird */}
+        {(days || []).map((_, idx) => (
           <div key={idx} style={{ pageBreakAfter: 'always' }}>
             <ExportPrintView activeDayIdx={idx} isPreview={false} />
           </div>
@@ -63,9 +67,13 @@ const MainView: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AppProvider>
-      <MainView />
-    </AppProvider>
+    <AuthProvider>
+      <DataProvider>
+        <AppProvider>
+          <MainView />
+        </AppProvider>
+      </DataProvider>
+    </AuthProvider>
   );
 };
 

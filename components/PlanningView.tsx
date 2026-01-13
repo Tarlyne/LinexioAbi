@@ -1,8 +1,7 @@
-
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { 
   PlusCircle, AlertCircle, MapPin, Clock, Trash2, 
-  X, Save, ChevronDown, Settings, Layers, Printer, FileText, Download, Loader2, CheckCircle, Upload
+  X, Save, ChevronDown, Settings, Layers, Printer, FileText, Download, Loader2, CheckCircle, Upload, ShieldAlert, Info, AlertTriangle
 } from 'lucide-react';
 import { Exam } from '../types';
 import { Modal } from './Modal';
@@ -15,6 +14,9 @@ import { PdfExportService } from '../services/PdfExportService';
 import { parseAbiturExamsCSV, RawExamCSVRow } from '../utils/csvParser';
 import { ExamImportWizard } from './planning/ExamImportWizard';
 import { ImportInstructionsModal } from './planning/ImportInstructionsModal';
+import { runPreflightCheck } from '../utils/validationEngine';
+import { GridTimeColumn } from './common/GridTimeColumn';
+import { PlanningGridHeader } from './planning/PlanningGridHeader';
 
 interface PlanningViewProps {
   onSetHeaderActions?: (actions: React.ReactNode) => void;
@@ -22,7 +24,7 @@ interface PlanningViewProps {
 
 export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }) => {
   const {
-    state,
+    exams, days, rooms, teachers, students, subjects,
     searchTerm, setSearchTerm,
     sortOption, setSortOption,
     activeDay, setActiveDay,
@@ -33,7 +35,6 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
     isDraggingOverBacklog, setIsDraggingOverBacklog,
     draggingExamId, setDraggingExamId,
     dragCounter,
-    rooms,
     plannedExamsForDay,
     filteredAndSortedBacklog,
     handleDropToSlot,
@@ -45,7 +46,10 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
   const [isExporting, setIsExporting] = useState(false);
   const [showDownloadAnleitung, setShowDownloadAnleitung] = useState(false);
   
-  // Import States
+  const preflightIssues = useMemo(() => {
+    return runPreflightCheck({ exams, supervisions: [], days, rooms, teachers, students, subjects } as any, activeDay);
+  }, [exams, activeDay, days, rooms, teachers, students, subjects]);
+
   const [showInstructions, setShowInstructions] = useState(false);
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [importRawData, setImportRawData] = useState<RawExamCSVRow[]>([]);
@@ -67,9 +71,9 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
     return slots;
   }, []);
 
-  const prepRooms = useMemo(() => 
-    state.rooms.filter(r => r.type === 'Vorbereitungsraum'), 
-  [state.rooms]);
+  const prepRoomsList = useMemo(() => 
+    rooms.filter(r => r.type === 'Vorbereitungsraum'), 
+  [rooms]);
 
   const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -156,11 +160,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
     setShowDownloadAnleitung(false);
     setIsExporting(true);
     
-    const dayLabel = state.days[activeDay]?.label || "Prüfungsplan";
+    const dayLabel = days[activeDay]?.label || "Prüfungsplan";
     const filename = `Pruefungsplan_${dayLabel.replace(/\s/g, '_')}`;
 
     try {
-      await PdfExportService.generateAndDownload(state, activeDay, filename);
+      await PdfExportService.generateAndDownload({ exams, days, rooms, teachers, students, subjects } as any, activeDay, filename);
       showToast('PDF erfolgreich generiert.', 'success');
     } catch (err) {
       console.error(err);
@@ -171,18 +175,16 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
   };
 
   const formattedDayInfo = useMemo(() => {
-    const day = state.days[activeDay];
+    const day = days[activeDay];
     if (!day) return '';
     const dateStr = new Date(day.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
     return `${day.label} (${dateStr})`;
-  }, [state.days, activeDay]);
+  }, [days, activeDay]);
 
-  // Effekt zum Registrieren der Header-Buttons
   useEffect(() => {
     if (onSetHeaderActions) {
       onSetHeaderActions(
         <div className="flex items-center gap-2">
-          {/* Import Button */}
           <button 
             onClick={() => setShowInstructions(true)}
             className="btn-secondary-glass h-9 px-4 rounded-xl border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
@@ -200,7 +202,6 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
             onChange={handleCsvFileSelect} 
           />
 
-          {/* Export Button */}
           <button 
             onClick={() => setShowPrintPreview(true)}
             className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20 hover:border-cyan-500/50 text-slate-200"
@@ -214,13 +215,15 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
       
       return () => onSetHeaderActions(null);
     }
-  }, [onSetHeaderActions, setShowPrintPreview, showToast]);
+  }, [onSetHeaderActions, setShowPrintPreview, showToast, exams, days, rooms, teachers, students, subjects]);
 
   const getDeletingItemName = () => {
     if (!editingExam?.studentId) return 'Prüfung';
-    const student = state.students.find(s => s.id === editingExam.studentId);
+    const student = students.find(s => s.id === editingExam.studentId);
     return student ? `${student.lastName}, ${student.firstName}` : 'Prüfung';
   };
+
+  const planningRoomsList = useMemo(() => rooms.filter(r => r.type === 'Prüfungsraum'), [rooms]);
 
   return (
     <div className="flex flex-col h-full gap-4 overflow-hidden select-none print:hidden">
@@ -228,18 +231,18 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 shrink-0">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Prüfungsplan</h2>
-          <p className="text-cyan-500/80 text-xs font-medium">Verwaltung der Prüfungen</p>
+          <p className="text-cyan-500/80 text-[10px] font-bold tracking-wide mt-0.5">Verwaltung der Prüfungen</p>
         </div>
         
         <div className="segmented-control-wrapper w-full max-w-md shrink-0">
           <div 
             className="segmented-control-slider"
             style={{ 
-              width: `calc((100% - 6px) / ${state.days.length})`, 
+              width: `calc((100% - 6px) / ${days.length})`, 
               transform: `translateX(calc(${activeDay} * 100%))` 
             }}
           />
-          {state.days.map((day, idx) => (
+          {days.map((day, idx) => (
             <button
               key={day.id}
               onClick={() => setActiveDay(idx)}
@@ -259,9 +262,9 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
       <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
         <BacklogSidebar 
           exams={filteredAndSortedBacklog}
-          students={state.students}
-          teachers={state.teachers}
-          rooms={state.rooms}
+          students={students}
+          teachers={teachers}
+          rooms={rooms}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           sortOption={sortOption}
@@ -281,46 +284,35 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
         />
 
         <div className="flex-1 glass-nocturne border-slate-700/30 overflow-hidden flex flex-col min-w-0">
-          {rooms.length === 0 ? (
+          {planningRoomsList.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-3 italic text-sm">
               <MapPin size={40} className="opacity-10 mb-2" />
-              Keine Räume in der Datenbank hinterlegt.
+              Keine Prüfungsräume in der Datenbank hinterlegt.
             </div>
           ) : (
             <div className="flex-1 overflow-auto relative scroll-smooth no-scrollbar" ref={gridContainerRef}>
-              <div className="sticky top-0 z-40 flex bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/60 shadow-xl h-[44px] min-w-max w-full">
-                <div className="w-20 shrink-0 border-r border-slate-700/60 flex items-center justify-center bg-slate-900 sticky left-0 z-50">
-                  <Clock size={16} className="text-slate-500" />
-                </div>
-                {rooms.map(room => (
-                  <div key={room.id} className="min-w-[180px] flex-1 px-4 py-3 border-r border-slate-700/40 text-center truncate">
-                    <span className="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em]">{room.name}</span>
-                  </div>
-                ))}
-              </div>
+              <PlanningGridHeader rooms={planningRoomsList} />
 
               <div className="relative flex min-h-full">
-                <div className="w-20 shrink-0 border-r border-slate-700/60 bg-slate-900/40 sticky left-0 z-30 shadow-lg">
-                  {timeSlots.map((time, idx) => (
-                    <div 
-                      key={time} 
-                      className={idx % 6 === 0 
-                        ? 'grid-row-hour text-cyan-400 font-bold text-[11px]' 
-                        : 'grid-row text-slate-200 font-bold text-[10px]'}
-                    >
+                <GridTimeColumn 
+                  timeSlots={timeSlots} 
+                  slotHeight={SLOT_HEIGHT}
+                  renderSlot={(time, idx) => (
+                    <span className={idx % 6 === 0 ? 'text-cyan-400 font-bold text-[11px]' : 'text-slate-200 font-bold text-[10px]'}>
                       {time}
-                    </div>
-                  ))}
-                </div>
+                    </span>
+                  )}
+                />
 
                 <div className="flex-1 flex bg-slate-900/5 relative min-w-max">
-                  {rooms.map(room => (
+                  {planningRoomsList.map(room => (
                     <div key={room.id} className="min-w-[180px] flex-1 relative border-r border-slate-800/40">
                       <div className="absolute inset-0 pointer-events-none z-0">
                         {timeSlots.map((_, idx) => (
                           <div 
                             key={idx} 
-                            className={`opacity-50 ${idx % 6 === 0 ? 'grid-row-hour border-slate-700' : 'grid-row border-slate-800'}`} 
+                            style={{ height: SLOT_HEIGHT }}
+                            className={`opacity-50 border-b ${idx % 6 === 0 ? 'bg-cyan-500/5 border-slate-700' : 'border-slate-800'}`} 
                           />
                         ))}
                       </div>
@@ -365,11 +357,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                             <ExamCard 
                               key={examAtSlot.id}
                               exam={examAtSlot}
-                              student={state.students.find(s => s.id === examAtSlot.studentId)}
-                              teacher={state.teachers.find(t => t.id === examAtSlot.teacherId)}
-                              chair={state.teachers.find(t => t.id === examAtSlot.chairId)}
-                              protocol={state.teachers.find(t => t.id === examAtSlot.protocolId)}
-                              prepRoom={state.rooms.find(r => r.id === examAtSlot.prepRoomId)}
+                              student={students.find(s => s.id === examAtSlot.studentId)}
+                              teacher={teachers.find(t => t.id === examAtSlot.teacherId)}
+                              chair={teachers.find(t => t.id === examAtSlot.chairId)}
+                              protocol={teachers.find(t => t.id === examAtSlot.protocolId)}
+                              prepRoom={rooms.find(r => r.id === examAtSlot.prepRoomId)}
                               hasConflict={checkCollision(examAtSlot).hasConflict}
                               onEdit={openEditModal}
                               onRemove={handleRemoveFromGrid}
@@ -420,7 +412,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                       value={editingExam?.studentId || ''}
                     >
                       <option value="">Auswählen...</option>
-                      {state.students.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(s => (
+                      {students.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(s => (
                         <option key={s.id} value={s.id}>{s.lastName}, {s.firstName}</option>
                       ))}
                     </select>
@@ -437,7 +429,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                       value={editingExam?.subject || ''}
                     >
                       <option value="">Fach wählen...</option>
-                      {state.subjects.map(s => (
+                      {subjects.map(s => (
                         <option key={s.id} value={s.name}>{s.name}</option>
                       ))}
                     </select>
@@ -473,7 +465,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                         value={editingExam?.teacherId || ''}
                       >
                         <option value="">Nicht zugewiesen</option>
-                        {state.teachers.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(t => (
+                        {teachers.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(t => (
                           <option key={t.id} value={t.id}>{t.lastName}, {t.firstName} ({t.shortName})</option>
                         ))}
                       </select>
@@ -490,7 +482,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                         value={editingExam?.chairId || ''}
                       >
                         <option value="">Nicht zugewiesen</option>
-                        {state.teachers.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(t => (
+                        {teachers.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(t => (
                           <option key={t.id} value={t.id}>{t.lastName}, {t.firstName} ({t.shortName})</option>
                         ))}
                       </select>
@@ -507,7 +499,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                         value={editingExam?.protocolId || ''}
                       >
                         <option value="">Nicht zugewiesen</option>
-                        {state.teachers.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(t => (
+                        {teachers.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(t => (
                           <option key={t.id} value={t.id}>{t.lastName}, {t.firstName} ({t.shortName})</option>
                         ))}
                       </select>
@@ -528,7 +520,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                       value={editingExam?.prepRoomId || ''}
                     >
                       <option value="">Kein Vorbereitungsraum</option>
-                      {prepRooms.map(r => (
+                      {prepRoomsList.map(r => (
                         <option key={r.id} value={r.id}>{r.name}</option>
                       ))}
                     </select>
@@ -541,7 +533,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                 {editingExam?.id && (
                   <button 
                     type="button" 
-                    onClick={() => setShowDeleteConfirm(true)}
+                    onClick={() => { setShowDeleteConfirm(true); }}
                     className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold text-sm"
                   >
                     <Trash2 size={18} /> Löschen
@@ -568,7 +560,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
                 <button 
                   type="button" 
                   onClick={() => { deleteExam(editingExam!.id!); setShowModal(false); }}
-                  className="w-full h-14 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider transition-all"
+                  className="btn-danger-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider transition-all"
                 >
                   Unwiderruflich löschen
                 </button>
@@ -585,9 +577,10 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
         </div>
       </Modal>
 
-      <Modal isOpen={showPrintPreview} onClose={() => setShowPrintPreview(false)} maxWidth="max-w-4xl">
-        <div className="flex flex-col gap-6 h-full max-h-[85vh]">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
+      <Modal isOpen={showPrintPreview} onClose={() => setShowPrintPreview(false)} maxWidth="max-w-[1200px]">
+        {/* Changed: Set fixed height to h-[85vh] and overflow-hidden to main wrapper to prevent double scroll */}
+        <div className="flex flex-col gap-6 h-[85vh] overflow-hidden">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-700/30 shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
                 <FileText size={20} />
@@ -612,21 +605,64 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto bg-slate-900/40 rounded-2xl p-6 border border-slate-700/30 shadow-inner no-scrollbar text-black">
-            <div className="mx-auto">
-               <ExportPrintView activeDayIdx={activeDay} isPreview={true} />
-            </div>
-          </div>
+          <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
+            {/* Linke Seite: Preflight-Check Panel */}
+            <div className="w-72 flex flex-col gap-4 overflow-y-auto no-scrollbar pr-2 shrink-0">
+              <div className="glass-nocturne p-5 border border-slate-700/30 space-y-4">
+                <div className="flex items-center gap-3 border-b border-slate-700/30 pb-3">
+                  <ShieldAlert size={18} className="text-cyan-400" />
+                  <h4 className="text-sm font-bold text-white uppercase tracking-wider">Planungs-Check</h4>
+                </div>
+                
+                <div className="space-y-3">
+                  {preflightIssues.length === 0 ? (
+                    <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-start gap-3">
+                      <CheckCircle size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-slate-300">Keine Probleme gefunden. Der Plan ist bereit für den Export.</p>
+                    </div>
+                  ) : (
+                    preflightIssues.map((issue) => (
+                      <div 
+                        key={issue.id}
+                        className={`p-3 rounded-xl border flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-2 duration-300 ${
+                          issue.severity === 'error' ? 'bg-red-500/5 border-red-500/20' :
+                          issue.severity === 'warning' ? 'bg-amber-500/5 border-amber-500/20' :
+                          'bg-cyan-500/5 border-cyan-500/20'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {issue.severity === 'error' ? <AlertCircle size={14} className="text-red-500" /> :
+                           issue.severity === 'warning' ? <AlertTriangle size={14} className="text-amber-500" /> :
+                           <Info size={14} className="text-cyan-400" />}
+                          <span className={`text-[10px] font-bold uppercase tracking-tight ${
+                            issue.severity === 'error' ? 'text-red-400' :
+                            issue.severity === 'warning' ? 'text-amber-400' :
+                            'text-cyan-300'
+                          }`}>
+                            {issue.message}
+                          </span>
+                        </div>
+                        {issue.details && (
+                          <p className="text-[10px] text-slate-400 leading-tight pl-5 italic">
+                            {issue.details}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
 
-          <div className="flex items-center justify-center gap-6 py-2 shrink-0">
-            <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Native Vector Rendering
+              <div className="p-4 bg-slate-900/40 rounded-2xl border border-slate-800 text-[10px] text-slate-500 leading-relaxed italic">
+                Hinweis: Der Export wird trotz Warnungen zugelassen, um Zwischenstände speichern zu können.
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Precise Centering active
-            </div>
-            <div className="flex items-center gap-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-              <div className="w-2 h-2 rounded-full bg-cyan-500"></div> Format: A4 Portrait
+
+            {/* Rechte Seite: Preview Scroll-Area */}
+            <div className="flex-1 overflow-auto bg-slate-950/40 rounded-2xl p-6 border border-slate-700/30 shadow-inner no-scrollbar text-black">
+              <div className="mx-auto origin-top transition-transform duration-300">
+                 <ExportPrintView activeDayIdx={activeDay} isPreview={true} />
+              </div>
             </div>
           </div>
         </div>

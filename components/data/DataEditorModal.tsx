@@ -1,10 +1,9 @@
-
 import React from 'react';
 import { X, Trash2, Save, AlertTriangle, Check, Users, DoorOpen, Calendar, Shield, GraduationCap, ChevronDown, Layers, BookOpen } from 'lucide-react';
 import { Modal } from '../Modal';
-import { DataTab } from '../../hooks/useData';
+import { DataTab } from '../../hooks/useDataManagement';
 import { RoomType } from '../../types';
-import { useApp } from '../../context/AppContext';
+import { useData } from '../../context/DataContext';
 
 interface DataEditorModalProps {
   isOpen: boolean;
@@ -24,7 +23,7 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
   isOpen, onClose, activeTab, editingItem, formData, setFormData, 
   validationError, showDeleteConfirm, setShowDeleteConfirm, onSave, onDelete
 }) => {
-  const { state } = useApp();
+  const { subjects } = useData();
   const updateField = (f: string, v: any) => setFormData({ ...formData, [f]: v });
 
   const getIcon = () => {
@@ -127,7 +126,7 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
                         className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-200 focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
                       >
                         <option value="">-- Fach {idx + 1} wählen --</option>
-                        {state.subjects.map(s => (
+                        {subjects.map(s => (
                           <option key={s.id} value={s.id}>{s.name} ({s.shortName})</option>
                         ))}
                       </select>
@@ -276,11 +275,18 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
               )}
               <div className="flex gap-4">
                 {editingItem && (
-                  <button type="button" onClick={() => setShowDeleteConfirm(true)} className="btn-secondary-glass flex-1 h-12 rounded-xl text-sm border-red-500/20 text-red-400">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowDeleteConfirm(true)} 
+                    className="btn-secondary-glass flex-1 h-12 rounded-xl text-sm border-red-500/20 text-red-400 flex items-center justify-center gap-2"
+                  >
                     <Trash2 size={18} /> Löschen
                   </button>
                 )}
-                <button type="submit" className="btn-primary-aurora flex-[2] h-12 rounded-xl text-sm">
+                <button 
+                  type="submit" 
+                  className="btn-aurora-base btn-primary-aurora flex-[2] h-12 rounded-xl text-sm"
+                >
                   <Save size={18} /> Speichern
                 </button>
               </div>
@@ -294,7 +300,7 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
               <p className="text-xs text-slate-400">Dies kann nicht rückgängig gemacht werden.</p>
             </div>
             <div className="flex flex-col gap-3">
-              <button type="button" onClick={onDelete} className="w-full h-14 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm uppercase tracking-wider transition-all">Jetzt löschen</button>
+              <button type="button" onClick={onDelete} className="btn-danger-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider">Jetzt löschen</button>
               <button type="button" onClick={() => setShowDeleteConfirm(false)} className="btn-secondary-glass w-full h-12 rounded-xl">Abbrechen</button>
             </div>
           </div>

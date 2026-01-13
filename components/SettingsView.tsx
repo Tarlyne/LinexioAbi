@@ -1,477 +1,412 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { 
-  Download, 
-  Upload, 
-  Database, 
-  Lock, 
-  ChevronRight,
-  AlertCircle,
-  AlertTriangle,
-  FileKey,
-  CheckCircle2,
-  XCircle,
-  ShieldAlert,
-  Save,
-  KeyRound,
-  RefreshCw
+  Download, Upload, Database, Lock, ChevronRight, AlertCircle, FileKey, Clock, ShieldCheck, KeyRound, Save, AlertTriangle, CheckCircle2, Info, Trash2,
+  RefreshCw, Loader2, X, ChevronDown
 } from 'lucide-react';
 import { Modal } from './Modal';
 
 export const SettingsView: React.FC = () => {
-  const { state, exportState, importState, resetForNewYear, changeMasterPassword, showToast } = useApp();
+  const { settings, updateSettings, changeMasterPassword } = useAuth();
+  const { exportState, importState, resetForNewYear, showToast, exams, supervisions, collectedExamIds } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [showResetModal, setShowResetModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showChangePwModal, setShowChangePwModal] = useState(false);
+  const [isStoragePersistent, setIsStoragePersistent] = useState<boolean | null>(null);
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [backupPassword, setBackupPassword] = useState('');
+  const [confirmBackupPassword, setConfirmBackupPassword] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Form states for change password
   const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.name.endsWith('.lxabi')) {
-      setSelectedFile(file);
-      setBackupPassword('');
-      setShowImportModal(true);
-    } else {
-      showToast('Ungültiges Dateiformat. Bitte .lxabi nutzen.', 'error');
+  useEffect(() => {
+    if (navigator.storage && navigator.storage.persisted) {
+      navigator.storage.persisted().then(p => setIsStoragePersistent(p));
     }
-    e.target.value = '';
+  }, []);
+
+  const handleChangePw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPw !== confirmPw) { showToast('Passwörter ungleich', 'error'); return; }
+    setIsProcessing(true);
+    const success = await changeMasterPassword(oldPw, newPw, { exams, supervisions, collectedExamIds });
+    setIsProcessing(false);
+    if (success) {
+      setShowChangePwModal(false);
+      showToast('Passwort erfolgreich geändert', 'success');
+      setOldPw(''); setNewPw(''); setConfirmPw('');
+    } else showToast('Aktuelles Passwort falsch', 'error');
   };
 
   const handleExport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (backupPassword.length < 4) {
-      showToast('Passwort zu kurz (min. 4 Zeichen).', 'warning');
-      return;
-    }
+    if (!backupPassword) { showToast('Bitte Passwort vergeben', 'warning'); return; }
+    if (backupPassword !== confirmBackupPassword) { showToast('Die Passwörter stimmen nicht überein', 'error'); return; }
+    
     setIsProcessing(true);
     await exportState(backupPassword);
     setIsProcessing(false);
     setShowExportModal(false);
     setBackupPassword('');
-  };
-
-  const handleImport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile || !backupPassword) return;
-    
-    setIsProcessing(true);
-    const success = await importState(selectedFile, backupPassword);
-    setIsProcessing(false);
-    
-    if (success) {
-      setShowImportModal(false);
-      setSelectedFile(null);
-      setBackupPassword('');
-    }
-  };
-
-  const handleChangePw = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!oldPw || !newPw || !confirmPw) {
-      showToast('Bitte alle Felder ausfüllen.', 'warning');
-      return;
-    }
-    if (newPw.length < 4) {
-      showToast('Das neue Passwort muss mindestens 4 Zeichen lang sein.', 'warning');
-      return;
-    }
-    if (newPw !== confirmPw) {
-      showToast('Die neuen Passwörter stimmen nicht überein.', 'error');
-      return;
-    }
-
-    setIsProcessing(true);
-    const success = await changeMasterPassword(oldPw, newPw);
-    setIsProcessing(false);
-
-    if (success) {
-      setShowChangePwModal(false);
-      setOldPw('');
-      setNewPw('');
-      setConfirmPw('');
-    } else {
-      showToast('Aktuelles Passwort ist nicht korrekt.', 'error');
-    }
-  };
-
-  const confirmReset = () => {
-    resetForNewYear();
-    setShowResetModal(false);
+    setConfirmBackupPassword('');
   };
 
   return (
     <div className="h-full flex flex-col overflow-hidden animate-in fade-in duration-500 w-full relative">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 mb-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 shrink-0 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Einstellungen</h2>
-          <p className="text-cyan-500/80 text-xs font-medium">Systemverwaltung & Datensicherheit</p>
+          <p className="text-cyan-500/80 text-[10px] font-bold tracking-wide mt-0.5">Systemverwaltung & Datensicherheit</p>
         </div>
+        
+        {isStoragePersistent !== null && (
+          <div className={`px-4 py-2 rounded-xl border flex items-center gap-3 transition-all ${
+            isStoragePersistent ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+          }`}>
+            {isStoragePersistent ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            <div className="flex flex-col">
+               <span className="text-[10px] font-black uppercase leading-none mb-0.5">Datenbank-Status</span>
+               <span className="text-xs font-bold">{isStoragePersistent ? 'Persistent (Sicher)' : 'Temporär'}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto pr-2 -mr-2 no-scrollbar space-y-6 pb-10">
-        
-        {/* Datensicherung Section */}
-        <div className="glass-nocturne border border-slate-700/30 overflow-hidden">
-          <div className="p-6 border-b border-slate-700/30 bg-slate-900/40 flex items-center gap-4">
-            <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
-              <Database size={20} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Daten & Backup</h3>
-              <p className="text-[10px] text-slate-500">AES-256 verschlüsselte Dateisicherung</p>
-            </div>
-          </div>
-          
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button 
-              onClick={() => { setShowExportModal(true); setBackupPassword(''); }}
-              className="btn-secondary-glass flex items-center gap-4 p-5 rounded-2xl group text-left border-slate-700/50"
-            >
-              <div className="w-12 h-12 bg-cyan-600/10 rounded-xl flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform shadow-inner">
-                <FileKey size={24} />
-              </div>
-              <div className="flex-1">
-                <span className="block text-sm font-bold text-slate-200">Backup speichern</span>
-                <span className="block text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Separate Passwort-Vergabe</span>
-              </div>
-              <ChevronRight size={18} className="text-slate-700 group-hover:text-cyan-500 transition-colors" />
-            </button>
+        {/* Datensicherung */}
+        <div className="glass-nocturne border border-slate-700/30 overflow-hidden relative group">
+           <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-50"></div>
+           <div className="p-6">
+              <h3 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                <Database size={16} className="text-cyan-400" /> Datensicherung
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <button onClick={() => setShowExportModal(true)} className="btn-secondary-glass p-6 rounded-2xl text-left border-slate-700/50 hover:bg-slate-800/40 group/btn relative overflow-hidden">
+                   <div className="absolute -top-2 -right-2 p-4 opacity-10 group-hover/btn:opacity-20 transition-all group-hover/btn:scale-110 group-hover/btn:-rotate-12 pointer-events-none">
+                     <FileKey size={56} />
+                   </div>
+                   <div className="pr-16 relative z-10">
+                     <FileKey size={28} className="mb-4 text-cyan-400" />
+                     <span className="block text-base font-black text-white leading-tight">Backup exportieren</span>
+                     <span className="block text-xs text-slate-500 mt-1.5 font-medium leading-snug">Verschlüsselte .lxabi Datei erstellen</span>
+                   </div>
+                 </button>
 
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="btn-secondary-glass flex items-center gap-4 p-5 rounded-2xl group text-left border-slate-700/50"
-            >
-              <div className="w-12 h-12 bg-amber-600/10 rounded-xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform shadow-inner">
-                <Upload size={24} />
+                 <button onClick={() => fileInputRef.current?.click()} className="btn-secondary-glass p-6 rounded-2xl text-left border-slate-700/50 hover:bg-slate-800/40 group/btn relative overflow-hidden">
+                   <div className="absolute -top-2 -right-2 p-4 opacity-10 group-hover/btn:opacity-20 transition-all group-hover/btn:scale-110 group-hover/btn:-rotate-12 pointer-events-none">
+                     <Upload size={56} />
+                   </div>
+                   <div className="pr-16 relative z-10">
+                     <Upload size={28} className="mb-4 text-amber-400" />
+                     <span className="block text-base font-black text-white leading-tight">Backup importieren</span>
+                     <span className="block text-xs text-slate-500 mt-1.5 font-medium leading-snug">Bestehende Daten überschreiben</span>
+                   </div>
+                 </button>
+                 
+                 <input type="file" ref={fileInputRef} className="hidden" accept=".lxabi" onChange={e => {
+                   const f = e.target.files?.[0];
+                   if (f) { setSelectedFile(f); setShowImportModal(true); }
+                 }} />
               </div>
-              <div className="flex-1">
-                <span className="block text-sm font-bold text-slate-200">Backup laden</span>
-                <span className="block text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Datenpaket einspielen</span>
-              </div>
-              <ChevronRight size={18} className="text-slate-700 group-hover:text-amber-500 transition-colors" />
-            </button>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept=".lxabi" 
-              onChange={onFileChange} 
-            />
-          </div>
+           </div>
         </div>
 
-        {/* Sicherheit Status */}
-        <div className="glass-nocturne border border-slate-700/30 overflow-hidden">
-          <div className="p-6 border-b border-slate-700/30 bg-slate-900/40 flex items-center gap-4">
-            <div className="w-10 h-10 bg-cyan-700/20 rounded-xl flex items-center justify-center border border-cyan-700/30 text-cyan-500">
-              <Lock size={20} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Verschlüsselung</h3>
-              <p className="text-[10px] text-slate-500">Status der Zugangskontrolle</p>
-            </div>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl shadow-inner">
-              <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${state.masterPassword ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
-                <div>
-                  <span className="block text-xs font-bold text-slate-200">System-Schutz</span>
-                  <span className="block text-[10px] text-slate-500 uppercase tracking-widest">{state.masterPassword ? 'AES-GCM aktiv' : 'Kein Passwort'}</span>
+        {/* Sicherheit */}
+        <div className="glass-nocturne border border-slate-700/30 overflow-hidden relative">
+           <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-50"></div>
+           <div className="p-6">
+              <h3 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                <Lock size={16} className="text-indigo-400" /> Sicherheit & Privatsphäre
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-5 bg-slate-900/60 rounded-2xl border border-slate-800/50 shadow-inner">
+                     <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500">
+                          <Clock size={20} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black text-white leading-none">Auto-Lock Timer</span>
+                          <span className="text-[10px] text-slate-500 font-bold uppercase mt-1">Automatische Sperre</span>
+                        </div>
+                     </div>
+                     <div className="relative group min-w-[120px]">
+                       <select 
+                         value={settings.autoLockMinutes} 
+                         onChange={e => updateSettings({ autoLockMinutes: parseInt(e.target.value) })} 
+                         className="w-full appearance-none bg-slate-950 text-sm font-bold text-white border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 outline-none focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
+                       >
+                          <option value={5}>5 Min</option>
+                          <option value={10}>10 Min</option>
+                          <option value={30}>30 Min</option>
+                          <option value={0}>Deaktiviert</option>
+                       </select>
+                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600" size={16} />
+                     </div>
+                  </div>
                 </div>
-              </div>
-              <div className="text-[10px] text-slate-600 font-mono italic">
-                {state.masterPassword ? 'Verschlüsselt' : 'Ungeschützt'}
-              </div>
-            </div>
 
-            <button 
-              onClick={() => setShowChangePwModal(true)}
-              className="w-full flex items-center gap-4 p-4 bg-slate-800/20 border border-slate-700/40 rounded-2xl hover:bg-slate-800/40 hover:border-cyan-500/40 transition-all group text-left"
-            >
-              <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center text-cyan-400 group-hover:rotate-12 transition-transform">
-                <RefreshCw size={18} />
+                <button onClick={() => setShowChangePwModal(true)} className="btn-secondary-glass p-5 rounded-2xl border-slate-700/50 flex items-center justify-between group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400 group-hover:bg-indigo-500/20 transition-all">
+                      <KeyRound size={20} />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-sm font-black text-white leading-none">Master-Passwort</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase mt-1">Passwort ändern</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-600 group-hover:text-white transition-all" />
+                </button>
               </div>
-              <div className="flex-1">
-                <span className="block text-xs font-bold text-slate-200">Master-Passwort ändern</span>
-                <span className="block text-[9px] text-slate-500 uppercase tracking-widest">Sicherheits-Key neu generieren</span>
-              </div>
-              <ChevronRight size={16} className="text-slate-700 group-hover:text-cyan-500" />
-            </button>
-          </div>
+           </div>
         </div>
 
-        {/* Gefahrzone Section */}
-        <div className="mt-12 space-y-4">
-          <h3 className="text-[11px] font-black text-red-500 uppercase tracking-[0.3em] ml-4">Gefahrenzone</h3>
-          
-          <button 
-            onClick={() => setShowResetModal(true)}
-            className="w-full flex items-center gap-6 p-6 bg-red-900/5 border border-red-900/20 rounded-3xl hover:bg-red-900/10 hover:border-red-900/40 transition-all group text-left"
-          >
-            <div className="w-14 h-14 bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-red-950/20">
-              <Database size={28} />
-            </div>
-            <div className="flex-1">
-              <span className="block text-lg font-bold text-slate-200">Neues Prüfungsjahr vorbereiten</span>
-              <span className="block text-xs text-slate-500 mt-1">Löscht alle Prüfungsdaten, Schüler und Lehrer für den Neustart.</span>
-            </div>
-            <ChevronRight size={24} className="text-red-900/40" />
-          </button>
+        {/* Gefahrenzone */}
+        <div className="mt-12 p-8 bg-red-950/10 border border-red-500/20 rounded-[2rem] relative overflow-hidden">
+           <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none rotate-12">
+             <ShieldCheck size={120} className="text-red-500" />
+           </div>
+           
+           <h3 className="text-[11px] font-black text-red-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+             <AlertTriangle size={16} /> Gefahrenzone
+           </h3>
+           
+           <div className="flex flex-col md:flex-row items-center gap-6">
+             <div className="flex-1 space-y-2">
+               <h4 className="text-lg font-black text-white tracking-tight">Neues Prüfungsjahr vorbereiten</h4>
+               <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
+                 Diese Funktion bereinigt die Datenbank von allen variablen Daten und Stammdaten (Prüfungen, Lehrer, Räume, Schüler). 
+                 Lediglich die <strong>Fächer</strong> bleiben erhalten, um einen schnellen Start ins neue Jahr zu ermöglichen.
+               </p>
+             </div>
+             <button 
+               onClick={() => setShowResetModal(true)} 
+               className="btn-aurora-base btn-danger-aurora w-full md:w-auto px-8 py-4 rounded-2xl text-sm"
+             >
+               <RefreshCw size={18} /> <span>Zurücksetzen</span>
+             </button>
+           </div>
         </div>
       </div>
 
-      {/* Change Password Modal */}
+      {/* Reset Modal */}
+      <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} maxWidth="max-w-lg">
+         <div className="flex flex-col items-center text-center space-y-6 py-4">
+            <div className="w-20 h-20 bg-red-500/10 rounded-3xl flex items-center justify-center border border-red-500/20 text-red-500 shadow-[0_0_50px_rgba(239,68,68,0.2)]">
+               <ShieldCheck size={44} />
+            </div>
+            
+            <div className="space-y-2">
+               <h3 className="text-2xl font-black text-white tracking-tight">Vorsicht: Daten-Reset</h3>
+               <p className="text-sm text-slate-400">Möchtest du die Datenbank wirklich für ein neues Jahr vorbereiten?</p>
+            </div>
+
+            <div className="w-full bg-slate-900/60 rounded-2xl border border-slate-800 p-5 text-left space-y-4 shadow-inner">
+               <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-2">Was gelöscht wird:</div>
+               <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: 'Lehrkräfte', count: 'Alle' },
+                    { label: 'Prüfungsplan', count: exams.length },
+                    { label: 'Aufsichtsplan', count: supervisions.length },
+                    { label: 'Räume & Tage', count: 'Alle' },
+                    { label: 'Protokoll-Logs', count: collectedExamIds.length },
+                    { label: 'Schüler-Liste', count: 'Alle' }
+                  ].map(item => (
+                    <div key={item.label} className="flex items-center gap-2 text-red-400/80">
+                      <Trash2 size={12} />
+                      <span className="text-[11px] font-bold">{item.label}</span>
+                      <span className="text-[10px] bg-red-500/10 px-1.5 rounded ml-auto">{item.count}</span>
+                    </div>
+                  ))}
+               </div>
+               <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800 pt-2 pb-2">Was erhalten bleibt:</div>
+               <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 text-emerald-400/80">
+                    <CheckCircle2 size={12} />
+                    <span className="text-[11px] font-bold">Fächer-Katalog</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-400/80">
+                    <CheckCircle2 size={12} />
+                    <span className="text-[11px] font-bold">Master-Passwort</span>
+                  </div>
+               </div>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+               <button 
+                 onClick={() => { resetForNewYear(); setShowResetModal(false); }} 
+                 className="btn-aurora-base btn-danger-aurora w-full h-14 rounded-2xl text-sm uppercase tracking-widest"
+               >
+                 Jetzt zurücksetzen
+               </button>
+               <button onClick={() => setShowResetModal(false)} className="text-slate-500 hover:text-white text-xs font-bold uppercase py-2 transition-colors">
+                  Vorgang abbrechen
+               </button>
+            </div>
+         </div>
+      </Modal>
+
+      {/* Change PW Modal */}
       <Modal isOpen={showChangePwModal} onClose={() => setShowChangePwModal(false)} maxWidth="max-w-md">
-        <form onSubmit={handleChangePw} className="flex flex-col space-y-6">
-          <div className="flex items-center gap-4 pb-4 border-b border-slate-700/30">
-            <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
-              <KeyRound size={20} />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">Passwort ändern</h3>
-              <p className="text-xs text-cyan-500/80 font-medium">Sicherheits-Update</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Aktuelles Passwort</label>
-              <input 
-                type="password"
-                value={oldPw}
-                onChange={e => setOldPw(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40"
-                placeholder="Bisheriges Passwort..."
-              />
+         <form onSubmit={handleChangePw} className="space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
+               <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 text-indigo-400">
+                     <KeyRound size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-white tracking-tight">Passwort ändern</h3>
+                    <p className="text-[10px] text-indigo-500/80 font-black uppercase tracking-[0.15em]">Sicherheitseinstellungen</p>
+                  </div>
+               </div>
+               <button type="button" onClick={() => setShowChangePwModal(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+                 <X size={20} />
+               </button>
             </div>
 
-            <div className="pt-2 space-y-4 border-t border-slate-800/50">
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Neues Passwort</label>
-                <input 
-                  type="password"
-                  value={newPw}
-                  onChange={e => setNewPw(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40"
-                  placeholder="Neues Passwort festlegen..."
-                />
-              </div>
+            <p className="text-xs text-slate-400 leading-relaxed bg-indigo-500/5 p-4 rounded-2xl border border-indigo-500/10">
+              Das Master-Passwort schützt den Zugriff auf die gesamte LinexioAbi Datenbank. 
+              <strong> Wichtig:</strong> Ein verlorenes Passwort kann aus Sicherheitsgründen nicht wiederhergestellt werden.
+            </p>
 
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Neues Passwort bestätigen</label>
-                <input 
-                  type="password"
-                  value={confirmPw}
-                  onChange={e => setConfirmPw(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40"
-                  placeholder="Wiederholen..."
-                />
-              </div>
+            <div className="space-y-4">
+               <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Aktuelles Passwort</label>
+                  <input 
+                    autoFocus
+                    type="password" 
+                    placeholder="Aktuelles Passwort eingeben" 
+                    value={oldPw} 
+                    onChange={e => setOldPw(e.target.value)} 
+                    className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:ring-1 focus:ring-indigo-500/40" 
+                  />
+               </div>
+               <div className="h-px bg-slate-800/50 my-2"></div>
+               <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Neues Master-Passwort</label>
+                  <input 
+                    type="password" 
+                    placeholder="Neues Passwort wählen" 
+                    value={newPw} 
+                    onChange={e => setNewPw(e.target.value)} 
+                    className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:ring-1 focus:ring-emerald-500/40" 
+                  />
+               </div>
+               <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Passwort bestätigen</label>
+                  <input 
+                    type="password" 
+                    placeholder="Passwort wiederholen" 
+                    value={confirmPw} 
+                    onChange={e => setConfirmPw(e.target.value)} 
+                    className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:ring-1 focus:ring-emerald-500/40" 
+                  />
+               </div>
             </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <button 
-              type="submit"
-              disabled={isProcessing}
-              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider disabled:opacity-50"
-            >
-              {isProcessing ? <RefreshCw size={18} className="animate-spin" /> : <Save size={18} />}
-              Speichern & Neu verschlüsseln
+            
+            <button disabled={isProcessing || !oldPw || !newPw || !confirmPw} className="btn-aurora-base btn-indigo-aurora w-full h-14 rounded-2xl font-black uppercase tracking-widest text-sm disabled:opacity-30">
+               {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+               <span>{isProcessing ? 'Speichere' : 'Neues Passwort'}</span>
             </button>
-            <button 
-              type="button"
-              onClick={() => setShowChangePwModal(false)}
-              className="btn-secondary-glass w-full h-12 rounded-xl"
-            >
-              Abbrechen
-            </button>
-          </div>
-        </form>
+         </form>
       </Modal>
 
-      {/* Export Password Modal */}
+      {/* Export Modal with Confirmation and Close Button */}
       <Modal isOpen={showExportModal} onClose={() => setShowExportModal(false)} maxWidth="max-w-md">
-        <form onSubmit={handleExport} className="flex flex-col space-y-6">
-          <div className="flex items-center gap-4 pb-4 border-b border-slate-700/30">
-            <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
-              <FileKey size={20} />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">Backup verschlüsseln</h3>
-              <p className="text-xs text-cyan-500/80 font-medium">Sicherer Export für Team-Transfer</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="p-4 bg-slate-900/50 rounded-2xl border border-slate-800 text-left space-y-2">
-              <div className="flex items-start gap-3">
-                <ShieldAlert size={16} className="text-amber-500 mt-0.5 shrink-0" />
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Dieses Passwort ist unabhängig von deinem Master-Passwort. Deine Kollegen benötigen es zum Einlesen der Datei.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Backup-Passwort festlegen</label>
-              <div className="relative">
-                <input 
-                  autoFocus
-                  type="password"
-                  value={backupPassword}
-                  onChange={e => setBackupPassword(e.target.value)}
-                  placeholder="Passwort wählen..."
-                  className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40"
-                />
-                <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <button 
-              type="submit"
-              disabled={isProcessing}
-              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider disabled:opacity-50"
-            >
-              <Download size={18} /> Backup generieren
-            </button>
-            <button 
-              type="button"
-              onClick={() => setShowExportModal(false)}
-              className="btn-secondary-glass w-full h-12 rounded-xl"
-            >
-              Abbrechen
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Import Password Modal */}
-      <Modal isOpen={showImportModal} onClose={() => { setShowImportModal(false); setSelectedFile(null); }} maxWidth="max-w-md">
-        <form onSubmit={handleImport} className="flex flex-col space-y-6">
-          <div className="flex items-center gap-4 pb-4 border-b border-slate-700/30">
-            <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 text-amber-500">
-              <Upload size={20} />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">Backup einspielen</h3>
-              <p className="text-xs text-amber-500/80 font-medium">Datei-Entschlüsselung</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-left space-y-2">
-              <div className="flex items-start gap-3">
-                <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
-                <p className="text-[11px] text-slate-300 leading-relaxed font-bold">
-                  Achtung: Durch den Import werden alle aktuell vorhandenen Daten in dieser App unwiderruflich durch den Inhalt des Backups überschrieben!
-                </p>
-              </div>
-            </div>
-
-            <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-center gap-3">
-              <FileKey size={16} className="text-amber-500" />
-              <div className="truncate text-[11px] font-mono text-slate-300">
-                {selectedFile?.name}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">Backup-Passwort eingeben</label>
-              <div className="relative">
-                <input 
-                  autoFocus
-                  type="password"
-                  value={backupPassword}
-                  onChange={e => setBackupPassword(e.target.value)}
-                  placeholder="Passwort der Datei..."
-                  className="w-full bg-slate-950 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-amber-500/40"
-                />
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <button 
-              type="submit"
-              disabled={isProcessing}
-              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}
-            >
-              Entschlüsseln & Laden
-            </button>
-            <button 
-              type="button"
-              onClick={() => { setShowImportModal(false); setSelectedFile(null); }}
-              className="btn-secondary-glass w-full h-12 rounded-xl"
-            >
-              Abbrechen
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} maxWidth="max-w-md">
-        <div className="flex flex-col items-center text-center space-y-6">
-          <div className="w-16 h-16 bg-red-900/20 rounded-2xl flex items-center justify-center border border-red-900/30 text-red-500 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
-            <AlertCircle size={32} />
-          </div>
-          
-          <div>
-            <h3 className="text-xl font-bold text-white tracking-tight">
-              Neues Jahr vorbereiten?
-            </h3>
-            <p className="text-sm text-slate-400 mt-2">Diese Aktion bereinigt die Datenbank für den nächsten Abitur-Jahrgang.</p>
-          </div>
-
-          <div className="w-full space-y-3 bg-slate-900/50 p-4 rounded-2xl border border-slate-800 text-left">
-             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Auswirkungen:</div>
-             
-             <div className="space-y-2">
-               <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Prüfungsplan & Aufsichtsplan</div>
-               <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Schülerliste & Räume</div>
-               <div className="flex items-center gap-2 text-[11px] text-red-400"><XCircle size={14} /> Prüfungstage & Lehrkräfte</div>
-               <div className="flex items-center gap-2 text-[11px] text-emerald-500"><CheckCircle2 size={14} /> Fachkatalog bleibt erhalten</div>
-               <div className="flex items-center gap-2 text-[11px] text-emerald-500"><CheckCircle2 size={14} /> Master-Passwort bleibt erhalten</div>
+        <form onSubmit={handleExport} className="space-y-6">
+           <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
+             <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
+                  <FileKey size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white tracking-tight">Export verschlüsseln</h3>
+                  <p className="text-[10px] text-cyan-500/80 font-black uppercase tracking-[0.15em]">Datensicherung</p>
+                </div>
              </div>
-          </div>
+             <button type="button" onClick={() => setShowExportModal(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+               <X size={20} />
+             </button>
+           </div>
+           
+           <p className="text-xs text-slate-400 leading-relaxed bg-cyan-500/5 p-4 rounded-2xl border border-cyan-500/10">
+             Vergebe ein Passwort für die Backup-Datei. Dieses wird beim Import erneut abgefragt. 
+             <strong> Tipp:</strong> Das Passwort muss nicht identisch mit dem Master-Passwort sein.
+           </p>
+           
+           <div className="space-y-4">
+             <div className="space-y-1.5">
+               <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Sicherheits-Passwort</label>
+               <input 
+                 autoFocus
+                 type="password" 
+                 value={backupPassword} 
+                 onChange={e => setBackupPassword(e.target.value)} 
+                 className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:ring-1 focus:ring-cyan-500/40" 
+                 placeholder="Passwort für diese Datei" 
+               />
+             </div>
+             <div className="space-y-1.5">
+               <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Passwort wiederholen</label>
+               <input 
+                 type="password" 
+                 value={confirmBackupPassword} 
+                 onChange={e => setConfirmBackupPassword(e.target.value)} 
+                 className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:ring-1 focus:ring-cyan-500/40" 
+                 placeholder="Passwort erneut eingeben" 
+               />
+             </div>
+           </div>
+           
+           <button disabled={isProcessing || !backupPassword || !confirmBackupPassword} className="btn-aurora-base btn-primary-aurora w-full h-14 rounded-2xl font-black uppercase tracking-widest disabled:opacity-30">
+             {isProcessing ? <Loader2 className="animate-spin" /> : 'Backup generieren'}
+           </button>
+        </form>
+      </Modal>
 
-          <div className="w-full flex flex-col gap-3">
-            <button 
-              onClick={confirmReset}
-              className="btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase tracking-wider bg-red-600 hover:bg-red-500"
-              style={{ 
-                background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
-                boxShadow: '0 4px 12px -2px rgba(220, 38, 38, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3)'
-              }}
-            >
-              Bereinigung jetzt ausführen
-            </button>
-            <button 
-              onClick={() => setShowResetModal(false)}
-              className="btn-secondary-glass w-full h-12 rounded-xl"
-            >
-              Abbrechen
-            </button>
-          </div>
-        </div>
+      {/* Import Modal */}
+      <Modal isOpen={showImportModal} onClose={() => setShowImportModal(false)} maxWidth="max-w-md">
+        <form onSubmit={async e => { e.preventDefault(); setIsProcessing(true); const ok = await importState(selectedFile!, backupPassword); setIsProcessing(false); if(ok) setShowImportModal(false); }} className="space-y-6">
+           <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
+             <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 text-amber-400">
+                  <Upload size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white tracking-tight">Backup einspielen</h3>
+                  <p className="text-[10px] text-amber-500/80 font-black uppercase tracking-[0.15em]">Daten wiederherstellen</p>
+                </div>
+             </div>
+             <button type="button" onClick={() => setShowImportModal(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+               <X size={20} />
+             </button>
+           </div>
+
+           <div className="flex gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400">
+              <AlertTriangle size={20} className="shrink-0" />
+              <p className="text-[11px] font-bold leading-relaxed uppercase">Achtung: Dieser Vorgang löscht alle aktuellen Daten unwiderruflich und ersetzt sie durch das Backup!</p>
+           </div>
+           <input 
+             autoFocus
+             type="password" 
+             value={backupPassword} 
+             onChange={e => setBackupPassword(e.target.value)} 
+             className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:ring-1 focus:ring-amber-500/40" 
+             placeholder="Datei-Passwort eingeben" 
+           />
+           <button disabled={isProcessing || !backupPassword} className="btn-aurora-base btn-warning-aurora w-full h-14 rounded-2xl font-black uppercase tracking-widest disabled:opacity-30">
+             {isProcessing ? <Loader2 className="animate-spin" /> : 'Entschlüsseln & Laden'}
+           </button>
+        </form>
       </Modal>
     </div>
   );

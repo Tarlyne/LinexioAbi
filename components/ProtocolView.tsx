@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useProtocols } from '../hooks/useProtocols';
 import { CheckCircle2, Clock, MapPin, AlertCircle, FileStack, CheckCircle } from 'lucide-react';
@@ -40,7 +39,7 @@ export const ProtocolView: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full">
               <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
-              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Logistik-Aufsicht</span>
+              <span className="text-[10px] font-bold text-indigo-400 tracking-wide mt-0.5">Logistik-Aufsicht</span>
             </div>
             <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">
               {now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}

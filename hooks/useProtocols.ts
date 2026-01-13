@@ -1,6 +1,6 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { Exam, Room } from '../types';
 import { examSlotToMin } from '../utils/TimeService';
 
@@ -9,34 +9,35 @@ export interface ProtocolBlock {
   room: Room;
   examsCount: number;
   studentNames: string[];
-  pickupTimeMin: number; // Minuten seit Mitternacht
+  pickupTimeMin: number; 
   pickupTimeStr: string;
   status: 'WAITING' | 'READY' | 'LATE';
   isCollected: boolean;
 }
 
 export const useProtocols = () => {
-  const { state, toggleProtocolCollected } = useApp();
+  const { exams, collectedExamIds, toggleProtocolCollected } = useApp();
+  const { days, rooms: allRooms, students } = useData();
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 30000); // Alle 30 Sek. aktualisieren
+    const timer = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
 
   const todayStr = now.toISOString().split('T')[0];
-  const currentDayIdx = state.days.findIndex(d => d.date === todayStr);
+  const currentDayIdx = days.findIndex(d => d.date === todayStr);
 
   const protocolBlocks = useMemo((): ProtocolBlock[] => {
     if (currentDayIdx === -1) return [];
 
-    const dayExams = state.exams.filter(e => 
+    const dayExams = exams.filter(e => 
       e.startTime > 0 && 
       Math.floor((e.startTime - 1) / 1000) === currentDayIdx &&
       e.status !== 'cancelled'
     );
 
-    const rooms = state.rooms.filter(r => r.type === 'Prüfungsraum');
+    const rooms = allRooms.filter(r => r.type === 'Prüfungsraum');
     const blocks: ProtocolBlock[] = [];
 
     rooms.forEach(room => {
@@ -55,7 +56,6 @@ export const useProtocols = () => {
         const hasGap = !isLastInRoom && roomExams[i+1].startTime - roomExams[i].startTime > 3;
 
         if (isLastInRoom || hasGap) {
-          // Block-Ende erreicht
           const lastExam = roomExams[i];
           const pickupMin = examSlotToMin(lastExam.startTime) + 35;
           
@@ -64,9 +64,8 @@ export const useProtocols = () => {
           if (nowMin >= pickupMin + 15) status = 'LATE';
           else if (nowMin >= pickupMin) status = 'READY';
 
-          // Namen der Schüler im aktuellen Block sammeln
           const studentNames = currentBlockExams.map(e => {
-            const s = state.students.find(student => student.id === e.studentId);
+            const s = students.find(student => student.id === e.studentId);
             return s ? s.lastName : '???';
           });
 
@@ -78,7 +77,7 @@ export const useProtocols = () => {
             pickupTimeMin: pickupMin,
             pickupTimeStr: `${Math.floor(pickupMin / 60).toString().padStart(2, '0')}:${(pickupMin % 60).toString().padStart(2, '0')}`,
             status,
-            isCollected: state.collectedExamIds.includes(lastExam.id)
+            isCollected: collectedExamIds.includes(lastExam.id)
           });
           currentBlockExams = [];
         }
@@ -86,7 +85,7 @@ export const useProtocols = () => {
     });
 
     return blocks.sort((a, b) => a.pickupTimeMin - b.pickupTimeMin);
-  }, [state.exams, state.rooms, state.collectedExamIds, currentDayIdx, now, state.students]);
+  }, [exams, allRooms, collectedExamIds, currentDayIdx, now, students, days]);
 
-  return { protocolBlocks, toggleProtocolCollected, now, hasData: state.days.length > 0 };
+  return { protocolBlocks, toggleProtocolCollected, now, hasData: days.length > 0 };
 };

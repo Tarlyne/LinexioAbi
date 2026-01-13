@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { Settings } from 'lucide-react';
 import { DataTab } from '../../hooks/useData';
 import { RoomType, Teacher, Subject } from '../../types';
-import { useApp } from '../../context/AppContext';
+import { useData } from '../../context/DataContext';
 
 interface Column<T> {
   header: string;
@@ -21,7 +20,7 @@ interface DataListProps {
 }
 
 export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exitingId }) => {
-  const { state } = useApp();
+  const { subjects } = useData();
 
   const getRoomBadgeClass = (type: RoomType) => {
     switch (type) {
@@ -82,14 +81,13 @@ export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exi
     });
   }
 
-  // Sonderfall Lehrer: Fächer & Kürzel
   if (activeTab === 'teachers') {
     columns.push({
       header: 'Fächer',
       key: 'subjects',
       render: (item: Teacher) => {
         const shortNames = (item.subjectIds || [])
-          .map(id => state.subjects.find(s => s.id === id)?.shortName)
+          .map(id => subjects.find(s => s.id === id)?.shortName)
           .filter(Boolean);
         
         return (

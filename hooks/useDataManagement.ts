@@ -6,7 +6,11 @@ import { parseTeachersCSV, parseStudentsCSV } from '../utils/csvParser';
 
 export type DataTab = 'teachers' | 'students' | 'rooms' | 'days' | 'subjects';
 
-export const useData = () => {
+/**
+ * Hook for managing Stammdaten view state and CRUD operations.
+ * Category A Refactoring: Renamed to useDataManagement.
+ */
+export const useDataManagement = () => {
   // Stammdaten kommen direkt aus dem DataContext
   const { 
     teachers, students, rooms, days, subjects,
@@ -114,7 +118,7 @@ export const useData = () => {
       const defaults: any = {
         teachers: { lastName: '', firstName: '', shortName: '', isPartTime: false, subjectIds: [] },
         students: { lastName: '', firstName: '' },
-        rooms: { name: '', type: 'Prüfungsraum' },
+        rooms: { name: '', type: 'Prüfungsraum', requiredSupervisors: 1 },
         days: { date: new Date().toISOString().split('T')[0], label: `${days.length + 1}. Prüfungstag` },
         subjects: { name: '', shortName: '', isCombined: false }
       };

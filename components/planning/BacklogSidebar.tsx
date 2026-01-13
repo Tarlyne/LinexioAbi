@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Search, FileJson, PlusCircle, Check, Minus } from 'lucide-react';
 import { Exam, Student, Teacher, Room } from '../../types';
@@ -93,9 +92,10 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
           />
         </div>
 
+        {/* Systemweit einzeilig durch btn-aurora-base */}
         <button 
           onClick={onAddExam}
-          className="btn-primary-aurora w-full py-2.5 rounded-xl text-[11px] uppercase tracking-wider"
+          className="btn-aurora-base btn-primary-aurora w-full py-2.5 rounded-xl text-[11px] uppercase tracking-wider"
         >
           <PlusCircle size={14} /> Neue Prüfung
         </button>
