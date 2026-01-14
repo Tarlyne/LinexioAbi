@@ -1,3 +1,4 @@
+
 import { Exam, Teacher, Supervision, AppState, Subject } from '../types';
 import { TIME_CONFIG, timeToMin, examSlotToMin } from './TimeService';
 
@@ -127,6 +128,79 @@ export const checkExamCollision = (exam: Exam, allExams: Exam[]): { hasConflict:
   }
 
   return { hasConflict: false };
+};
+
+/**
+ * Kombinierte Konsistenzprüfung (Amber):
+ * 1. Fach-Vorbereitungsraum-Konsistenz
+ * 2. Gruppen-Block-Integrität (Raumtreue + Nahtlosigkeit)
+ */
+export const checkExamConsistency = (exam: Exam, allExams: Exam[]): { hasWarning: boolean; reason?: string } => {
+  if (exam.startTime === 0) return { hasWarning: false };
+  const dayIndex = Math.floor((exam.startTime - 1) / 1000);
+
+  // 1. Vorbereitungsraum-Check (Pro Fach und Tag)
+  if (exam.prepRoomId) {
+    const otherWithConflict = allExams.find(other => 
+      other.id !== exam.id && 
+      other.startTime > 0 &&
+      Math.floor((other.startTime - 1) / 1000) === dayIndex &&
+      other.subject === exam.subject &&
+      other.prepRoomId && other.prepRoomId !== exam.prepRoomId
+    );
+
+    if (otherWithConflict) {
+      return { 
+        hasWarning: true, 
+        reason: `Fachkonsistenz: Es gibt bereits Prüfungen im Fach ${exam.subject}, die einem anderen Vorbereitungsraum zugeordnet sind.` 
+      };
+    }
+  }
+
+  // 2. Gruppen-Check (Raumtreue & Nahtlosigkeit des Prüfungsblocks)
+  if (exam.groupId) {
+    // Alle geplanten Prüfungen dieser Gruppe am selben Tag finden
+    const groupExams = allExams.filter(e => 
+      e.groupId === exam.groupId && 
+      e.startTime > 0 && 
+      Math.floor((e.startTime - 1) / 1000) === dayIndex
+    );
+
+    // Aktuellen Stand einmischen (falls noch nicht in Liste oder veraltet)
+    const otherGroupExams = groupExams.filter(e => e.id !== exam.id);
+    const fullGroupList = [...otherGroupExams, exam];
+
+    if (fullGroupList.length > 1) {
+      // 2a. Raumtreue prüfen (Müssen alle im selben Raum sein)
+      const firstRoomId = fullGroupList[0].roomId;
+      const allSameRoom = fullGroupList.every(e => e.roomId === firstRoomId);
+      
+      if (!allSameRoom) {
+        return { 
+          hasWarning: true, 
+          reason: 'Prüfungsblock findet in unterschiedlichen Räumen statt.' 
+        };
+      }
+
+      // 2b. Nahtlosigkeit prüfen
+      // Nach Startzeit sortieren
+      fullGroupList.sort((a, b) => a.startTime - b.startTime);
+      
+      for (let i = 0; i < fullGroupList.length - 1; i++) {
+        const currentEnd = fullGroupList[i].startTime + 3; // 3 Slots Dauer
+        const nextStart = fullGroupList[i + 1].startTime;
+        
+        if (nextStart !== currentEnd) {
+          return { 
+            hasWarning: true, 
+            reason: 'Prüfungsblock ist nicht zusammenhängend.' 
+          };
+        }
+      }
+    }
+  }
+
+  return { hasWarning: false };
 };
 
 export const isEntityInUseInternal = (

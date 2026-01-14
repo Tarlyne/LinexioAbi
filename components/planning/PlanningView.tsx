@@ -126,12 +126,6 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
       if (collision.hasConflict) {
         showToast(collision.reason || 'Kollision festgestellt!', 'warning');
       }
-      
-      const consistency = checkConsistency(editingExam as Exam);
-      if (consistency.hasWarning) {
-        showToast(consistency.reason || 'Inkonsistenz festgestellt!', 'amber');
-      }
-
       updateExam(editingExam as Exam);
     } else {
       const exam: Exam = {

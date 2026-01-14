@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useData } from '../context/DataContext';
@@ -6,7 +7,7 @@ import { Exam } from '../types';
 export type PlanningSortOption = 'name' | 'teacher' | 'subject';
 
 export const usePlanning = () => {
-  const { exams, supervisions, addExams, updateExam, deleteExam, checkCollision, showToast } = useApp();
+  const { exams, supervisions, addExams, updateExam, deleteExam, checkCollision, checkConsistency, showToast } = useApp();
   const { days, rooms, teachers, students, subjects } = useData();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -100,14 +101,21 @@ export const usePlanning = () => {
     const newStartTime = (activeDay * 1000) + slotIdx + 1;
     const updatedExam: Exam = { ...exam, roomId, startTime: newStartTime, status: 'scheduled' };
     
+    // Check Kollision (Rot)
     const collision = checkCollision(updatedExam);
     if (collision.hasConflict) {
       showToast(collision.reason || 'Kollision festgestellt!', 'warning');
       if (collision.reason?.startsWith('Raumbelegung')) return;
     }
+
+    // Check Konsistenz (Amber)
+    const consistency = checkConsistency(updatedExam);
+    if (consistency.hasWarning) {
+      showToast(consistency.reason || 'Inkonsistenz festgestellt!', 'amber');
+    }
     
     updateExam(updatedExam);
-  }, [exams, activeDay, checkCollision, updateExam, showToast, draggingExamId]);
+  }, [exams, activeDay, checkCollision, checkConsistency, updateExam, showToast, draggingExamId]);
 
   const handleRemoveFromGrid = useCallback((examIdFromEv: string) => {
     dragCounter.current = 0;
@@ -138,6 +146,6 @@ export const usePlanning = () => {
     filteredAndSortedBacklog,
     handleDropToSlot,
     handleRemoveFromGrid,
-    addExams, updateExam, deleteExam, checkCollision, showToast
+    addExams, updateExam, deleteExam, checkCollision, checkConsistency, showToast
   };
 };

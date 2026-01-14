@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useApp, ToastType } from '../context/AppContext';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
@@ -10,7 +11,8 @@ export const Toast: React.FC = () => {
     switch (type) {
       case 'success': return <CheckCircle2 size={16} className="text-emerald-400" />;
       case 'error': return <AlertCircle size={16} className="text-red-400" />;
-      case 'warning': return <AlertTriangle size={16} className="text-amber-400" />;
+      case 'warning': return <AlertTriangle size={16} className="text-red-400" />;
+      case 'amber': return <AlertTriangle size={16} className="text-amber-400" />;
       default: return <Info size={16} className="text-cyan-400" />;
     }
   };
@@ -19,7 +21,8 @@ export const Toast: React.FC = () => {
     switch (type) {
       case 'success': return 'border-emerald-500/30 bg-emerald-500/10 shadow-emerald-900/10';
       case 'error': return 'border-red-500/30 bg-red-500/10 shadow-red-900/10';
-      case 'warning': return 'border-amber-500/30 bg-amber-500/10 shadow-amber-900/10';
+      case 'warning': return 'border-red-500/30 bg-red-500/10 shadow-red-900/10';
+      case 'amber': return 'border-amber-500/30 bg-amber-500/10 shadow-amber-900/10';
       default: return 'border-cyan-500/30 bg-cyan-500/10 shadow-cyan-900/10';
     }
   };

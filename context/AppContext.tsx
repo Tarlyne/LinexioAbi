@@ -1,11 +1,12 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppState, Exam, Supervision } from '../types';
 import * as db from '../store/db';
-import { checkExamCollision, calculateTeacherPoints } from '../utils/engine';
+import { checkExamCollision, checkExamConsistency, calculateTeacherPoints } from '../utils/engine';
 import { useAuth } from './AuthContext';
 import { useData } from './DataContext';
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'amber';
 interface Toast { message: string; type: ToastType; id: string; }
 
 interface AppContextType {
@@ -26,6 +27,7 @@ interface AppContextType {
   showToast: (message: string, type?: ToastType, duration?: number | null) => void;
   removeToast: (id: string) => void;
   checkCollision: (exam: Exam) => { hasConflict: boolean, reason?: string };
+  checkConsistency: (exam: Exam) => { hasWarning: boolean, reason?: string };
   getTeacherStats: (teacherId: string) => { points: number };
   exportState: (password: string) => Promise<void>;
   importState: (file: File, password: string) => Promise<boolean>;
@@ -45,7 +47,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // loadDecryptedData hängt jetzt nur noch von der stabilen setDataFromLoad ab
   const loadDecryptedData = useCallback((saved: any) => {
     if (saved) {
       setExams(saved.exams || []);
@@ -55,7 +56,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [setDataFromLoad]);
 
-  // Initial Load (Nur einmalig beim Mounten)
   useEffect(() => {
     const init = async () => {
       try {
@@ -70,9 +70,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
     init();
-  }, []); // Absichtlich leeres Array: Verhindert Loops
+  }, []);
 
-  // Persistence implementation (Memoized function identity)
   const getFullState = useCallback((): AppState => ({
     teachers, students, rooms, days, subjects,
     exams, supervisions, collectedExamIds,
@@ -80,7 +79,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     lastUpdate: Date.now()
   }), [teachers, students, rooms, days, subjects, exams, supervisions, collectedExamIds, isLocked, masterPassword, settings]);
 
-  // Persistence effect mit Debounce
   useEffect(() => {
     if (!isLoading && !isLocked) {
       const timeout = setTimeout(() => {
@@ -115,6 +113,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const removeSupervision = useCallback((id: string) => setSupervisions(prev => prev.filter(s => s.id !== id)), []);
 
   const checkCollision = useCallback((exam: Exam) => checkExamCollision(exam, exams), [exams]);
+  const checkConsistency = useCallback((exam: Exam) => checkExamConsistency(exam, exams), [exams]);
   const getTeacherStats = useCallback((tId: string) => ({ points: calculateTeacherPoints(tId, exams, supervisions) }), [exams, supervisions]);
 
   const exportState = useCallback(async (password: string) => {
@@ -144,7 +143,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [loadDecryptedData, showToast]);
 
   const resetForNewYear = useCallback(() => {
-    // Nur Fächer behalten, alles andere auf Leer setzen
     const minimalState = {
       subjects: subjects,
       exams: [],
@@ -168,8 +166,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     exams, supervisions, collectedExamIds, isLoading, loadDecryptedData,
     addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected,
     addSupervision, removeSupervision, toasts, showToast, removeToast,
-    checkCollision, getTeacherStats, exportState, importState, resetForNewYear, factoryReset
-  }), [exams, supervisions, collectedExamIds, isLoading, loadDecryptedData, addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected, addSupervision, removeSupervision, toasts, showToast, removeToast, checkCollision, getTeacherStats, exportState, importState, resetForNewYear, factoryReset]);
+    checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset
+  }), [exams, supervisions, collectedExamIds, isLoading, loadDecryptedData, addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected, addSupervision, removeSupervision, toasts, showToast, removeToast, checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

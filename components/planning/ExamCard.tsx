@@ -27,8 +27,11 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   isAnyDragging, onDragStart, onDragEnd
 }) => {
   const { subjects } = useData();
+  const { checkConsistency } = useApp();
   const slotIdx = (exam.startTime - 1) % 1000;
   const isComplete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
+  const consistency = checkConsistency(exam);
+  const hasWarning = consistency.hasWarning;
   
   // Kombi-Check
   const subjectData = subjects.find(s => s.name === exam.subject);
@@ -58,6 +61,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
       className={`rounded-xl p-2.5 shadow-2xl border transition-all z-[35] cursor-grab active:cursor-grabbing overflow-hidden flex flex-col group exam-card-shadow
         ${hasConflict 
           ? 'bg-red-900/60 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]' 
+          : hasWarning
+          ? 'bg-amber-900/40 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
           : 'bg-[#1e293b] border-slate-700 hover:border-cyan-500/50'
         } ${isAnyDragging ? 'opacity-40 scale-95' : 'opacity-100'}`}
     >
@@ -69,6 +74,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         <div className="flex items-center justify-center w-5 h-5 shrink-0">
           {hasConflict ? (
             <AlertCircle size={14} className="text-white animate-pulse" />
+          ) : hasWarning ? (
+            <AlertTriangle size={14} className="text-amber-500" />
           ) : isComplete ? (
             <Check size={14} className="text-emerald-500" />
           ) : (

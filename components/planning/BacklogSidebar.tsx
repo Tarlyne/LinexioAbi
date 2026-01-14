@@ -22,13 +22,15 @@ interface BacklogSidebarProps {
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
   draggingExamId: string | null;
+  checkConsistency: (exam: Exam) => { hasWarning: boolean, reason?: string };
 }
 
 export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
   exams, students, teachers, rooms, searchTerm, onSearchChange, 
   sortOption, onSortChange, onAddExam, onEditExam, 
   onRemoveFromGrid, isDraggingOver, onDragCounterChange, 
-  setIsDraggingOver, onDragStart, onDragEnd, draggingExamId
+  setIsDraggingOver, onDragStart, onDragEnd, draggingExamId,
+  checkConsistency
 }) => {
   const sortOptions: PlanningSortOption[] = ['name', 'teacher', 'subject'];
 
@@ -110,6 +112,11 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
           const prepRoom = rooms.find(r => r.id === exam.prepRoomId);
           const complete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
           const isDragging = draggingExamId === exam.id;
+          
+          // Konsistenz-Check auch in der Sidebar (theoretisch nur relevant wenn schon geplant,
+          // aber hier zur Anzeige falls bereits Inkonsistenzen im Backlog existieren)
+          const consistency = checkConsistency(exam);
+          const hasWarning = consistency.hasWarning;
 
           return (
             <div 
@@ -122,14 +129,20 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
               }}
               onDragEnd={onDragEnd}
               onClick={() => onEditExam(exam)}
-              className={`p-3 bg-slate-800/40 border border-slate-700/50 rounded-xl cursor-grab active:cursor-grabbing hover:border-cyan-500/40 transition-all group relative ${isDragging ? 'opacity-20 scale-95 border-cyan-500' : 'opacity-100'}`}
+              className={`p-3 border rounded-xl cursor-grab active:cursor-grabbing hover:border-cyan-500/40 transition-all group relative ${
+                isDragging ? 'opacity-20 scale-95 border-cyan-500' : 'opacity-100'
+              } ${
+                hasWarning ? 'bg-amber-900/20 border-amber-500/30' : 'bg-slate-800/40 border-slate-700/50'
+              }`}
             >
               <div className="flex justify-between items-start mb-1 pointer-events-none">
                 <div className="text-sm font-bold text-slate-200 group-hover:text-white truncate pr-2">
                   {student?.lastName}, {student?.firstName}
                 </div>
                 <div className="flex items-center justify-center w-5 h-5 shrink-0">
-                  {complete ? (
+                  {hasWarning ? (
+                    <AlertTriangle size={14} className="text-amber-500" />
+                  ) : complete ? (
                     <Check size={14} className="text-emerald-500" />
                   ) : (
                     <AlertTriangle size={14} className="text-red-500" />
