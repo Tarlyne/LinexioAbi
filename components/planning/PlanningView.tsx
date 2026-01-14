@@ -1,7 +1,6 @@
-
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { 
-  PlusCircle, MapPin, Printer, FileText, Download, Loader2, CheckCircle, Upload, ShieldAlert, Info, AlertTriangle, X, AlertCircle, FileCheck
+  PlusCircle, MapPin, Printer, FileText, Download, Loader2, CheckCircle, Upload, ShieldAlert, Info, AlertTriangle, X, AlertCircle, FileCheck, Layers
 } from 'lucide-react';
 import { Exam } from '../../types';
 import { Modal } from '../Modal';
@@ -20,6 +19,7 @@ import { runPreflightCheck } from '../../utils/validationEngine';
 import { GridTimeColumn } from '../common/GridTimeColumn';
 import { PlanningGridHeader } from './PlanningGridHeader';
 import { ExamEditorModal } from './ExamEditorModal';
+import { PrepBalancerModal } from './PrepBalancerModal';
 
 type ExportType = 'exam' | 'prep';
 
@@ -44,6 +44,7 @@ export const PlanningView: React.FC = () => {
   } = usePlanning();
   
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [showPrepBalancer, setShowPrepBalancer] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showDownloadAnleitung, setShowDownloadAnleitung] = useState(false);
   const [exportType, setExportType] = useState<ExportType>('exam');
@@ -188,9 +189,29 @@ export const PlanningView: React.FC = () => {
     return `${day.label} (${dateStr})`;
   }, [days, activeDay]);
 
+  const handleApplyPrepMapping = (mapping: Record<string, string>) => {
+    let updateCount = 0;
+    plannedExamsForDay.forEach(exam => {
+      const targetRoomId = mapping[exam.subject];
+      if (targetRoomId && exam.prepRoomId !== targetRoomId) {
+        updateExam({ ...exam, prepRoomId: targetRoomId });
+        updateCount++;
+      }
+    });
+    showToast(`${updateCount} Vorbereitungsräume zugewiesen.`, 'success');
+  };
+
   // Set header actions via context
   useHeader(
     <div className="flex items-center gap-2">
+      <button 
+        onClick={() => setShowPrepBalancer(true)} 
+        className="btn-secondary-glass h-9 px-4 rounded-xl border-amber-500/30 text-amber-300 hover:bg-amber-500/10" 
+        title="Vorbereitung planen"
+      >
+        <Layers size={15} className="text-amber-500" />
+        <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Vorbereitung planen</span>
+      </button>
       <button onClick={() => setShowInstructions(true)} className="btn-secondary-glass h-9 px-4 rounded-xl border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10" title="Prüfungen importieren (CSV)">
         <Upload size={15} className="text-indigo-400" /><span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Import CSV</span>
       </button>
@@ -202,6 +223,7 @@ export const PlanningView: React.FC = () => {
   );
 
   const planningRoomsList = useMemo(() => rooms.filter(r => r.type === 'Prüfungsraum'), [rooms]);
+  const prepRoomsList = useMemo(() => rooms.filter(r => r.type === 'Vorbereitungsraum'), [rooms]);
 
   return (
     <div className="flex flex-col h-full gap-4 overflow-hidden select-none print:hidden">
@@ -224,6 +246,14 @@ export const PlanningView: React.FC = () => {
         students={students} teachers={teachers} rooms={rooms} subjects={subjects}
         onSave={handleSaveExam} onDelete={(id) => { deleteExam(id); setShowModal(false); }}
         showDeleteConfirm={showDeleteConfirm} setShowDeleteConfirm={setShowDeleteConfirm}
+      />
+
+      <PrepBalancerModal 
+        isOpen={showPrepBalancer} 
+        onClose={() => setShowPrepBalancer(false)}
+        dayExams={plannedExamsForDay}
+        prepRooms={prepRoomsList}
+        onApply={handleApplyPrepMapping}
       />
 
       <Modal isOpen={showPrintPreview} onClose={() => setShowPrintPreview(false)} maxWidth="max-w-[1200px]">

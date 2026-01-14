@@ -1,6 +1,5 @@
-
 import localforage from 'localforage';
-import { AppState } from '../types';
+import { AppState, SerializedState, LockedState } from '../types';
 
 const DB_NAME = 'linexio_abi_db';
 const STATE_KEY = 'app_state_v1';
@@ -68,7 +67,7 @@ export const saveState = async (state: AppState, password?: string): Promise<voi
         encoder.encode(JSON.stringify(dataToSave))
       );
 
-      const bundle = {
+      const bundle: SerializedState = {
         ciphertext: encodeBase64(new Uint8Array(encryptedContent)),
         iv: encodeBase64(iv),
         salt: encodeBase64(salt),
@@ -84,17 +83,18 @@ export const saveState = async (state: AppState, password?: string): Promise<voi
   }
 };
 
-export const loadState = async (password?: string): Promise<any | null> => {
+export const loadState = async (password?: string): Promise<AppState | SerializedState | LockedState | null> => {
   try {
-    const item: any = await localforage.getItem(STATE_KEY);
+    const item = await localforage.getItem<SerializedState | AppState>(STATE_KEY);
     if (!item) return null;
 
     if (item.isEncrypted) {
-      if (!password) return { isLocked: true, masterPassword: 'SET' };
+      const encryptedItem = item as SerializedState;
+      if (!password) return { isLocked: true, masterPassword: 'SET' } as LockedState;
       
-      const salt = decodeBase64(item.salt);
-      const iv = decodeBase64(item.iv);
-      const ciphertext = decodeBase64(item.ciphertext);
+      const salt = decodeBase64(encryptedItem.salt!);
+      const iv = decodeBase64(encryptedItem.iv!);
+      const ciphertext = decodeBase64(encryptedItem.ciphertext!);
       const key = await deriveKey(password, salt);
       
       try {
@@ -104,13 +104,13 @@ export const loadState = async (password?: string): Promise<any | null> => {
           ciphertext
         );
         const decoder = new TextDecoder();
-        return JSON.parse(decoder.decode(decryptedContent));
+        return JSON.parse(decoder.decode(decryptedContent)) as AppState;
       } catch (e) {
         throw new Error('WRONG_PASSWORD');
       }
     }
     
-    return item;
+    return item as AppState;
   } catch (err) {
     if (err instanceof Error && err.message === 'WRONG_PASSWORD') throw err;
     console.error('Failed to load state from indexedDB', err);
@@ -118,9 +118,6 @@ export const loadState = async (password?: string): Promise<any | null> => {
   }
 };
 
-/**
- * Erstellt einen verschlüsselten Binär-Container für den Datei-Export (.lxabi)
- */
 export const encryptForFile = async (state: AppState, password: string): Promise<Blob> => {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -133,7 +130,6 @@ export const encryptForFile = async (state: AppState, password: string): Promise
     encoder.encode(JSON.stringify(state))
   );
 
-  // Layout: [SALT (16 bytes) | IV (12 bytes) | CIPHERTEXT]
   const container = new Uint8Array(salt.length + iv.length + encryptedContent.byteLength);
   container.set(salt, 0);
   container.set(iv, salt.length);
@@ -142,9 +138,6 @@ export const encryptForFile = async (state: AppState, password: string): Promise
   return new Blob([container], { type: 'application/octet-stream' });
 };
 
-/**
- * Entschlüsselt einen .lxabi Binär-Container
- */
 export const decryptFromFile = async (buffer: ArrayBuffer, password: string): Promise<AppState> => {
   const view = new Uint8Array(buffer);
   const salt = view.slice(0, 16);
@@ -160,7 +153,7 @@ export const decryptFromFile = async (buffer: ArrayBuffer, password: string): Pr
       ciphertext
     );
     const decoder = new TextDecoder();
-    return JSON.parse(decoder.decode(decryptedContent));
+    return JSON.parse(decoder.decode(decryptedContent)) as AppState;
   } catch (e) {
     throw new Error('WRONG_PASSWORD');
   }

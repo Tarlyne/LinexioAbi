@@ -1,4 +1,3 @@
-
 import { Exam, Teacher, Supervision, AppState, Subject } from '../types';
 import { TIME_CONFIG, timeToMin, examSlotToMin } from './TimeService';
 
@@ -24,8 +23,56 @@ export const calculateTeacherPoints = (teacherId: string, exams: Exam[], supervi
 };
 
 /**
+ * Berechnet die Lastverteilung der Vorbereitungsräume für eine Simulation.
+ * @param dayExams Liste der bereits terminierten Prüfungen des Tages
+ * @param mapping Mapping von Fach-Name zu Vorbereitungsraum-ID
+ * @returns Objekt mit Peak-Werten und Zeitpunkten pro Raum
+ */
+export const calculatePrepLoadSimulation = (
+  dayExams: Exam[], 
+  mapping: Record<string, string>
+): Record<string, { peak: number; time: string }> => {
+  const roomLoad: Record<string, Record<number, number>> = {};
+  const results: Record<string, { peak: number; time: string }> = {};
+
+  // Alle 10-Minuten-Slots von 07:30 bis 18:30 prüfen
+  const startMin = 7.5 * 60;
+  const endMin = 18.5 * 60;
+
+  dayExams.forEach(exam => {
+    const roomId = mapping[exam.subject];
+    if (!roomId) return;
+
+    if (!roomLoad[roomId]) roomLoad[roomId] = {};
+    
+    const examStartMin = examSlotToMin(exam.startTime);
+    const prepStartMin = examStartMin - 20;
+    
+    // Ein Schüler ist von T-20 bis T im Vorbereitungsraum
+    // Wir zählen ihn für die Slots T-20 und T-10
+    for (let t = prepStartMin; t < examStartMin; t += 10) {
+      roomLoad[roomId][t] = (roomLoad[roomId][t] || 0) + 1;
+    }
+  });
+
+  Object.keys(roomLoad).forEach(rid => {
+    let max = 0;
+    let maxTime = "";
+    Object.entries(roomLoad[rid]).forEach(([tStr, count]) => {
+      if (count > max) {
+        max = count;
+        const t = parseInt(tStr);
+        maxTime = `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toString().padStart(2, '0')}`;
+      }
+    });
+    results[rid] = { peak: max, time: maxTime };
+  });
+
+  return results;
+};
+
+/**
  * Berechnet alle gesperrten Zeiträume für einen Lehrer an einem Tag (inkl. 60 Min Puffer).
- * Rückgabe in absoluten Minuten seit Mitternacht.
  */
 export const getTeacherBlockedPeriods = (teacherId: string, dayIdx: number, exams: Exam[]): { start: number, end: number }[] => {
   return exams
@@ -35,7 +82,6 @@ export const getTeacherBlockedPeriods = (teacherId: string, dayIdx: number, exam
       const examStartMin = examSlotToMin(e.startTime);
       const examEndMin = examStartMin + 30; // 30 Min Dauer
       
-      // Regel: Exakt 60 Min davor und 60 Min danach
       return { 
         start: examStartMin - 60, 
         end: examEndMin + 60 
@@ -79,16 +125,13 @@ export const checkTeacherAvailability = (
   
   const endTimeMin = startTimeMin + durationMin;
 
-  // A. Check Prüfungen (Sperrzone inkl. Puffer)
   const blockedPeriods = getTeacherBlockedPeriods(teacherId, dayIdx, exams);
   for (const period of blockedPeriods) {
-    // Überlappungsprüfung: Start A < Ende B && Ende A > Start B
     if (startTimeMin < period.end && endTimeMin > period.start) {
       return { isBusy: true, reason: `Überschneidung mit Prüfung` };
     }
   }
 
-  // B. Check andere Aufsichten (Kein Puffer zwischen Aufsichten nötig)
   for (const s of supervisions) {
     if (s.id === ignoreId || s.teacherId !== teacherId || s.dayIdx !== dayIdx) continue;
     const sStart = timeToMin(s.startTime);
@@ -133,13 +176,12 @@ export const checkExamCollision = (exam: Exam, allExams: Exam[]): { hasConflict:
 /**
  * Kombinierte Konsistenzprüfung (Amber):
  * 1. Fach-Vorbereitungsraum-Konsistenz
- * 2. Gruppen-Block-Integrität (Raumtreue + Nahtlosigkeit)
+ * 2. Gruppen-Block-Integrität
  */
 export const checkExamConsistency = (exam: Exam, allExams: Exam[]): { hasWarning: boolean; reason?: string } => {
   if (exam.startTime === 0) return { hasWarning: false };
   const dayIndex = Math.floor((exam.startTime - 1) / 1000);
 
-  // 1. Vorbereitungsraum-Check (Pro Fach und Tag)
   if (exam.prepRoomId) {
     const otherWithConflict = allExams.find(other => 
       other.id !== exam.id && 
@@ -157,21 +199,17 @@ export const checkExamConsistency = (exam: Exam, allExams: Exam[]): { hasWarning
     }
   }
 
-  // 2. Gruppen-Check (Raumtreue & Nahtlosigkeit des Prüfungsblocks)
   if (exam.groupId) {
-    // Alle geplanten Prüfungen dieser Gruppe am selben Tag finden
     const groupExams = allExams.filter(e => 
       e.groupId === exam.groupId && 
       e.startTime > 0 && 
       Math.floor((e.startTime - 1) / 1000) === dayIndex
     );
 
-    // Aktuellen Stand einmischen (falls noch nicht in Liste oder veraltet)
     const otherGroupExams = groupExams.filter(e => e.id !== exam.id);
     const fullGroupList = [...otherGroupExams, exam];
 
     if (fullGroupList.length > 1) {
-      // 2a. Raumtreue prüfen (Müssen alle im selben Raum sein)
       const firstRoomId = fullGroupList[0].roomId;
       const allSameRoom = fullGroupList.every(e => e.roomId === firstRoomId);
       
@@ -182,8 +220,6 @@ export const checkExamConsistency = (exam: Exam, allExams: Exam[]): { hasWarning
         };
       }
 
-      // 2b. Nahtlosigkeit prüfen
-      // Nach Startzeit sortieren
       fullGroupList.sort((a, b) => a.startTime - b.startTime);
       
       for (let i = 0; i < fullGroupList.length - 1; i++) {

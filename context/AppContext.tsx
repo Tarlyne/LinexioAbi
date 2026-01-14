@@ -12,7 +12,7 @@ interface AppContextType {
   supervisions: Supervision[];
   collectedExamIds: string[];
   isLoading: boolean;
-  loadDecryptedData: (data: any) => void;
+  loadDecryptedData: (data: AppState) => void;
   addExams: (exams: Exam[]) => void;
   updateExam: (exam: Exam) => void;
   deleteExam: (id: string) => void;
@@ -42,7 +42,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [collectedExamIds, setCollectedExamIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadDecryptedData = useCallback((saved: any) => {
+  const loadDecryptedData = useCallback((saved: AppState) => {
     if (saved) {
       setExams(saved.exams || []);
       setSupervisions(saved.supervisions || []);
@@ -55,7 +55,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const init = async () => {
       try {
         const saved = await db.loadState();
-        if (saved && !saved.isLocked) {
+        // FIXED: Using property check 'teachers' in saved to correctly identify AppState in union and avoid unsafe cast
+        if (saved && 'teachers' in saved) {
           loadDecryptedData(saved);
         }
       } catch (e) {
@@ -72,26 +73,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
    * Prüft den State auf strukturelle Integrität, bevor er persistent gespeichert wird.
    */
   const validateStateInvariants = useCallback((state: AppState): boolean => {
-    // 1. Verwaiste IDs in Prüfungen prüfen
-    for (const exam of state.exams) {
-      const studentExists = state.students.some(s => s.id === exam.studentId);
-      const teacherExists = state.teachers.some(t => t.id === exam.teacherId);
-      if (!studentExists || !teacherExists) {
-        console.error("Invariant Violation: Exam with missing student/teacher", exam);
-        return false;
+    try {
+      // 1. Verwaiste IDs in Prüfungen prüfen
+      for (const exam of state.exams) {
+        const studentExists = state.students.some(s => s.id === exam.studentId);
+        const teacherExists = state.teachers.some(t => t.id === exam.teacherId);
+        if (!studentExists || !teacherExists) {
+          console.error("Invariant Violation: Exam with missing student/teacher", exam);
+          return false;
+        }
+        if (exam.roomId && !state.rooms.some(r => r.id === exam.roomId)) return false;
       }
-      if (exam.roomId && !state.rooms.some(r => r.id === exam.roomId)) return false;
-    }
 
-    // 2. Verwaiste IDs in Aufsichten prüfen
-    for (const sup of state.supervisions) {
-      if (!state.teachers.some(t => t.id === sup.teacherId) || !state.rooms.some(r => r.id === sup.stationId)) {
-        console.error("Invariant Violation: Supervision with missing teacher/station", sup);
-        return false;
+      // 2. Verwaiste IDs in Aufsichten prüfen
+      for (const sup of state.supervisions) {
+        if (!state.teachers.some(t => t.id === sup.teacherId) || !state.rooms.some(r => r.id === sup.stationId)) {
+          console.error("Invariant Violation: Supervision with missing teacher/station", sup);
+          return false;
+        }
       }
-    }
 
-    return true;
+      // 3. Typ-Sanity-Check
+      if (!Array.isArray(state.teachers) || !Array.isArray(state.students)) return false;
+      
+      return true;
+    } catch (err) {
+      console.error("Validation Guard Crashed:", err);
+      return false;
+    }
   }, []);
 
   const getFullState = useCallback((): AppState => ({
@@ -110,14 +119,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }, 500);
         return () => clearTimeout(timeout);
       } else {
-        // Kritischer Fehler im Background-Sync verhindern
         console.warn("Save suppressed due to state inconsistency.");
       }
     }
   }, [isLoading, isLocked, getFullState, validateStateInvariants]);
 
   const addExams = useCallback((newList: Exam[]) => {
-    // Vorab-Validierung der neuen IDs gegen aktuellen Data-State
     const isValid = newList.every(e => 
       students.some(s => s.id === e.studentId) && 
       teachers.some(t => t.id === e.teacherId)
@@ -177,7 +184,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [loadDecryptedData, showToast]);
 
   const resetForNewYear = useCallback(() => {
-    const minimalState = {
+    const minimalState: AppState = {
       subjects: subjects,
       exams: [],
       supervisions: [],
@@ -185,11 +192,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       teachers: [],
       students: [],
       rooms: [],
-      days: []
+      days: [],
+      isLocked: false,
+      masterPassword: masterPassword,
+      settings: settings,
+      lastUpdate: Date.now()
     };
     loadDecryptedData(minimalState);
     showToast('Datenbank für neues Jahr bereinigt (Fächer & Passwort behalten)', 'success');
-  }, [subjects, loadDecryptedData, showToast]);
+  }, [subjects, loadDecryptedData, showToast, masterPassword, settings]);
 
   const factoryReset = useCallback(async () => {
     await db.clearDatabase();

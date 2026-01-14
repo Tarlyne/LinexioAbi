@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { Teacher, Student, Room, ExamDay, Subject } from '../types';
+import { Teacher, Student, Room, ExamDay, Subject, AppState } from '../types';
 import { isEntityInUseInternal } from '../utils/engine';
 
 interface DataContextType {
@@ -27,7 +27,7 @@ interface DataContextType {
   updateSubject: (s: Subject) => void;
   deleteSubject: (id: string) => void;
   isEntityInUse: (type: any, id: string, exams: any[], supervisions: any[]) => boolean;
-  setDataFromLoad: (data: any) => void;
+  setDataFromLoad: (data: AppState) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -39,7 +39,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [days, setDays] = useState<ExamDay[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
 
-  const setDataFromLoad = useCallback((data: any) => {
+  const setDataFromLoad = useCallback((data: AppState) => {
     setTeachers(data.teachers || []);
     setStudents(data.students || []);
     setRooms(data.rooms || []);
@@ -95,7 +95,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateSubject = useCallback((s: Subject) => setSubjects(prev => prev.map(curr => curr.id === s.id ? s : curr).sort((a,b) => a.name.localeCompare(b.name, 'de'))), []);
   const deleteSubject = useCallback((id: string) => setSubjects(prev => prev.filter(s => s.id !== id)), []);
 
-  //isEntityInUse optimiert: Verwendet die stabilen State-Variablen direkt
   const isEntityInUse = useCallback((type: any, id: string, exams: any[], supervisions: any[]) => {
     const entity = (type === 'teacher' ? teachers : type === 'student' ? students : type === 'room' ? rooms : type === 'day' ? days : subjects).find((e: any) => e.id === id);
     const entityName = (entity as any)?.name || (entity as any)?.shortName;

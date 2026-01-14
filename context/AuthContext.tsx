@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppSettings } from '../types';
 import * as db from '../store/db';
@@ -35,8 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkAuthStatus = async () => {
       const saved = await db.loadState();
       if (saved) {
-        if (saved.masterPassword === 'SET') setMasterPasswordState('SET');
-        if (saved.settings) setSettings({ ...defaultSettings, ...saved.settings });
+        if ('masterPassword' in saved && saved.masterPassword === 'SET') setMasterPasswordState('SET');
+        // FIXED: Using 'in' operator to safely check for 'settings' property on union type
+        if ('settings' in saved && saved.settings) setSettings({ ...defaultSettings, ...saved.settings });
       }
     };
     checkAuthStatus();
@@ -98,7 +100,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const decrypted = await db.loadState(password);
     if (decrypted) {
       sessionPassword.current = password;
-      if (decrypted.settings) setSettings({ ...defaultSettings, ...decrypted.settings });
+      // FIXED: Using 'in' operator to safely check for 'settings' property on union type after decryption
+      if ('settings' in decrypted && decrypted.settings) setSettings({ ...defaultSettings, ...decrypted.settings });
       setIsLocked(false);
       extendSession();
       return decrypted;

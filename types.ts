@@ -85,3 +85,24 @@ export interface AppState {
   settings: AppSettings;
   lastUpdate: number;
 }
+
+/**
+ * Type for data stored in IndexedDB (Encrypted bundle or plain state)
+ */
+export interface SerializedState {
+  ciphertext?: string;
+  iv?: string;
+  salt?: string;
+  isEncrypted: boolean;
+  lastUpdate: number;
+  masterPassword?: string | null;
+  settings?: AppSettings;
+}
+
+/**
+ * Return type when database is locked and requires password
+ */
+export interface LockedState {
+  isLocked: true;
+  masterPassword: 'SET';
+}
