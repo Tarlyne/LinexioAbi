@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Exam, Student, Teacher, Room } from '../../types';
-import { Check, AlertCircle, Minus } from 'lucide-react';
+import { Check, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useData } from '../../context/DataContext';
 
@@ -65,13 +66,13 @@ export const ExamCard: React.FC<ExamCardProps> = ({
           {student?.lastName}, {student?.firstName}
         </div>
         
-        <div className="flex items-center justify-center p-1">
+        <div className="flex items-center justify-center w-5 h-5 shrink-0">
           {hasConflict ? (
             <AlertCircle size={14} className="text-white animate-pulse" />
           ) : isComplete ? (
             <Check size={14} className="text-emerald-500" />
           ) : (
-            <Minus size={14} className="text-red-500/60" /> 
+            <AlertTriangle size={14} className="text-red-500" /> 
           )}
         </div>
       </div>

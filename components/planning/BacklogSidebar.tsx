@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Search, FileJson, PlusCircle, Check, Minus } from 'lucide-react';
+import { Search, FileJson, PlusCircle, Check, AlertTriangle } from 'lucide-react';
 import { Exam, Student, Teacher, Room } from '../../types';
 import { PlanningSortOption } from '../../hooks/usePlanning';
 
@@ -92,7 +93,6 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
           />
         </div>
 
-        {/* Systemweit einzeilig durch btn-aurora-base */}
         <button 
           onClick={onAddExam}
           className="btn-aurora-base btn-primary-aurora w-full py-2.5 rounded-xl text-[11px] uppercase tracking-wider"
@@ -107,6 +107,7 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
           const teacher = teachers.find(t => t.id === exam.teacherId);
           const chair = teachers.find(t => t.id === exam.chairId);
           const protocol = teachers.find(t => t.id === exam.protocolId);
+          const prepRoom = rooms.find(r => r.id === exam.prepRoomId);
           const complete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
           const isDragging = draggingExamId === exam.id;
 
@@ -115,11 +116,8 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
               key={exam.id}
               draggable
               onDragStart={(e) => {
-                // Snapshot-First Logik
                 e.dataTransfer.setData('examId', exam.id);
                 e.dataTransfer.effectAllowed = 'move';
-                
-                // State-Update verzögern, um Ghost-Snapshot nicht zu stören
                 setTimeout(() => onDragStart(exam.id), 0);
               }}
               onDragEnd={onDragEnd}
@@ -130,14 +128,19 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
                 <div className="text-sm font-bold text-slate-200 group-hover:text-white truncate pr-2">
                   {student?.lastName}, {student?.firstName}
                 </div>
-                {complete ? (
-                  <Check size={14} className="text-emerald-500 shrink-0" />
-                ) : (
-                  <Minus size={14} className="text-red-500/60 shrink-0" />
-                )}
+                <div className="flex items-center justify-center w-5 h-5 shrink-0">
+                  {complete ? (
+                    <Check size={14} className="text-emerald-500" />
+                  ) : (
+                    <AlertTriangle size={14} className="text-red-500" />
+                  )}
+                </div>
               </div>
-              <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pointer-events-none">
+              <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pointer-events-none truncate">
                 {exam.subject} {exam.groupId && `(${exam.groupId})`}
+                {prepRoom && (
+                  <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>
+                )}
               </div>
               <div className="mt-2 flex flex-wrap gap-1 pointer-events-none">
                 <span className="text-[9px] font-mono text-cyan-500/80 bg-cyan-500/5 border border-cyan-500/20 px-1 rounded">
@@ -164,7 +167,6 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
         )}
       </div>
 
-      {/* Footer Zeile für Konsistenz mit DataList */}
       <div className="bg-slate-900/60 border-t border-slate-700/30 px-4 py-2 flex justify-between items-center shrink-0">
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
           {exams.length} Einträge
