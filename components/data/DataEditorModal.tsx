@@ -1,9 +1,13 @@
 import React from 'react';
-import { X, Trash2, Save, AlertTriangle, Check, Users, DoorOpen, Calendar, Shield, GraduationCap, ChevronDown, Layers, BookOpen } from 'lucide-react';
+import { X, Trash2, Save, AlertTriangle, GraduationCap, Users, DoorOpen, Calendar, BookOpen, ChevronDown, Shield, Layers, Check } from 'lucide-react';
 import { Modal } from '../Modal';
 import { DataTab } from '../../hooks/useDataManagement';
-import { RoomType } from '../../types';
 import { useData } from '../../context/DataContext';
+import { TeacherForm } from './forms/TeacherForm';
+import { StudentForm } from './forms/StudentForm';
+import { RoomForm } from './forms/RoomForm';
+import { DayForm } from './forms/DayForm';
+import { SubjectForm } from './forms/SubjectForm';
 
 interface DataEditorModalProps {
   isOpen: boolean;
@@ -51,19 +55,6 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
 
   const entityName = { teachers: 'Lehrkraft', students: 'SchülerIn', rooms: 'Raum', days: 'Prüfungstag', subjects: 'Fach' }[activeTab];
 
-  // Fach-Update-Helfer für Lehrer
-  const updateTeacherSubject = (idx: number, subId: string) => {
-    const current = [...(formData.subjectIds || [])];
-    if (!subId) {
-      current.splice(idx, 1);
-    } else {
-      current[idx] = subId;
-    }
-    // Eindeutige IDs sicherstellen und leere Slots entfernen
-    const unique = Array.from(new Set(current.filter(id => !!id)));
-    updateField('subjectIds', unique);
-  };
-
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="flex flex-col">
@@ -78,193 +69,11 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
 
         {!showDeleteConfirm ? (
           <form onSubmit={e => { e.preventDefault(); onSave(); }} className="space-y-6">
-            {activeTab === 'teachers' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-5">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Nachname</label>
-                    <input 
-                      autoFocus
-                      type="text" 
-                      value={formData.lastName || ''} 
-                      onChange={e => updateField('lastName', e.target.value)} 
-                      className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Vorname</label>
-                    <input type="text" value={formData.firstName || ''} onChange={e => updateField('firstName', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-5 items-end">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Kürzel</label>
-                    <input type="text" value={formData.shortName || ''} onChange={e => updateField('shortName', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white font-mono focus:ring-1 focus:ring-cyan-500/40" />
-                  </div>
-                  <label className="flex items-center gap-3 cursor-pointer group py-2">
-                    <input type="checkbox" checked={formData.isPartTime || false} onChange={e => updateField('isPartTime', e.target.checked)} className="sr-only" />
-                    <div className={`w-6 h-6 rounded-lg border flex items-center justify-center ${formData.isPartTime ? 'bg-cyan-600 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : 'bg-slate-900/50 border-slate-700 group-hover:border-slate-500'}`}>
-                      {formData.isPartTime && <Check size={14} className="text-white" />}
-                    </div>
-                    <span className="text-xs font-semibold text-slate-300 group-hover:text-white">Teilzeit</span>
-                  </label>
-                </div>
-
-                {/* Fach-Zuordnung */}
-                <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800 space-y-4 shadow-inner">
-                  <div className="flex items-center gap-2 mb-1">
-                    <BookOpen size={14} className="text-cyan-500" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lehrfächer (max. 3)</span>
-                  </div>
-                  
-                  {[0, 1, 2].map(idx => (
-                    <div key={idx} className="relative group">
-                      <select 
-                        value={formData.subjectIds?.[idx] || ''} 
-                        onChange={e => updateTeacherSubject(idx, e.target.value)} 
-                        className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-200 focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
-                      >
-                        <option value="">-- Fach {idx + 1} wählen --</option>
-                        {subjects.map(s => (
-                          <option key={s.id} value={s.id}>{s.name} ({s.shortName})</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600" size={14} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'students' && (
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-5">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Nachname</label>
-                    <input 
-                      autoFocus
-                      type="text" 
-                      value={formData.lastName || ''} 
-                      onChange={e => updateField('lastName', e.target.value)} 
-                      className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Vorname</label>
-                    <input type="text" value={formData.firstName || ''} onChange={e => updateField('firstName', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {activeTab === 'rooms' && (
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-5">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Bezeichnung</label>
-                    <input 
-                      autoFocus
-                      type="text" 
-                      value={formData.name || ''} 
-                      onChange={e => updateField('name', e.target.value)} 
-                      className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 font-mono" 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Kapazität</label>
-                    <input type="number" min="1" value={formData.requiredSupervisors || 1} onChange={e => updateField('requiredSupervisors', parseInt(e.target.value))} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Raumtyp</label>
-                  <div className="relative group">
-                    <select 
-                      value={formData.type} 
-                      onChange={e => updateField('type', e.target.value as RoomType)} 
-                      className="w-full appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
-                    >
-                      <option value="Prüfungsraum">Prüfungsraum</option>
-                      <option value="Vorbereitungsraum">Vorbereitungsraum</option>
-                      <option value="Warteraum">Warteraum</option>
-                      <option value="Aufsicht-Station">Aufsicht-Station</option>
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" size={18} />
-                  </div>
-                </div>
-                <label className="flex items-center gap-3 cursor-pointer group py-2">
-                  <input type="checkbox" checked={formData.isSupervisionStation || false} onChange={e => updateField('isSupervisionStation', e.target.checked)} className="sr-only" />
-                  <div className={`w-6 h-6 rounded-lg border flex items-center justify-center ${formData.isSupervisionStation ? 'bg-amber-600 border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]' : 'bg-slate-900/50 border-slate-700 group-hover:border-slate-500'}`}>
-                    {formData.isSupervisionStation && <Shield size={14} className="text-white" />}
-                  </div>
-                  <span className="text-xs font-semibold text-slate-300 group-hover:text-white">In Aufsichts-Grid anzeigen</span>
-                </label>
-              </div>
-            )}
-
-            {activeTab === 'days' && (
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Datum</label>
-                  <input 
-                    autoFocus
-                    type="date" 
-                    value={formData.date || ''} 
-                    onChange={e => updateField('date', e.target.value)} 
-                    className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Bezeichnung</label>
-                  <input type="text" value={formData.label || ''} onChange={e => updateField('label', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'subjects' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-[1fr_80px] gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Fachbezeichnung</label>
-                    <input 
-                      autoFocus
-                      type="text" 
-                      value={formData.name || ''} 
-                      onChange={e => updateField('name', e.target.value)} 
-                      className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 font-bold" 
-                      placeholder="z.B. Mathematik"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Kürzel</label>
-                    <input 
-                      type="text" 
-                      value={formData.shortName || ''} 
-                      onChange={e => updateField('shortName', e.target.value)} 
-                      className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-cyan-400 font-mono text-left focus:ring-1 focus:ring-cyan-500/40 font-bold" 
-                      placeholder="Ma"
-                    />
-                  </div>
-                </div>
-                
-                <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl space-y-3">
-                  <div className="flex items-center gap-3">
-                     <Layers size={18} className="text-cyan-400" />
-                     <span className="text-xs font-bold text-white uppercase tracking-wider">Erweiterte Logik</span>
-                  </div>
-                  <label className="flex items-center gap-3 cursor-pointer group py-1">
-                    <input type="checkbox" checked={formData.isCombined || false} onChange={e => updateField('isCombined', e.target.checked)} className="sr-only" />
-                    <div className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${formData.isCombined ? 'bg-cyan-600 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : 'bg-slate-900/50 border-slate-700 group-hover:border-slate-500'}`}>
-                      {formData.isCombined && <Check size={14} className="text-white" />}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">Kombi-Prüfung</span>
-                      <span className="text-[10px] text-slate-500 font-medium">Prüfer & Protokollant wechseln Rollen</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            )}
+            {activeTab === 'teachers' && <TeacherForm formData={formData} updateField={updateField} subjects={subjects} />}
+            {activeTab === 'students' && <StudentForm formData={formData} updateField={updateField} />}
+            {activeTab === 'rooms' && <RoomForm formData={formData} updateField={updateField} />}
+            {activeTab === 'days' && <DayForm formData={formData} updateField={updateField} />}
+            {activeTab === 'subjects' && <SubjectForm formData={formData} updateField={updateField} />}
 
             <div className="space-y-4 pt-2">
               {validationError && (
@@ -307,5 +116,88 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
         )}
       </div>
     </Modal>
+  );
+};
+
+// Hilfskomponenten für die verbleibenden Formulare (Raum, Tag, Fach)
+// Diese werden hier der Übersichtlichkeit halber kurz gehalten, könnten aber ebenfalls in eigene Dateien verschoben werden.
+
+// ESM imports are used at the top level instead of require() inside the component
+const RoomForm: React.FC<{formData: any, updateField: any}> = ({ formData, updateField }) => {
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-5">
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Bezeichnung</label>
+          <input autoFocus type="text" value={formData.name || ''} onChange={e => updateField('name', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 font-mono" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Aufsichten benötigt</label>
+          <input type="number" min="1" value={formData.requiredSupervisors || 1} onChange={e => updateField('requiredSupervisors', parseInt(e.target.value))} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Raumtyp</label>
+        <div className="relative group">
+          <select value={formData.type} onChange={e => updateField('type', e.target.value)} className="w-full appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer">
+            <option value="Prüfungsraum">Prüfungsraum</option>
+            <option value="Vorbereitungsraum">Vorbereitungsraum</option>
+            <option value="Warteraum">Warteraum</option>
+            <option value="Aufsicht-Station">Aufsicht-Station</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" size={18} />
+        </div>
+      </div>
+      <label className="flex items-center gap-3 cursor-pointer group py-2">
+        <input type="checkbox" checked={formData.isSupervisionStation || false} onChange={e => updateField('isSupervisionStation', e.target.checked)} className="sr-only" />
+        <div className={`w-6 h-6 rounded-lg border flex items-center justify-center ${formData.isSupervisionStation ? 'bg-amber-600 border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]' : 'bg-slate-900/50 border-slate-700 group-hover:border-slate-500'}`}>
+          {formData.isSupervisionStation && <Shield size={14} className="text-white" />}
+        </div>
+        <span className="text-xs font-semibold text-slate-300 group-hover:text-white">In Aufsichts-Grid anzeigen</span>
+      </label>
+    </div>
+  );
+};
+
+const DayForm: React.FC<{formData: any, updateField: any}> = ({ formData, updateField }) => {
+  return (
+    <div className="grid grid-cols-2 gap-5">
+      <div className="space-y-2">
+        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Datum</label>
+        <input autoFocus type="date" value={formData.date || ''} onChange={e => updateField('date', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
+      </div>
+      <div className="space-y-2">
+        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Bezeichnung</label>
+        <input type="text" value={formData.label || ''} onChange={e => updateField('label', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
+      </div>
+    </div>
+  );
+};
+
+// ESM imports are used at the top level instead of require() inside the component
+const SubjectForm: React.FC<{formData: any, updateField: any}> = ({ formData, updateField }) => {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-[1fr_80px] gap-4">
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Fachbezeichnung</label>
+          <input autoFocus type="text" value={formData.name || ''} onChange={e => updateField('name', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 font-bold" placeholder="z.B. Mathematik" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Kürzel</label>
+          <input type="text" value={formData.shortName || ''} onChange={e => updateField('shortName', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-cyan-400 font-mono text-left focus:ring-1 focus:ring-cyan-500/40 font-bold" placeholder="Ma" />
+        </div>
+      </div>
+      <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl space-y-3">
+        <div className="flex items-center gap-3"><Layers size={18} className="text-cyan-400" /><span className="text-xs font-bold text-white uppercase tracking-wider">Erweiterte Logik</span></div>
+        <label className="flex items-center gap-3 cursor-pointer group py-1">
+          <input type="checkbox" checked={formData.isCombined || false} onChange={e => updateField('isCombined', e.target.checked)} className="sr-only" />
+          <div className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${formData.isCombined ? 'bg-cyan-600 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : 'bg-slate-900/50 border-slate-700 group-hover:border-slate-500'}`}>
+            {formData.isCombined && <Check size={14} className="text-white" />}
+          </div>
+          <div className="flex flex-col"><span className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">Kombi-Prüfung</span><span className="text-[10px] text-slate-500 font-medium">Prüfer & Protokollant wechseln Rollen</span></div>
+        </label>
+      </div>
+    </div>
   );
 };
