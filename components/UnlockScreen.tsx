@@ -76,7 +76,7 @@ export const UnlockScreen: React.FC = () => {
                   placeholder={isInitialSetup ? "Neues Passwort" : "Passwort eingeben"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 transition-all shadow-inner ${
+                  className={`w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 transition-all shadow-inner focus:ring-1 ${
                     isInitialSetup ? 'focus:ring-amber-500/40' : 'focus:ring-cyan-500/40'
                   }`}
                 />
@@ -96,7 +96,7 @@ export const UnlockScreen: React.FC = () => {
                     type="password"
                     placeholder="Passwort bestätigen"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => confirmPassword !== e.target.value && setConfirmPassword(e.target.value)}
                     className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:ring-1 focus:ring-amber-500/40 transition-all shadow-inner"
                   />
                   <button 
