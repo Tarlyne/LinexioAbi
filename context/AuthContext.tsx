@@ -55,6 +55,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLockCountdown(null);
   }, []);
 
+  // User interaction listener for auto-lock reset
+  useEffect(() => {
+    if (isLocked) return;
+
+    const handleInteraction = () => {
+      const now = Date.now();
+      // Throttle updates to once per second to prevent UI jank on iPads and save CPU
+      if (now - lastActivityRef.current > 1000) {
+        extendSession();
+      }
+    };
+
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(event => window.addEventListener(event, handleInteraction, { passive: true }));
+
+    return () => {
+      events.forEach(event => window.removeEventListener(event, handleInteraction));
+    };
+  }, [isLocked, extendSession]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (isLocked || settings.autoLockMinutes <= 0) return;

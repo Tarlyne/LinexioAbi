@@ -1,10 +1,9 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useUI } from '../context/UIContext';
 import { 
-  Download, Upload, Database, Lock, ChevronRight, AlertCircle, FileKey, Clock, ShieldCheck, KeyRound, Save, AlertTriangle, CheckCircle2, Info, Trash2,
+  Upload, Database, Lock, ChevronRight, AlertCircle, FileKey, Clock, ShieldCheck, KeyRound, Save, AlertTriangle, CheckCircle2, Trash2,
   RefreshCw, Loader2, X, ChevronDown
 } from 'lucide-react';
 import { Modal } from './Modal';
@@ -83,121 +82,138 @@ export const SettingsView: React.FC = () => {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2 -mr-2 no-scrollbar space-y-6 pb-10">
-        <div className="glass-nocturne border border-slate-700/30 overflow-hidden relative group">
-           <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-50"></div>
-           <div className="p-6">
-              <h3 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+      <div className="flex-1 overflow-y-auto pr-2 -mr-2 no-scrollbar pb-10">
+        {/* Main Sections Grid: Enforces same height on tablet/desktop */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 auto-rows-fr">
+          
+          {/* Sektion 1: Datensicherung */}
+          <div className="glass-nocturne border border-slate-700/30 overflow-hidden relative group flex flex-col h-full">
+            <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-50"></div>
+            <div className="p-6 flex flex-col h-full">
+              <h3 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-3 shrink-0">
                 <Database size={16} className="text-cyan-400" /> Datensicherung
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <button onClick={() => setShowExportModal(true)} className="btn-secondary-glass p-6 rounded-2xl text-left border-slate-700/50 hover:bg-slate-800/40 group/btn relative overflow-hidden">
-                   <div className="absolute -top-2 -right-2 p-4 opacity-10 group-hover/btn:opacity-20 transition-all group-hover/btn:scale-110 group-hover/btn:-rotate-12 pointer-events-none">
-                     <FileKey size={56} />
-                   </div>
-                   <div className="pr-16 relative z-10">
-                     <FileKey size={28} className="mb-4 text-cyan-400" />
-                     <span className="block text-base font-black text-white leading-tight">Backup exportieren</span>
-                     <span className="block text-xs text-slate-500 mt-1.5 font-medium leading-snug">Verschlüsselte .lxabi Datei erstellen</span>
-                   </div>
-                 </button>
+              <div className="flex-1 flex flex-col gap-4">
+                {/* 3-Column Layout for Export Card */}
+                <button 
+                  onClick={() => setShowExportModal(true)} 
+                  className="btn-secondary-glass p-4 rounded-2xl text-left border-slate-700/50 hover:bg-slate-800/40 group/btn grid grid-cols-[40px_1fr_40px] items-center gap-4 transition-all"
+                >
+                  <div className="flex items-center justify-center">
+                    <FileKey size={24} className="text-cyan-400" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-black text-white leading-tight truncate">Backup exportieren</span>
+                    <span className="text-[10px] text-slate-500 mt-1 font-medium leading-snug">Verschlüsselte .lxabi Datei erstellen</span>
+                  </div>
+                  <div className="flex items-center justify-center opacity-20 group-hover/btn:opacity-40 transition-all group-hover/btn:scale-110">
+                    <FileKey size={28} className="text-slate-500" />
+                  </div>
+                </button>
 
-                 <button onClick={() => fileInputRef.current?.click()} className="btn-secondary-glass p-6 rounded-2xl text-left border-slate-700/50 hover:bg-slate-800/40 group/btn relative overflow-hidden">
-                   <div className="absolute -top-2 -right-2 p-4 opacity-10 group-hover/btn:opacity-20 transition-all group-hover/btn:scale-110 group-hover/btn:-rotate-12 pointer-events-none">
-                     <Upload size={56} />
-                   </div>
-                   <div className="pr-16 relative z-10">
-                     <Upload size={28} className="mb-4 text-amber-400" />
-                     <span className="block text-base font-black text-white leading-tight">Backup importieren</span>
-                     <span className="block text-xs text-slate-500 mt-1.5 font-medium leading-snug">Bestehende Daten überschreiben</span>
-                   </div>
-                 </button>
-                 
-                 <input type="file" ref={fileInputRef} className="hidden" accept=".lxabi" onChange={e => {
-                   const f = e.target.files?.[0];
-                   if (f) { setSelectedFile(f); setShowImportModal(true); }
-                 }} />
+                {/* 3-Column Layout for Import Card */}
+                <button 
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="btn-secondary-glass p-4 rounded-2xl text-left border-slate-700/50 hover:bg-slate-800/40 group/btn grid grid-cols-[40px_1fr_40px] items-center gap-4 transition-all"
+                >
+                  <div className="flex items-center justify-center">
+                    <Upload size={24} className="text-amber-400" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-black text-white leading-tight truncate">Backup importieren</span>
+                    <span className="text-[10px] text-slate-500 mt-1 font-medium leading-snug">Bestehende Daten überschreiben</span>
+                  </div>
+                  <div className="flex items-center justify-center opacity-20 group-hover/btn:opacity-40 transition-all group-hover/btn:scale-110">
+                    <Upload size={28} className="text-slate-500" />
+                  </div>
+                </button>
+                
+                <input type="file" ref={fileInputRef} className="hidden" accept=".lxabi" onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) { setSelectedFile(f); setShowImportModal(true); }
+                }} />
               </div>
-           </div>
-        </div>
+            </div>
+          </div>
 
-        <div className="glass-nocturne border border-slate-700/30 overflow-hidden relative">
-           <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-50"></div>
-           <div className="p-6">
-              <h3 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+          {/* Sektion 2: Sicherheit & Privatsphäre */}
+          <div className="glass-nocturne border border-slate-700/30 overflow-hidden relative flex flex-col h-full">
+            <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-50"></div>
+            <div className="p-6 flex flex-col h-full">
+              <h3 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-3 shrink-0">
                 <Lock size={16} className="text-indigo-400" /> Sicherheit & Privatsphäre
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-5 bg-slate-900/60 rounded-2xl border border-slate-800/50 shadow-inner">
-                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500">
-                          <Clock size={20} />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-black text-white leading-none">Auto-Lock Timer</span>
-                          <span className="text-[10px] text-slate-500 font-bold uppercase mt-1">Automatische Sperre</span>
-                        </div>
-                     </div>
-                     <div className="relative group min-w-[120px]">
-                       <select 
-                         value={settings.autoLockMinutes} 
-                         onChange={e => updateSettings({ autoLockMinutes: parseInt(e.target.value) })} 
-                         className="w-full appearance-none bg-slate-950 text-sm font-bold text-white border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 outline-none focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
-                       >
-                          <option value={5}>5 Min</option>
-                          <option value={10}>10 Min</option>
-                          <option value={30}>30 Min</option>
-                          <option value={0}>Deaktiviert</option>
-                       </select>
-                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600" size={16} />
-                     </div>
+              <div className="flex-1 flex flex-col gap-6">
+                <div className="flex items-center justify-between p-4 bg-slate-900/60 rounded-2xl border border-slate-800/50 shadow-inner shrink-0">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500">
+                      <Clock size={20} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-black text-white leading-none">Auto-Lock Timer</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase mt-1">Sperre</span>
+                    </div>
+                  </div>
+                  <div className="relative group">
+                    <select 
+                      value={settings.autoLockMinutes} 
+                      onChange={e => updateSettings({ autoLockMinutes: parseInt(e.target.value) })} 
+                      className="appearance-none bg-slate-950 text-xs font-bold text-white border border-slate-800 rounded-xl pl-3 pr-8 py-2 outline-none focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
+                    >
+                      <option value={5}>5 Min</option>
+                      <option value={10}>10 Min</option>
+                      <option value={30}>30 Min</option>
+                      <option value={0}>Aus</option>
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600" size={14} />
                   </div>
                 </div>
 
-                <button onClick={() => setShowChangePwModal(true)} className="btn-secondary-glass p-5 rounded-2xl border-slate-700/50 flex items-center justify-between group">
+                <button onClick={() => setShowChangePwModal(true)} className="btn-secondary-glass p-4 rounded-2xl border-slate-700/50 flex items-center justify-between group flex-1">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400 group-hover:bg-indigo-500/20 transition-all">
                       <KeyRound size={20} />
                     </div>
                     <div className="flex flex-col text-left">
                       <span className="text-sm font-black text-white leading-none">Master-Passwort</span>
-                      <span className="text-[10px] text-slate-500 font-bold uppercase mt-1">Passwort ändern</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase mt-1">Ändern</span>
                     </div>
                   </div>
                   <ChevronRight size={18} className="text-slate-600 group-hover:text-white transition-all" />
                 </button>
               </div>
-           </div>
-        </div>
+            </div>
+          </div>
 
-        <div className="mt-12 glass-nocturne border border-red-500/20 bg-red-950/5 overflow-hidden relative">
-           <div className="absolute top-0 left-0 w-1 h-full bg-red-500 opacity-50"></div>
-           <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none rotate-12">
-             <ShieldCheck size={120} className="text-red-500" />
-           </div>
-           
-           <div className="p-6">
-             <h3 className="text-[11px] font-black text-red-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
-               <AlertTriangle size={16} /> Gefahrenzone
-             </h3>
-             
-             <div className="flex flex-col md:flex-row items-center gap-6">
-               <div className="flex-1 space-y-2">
-                 <h4 className="text-lg font-black text-white tracking-tight">Neues Prüfungsjahr vorbereiten</h4>
-                 <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
-                   Diese Funktion bereinigt die Datenbank von allen variablen Daten und Stammdaten (Prüfungen, Lehrer, Räume, Schüler). 
-                   Lediglich die <strong>Fächer</strong> bleiben erhalten, um einen schnellen Start ins neue Jahr zu ermöglichen.
-                 </p>
-               </div>
-               <button 
-                 onClick={() => setShowResetModal(true)} 
-                 className="btn-aurora-base btn-danger-aurora w-full md:w-auto px-8 py-4 rounded-2xl text-sm"
-               >
-                 <RefreshCw size={18} /> <span>Zurücksetzen</span>
-               </button>
-             </div>
-           </div>
+          {/* Sektion 3: Gefahrenzone */}
+          <div className="glass-nocturne border border-red-500/20 bg-red-950/5 overflow-hidden relative flex flex-col h-full">
+            <div className="absolute top-0 left-0 w-1 h-full bg-red-500 opacity-50"></div>
+            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none rotate-12">
+              <ShieldCheck size={120} className="text-red-500" />
+            </div>
+            
+            <div className="p-6 flex flex-col h-full z-10">
+              <h3 className="text-[11px] font-black text-red-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-3 shrink-0">
+                <AlertTriangle size={16} /> Gefahrenzone
+              </h3>
+              
+              <div className="flex-1 flex flex-col justify-center items-center gap-6">
+                <div className="text-center space-y-2">
+                  <h4 className="text-lg font-black text-white tracking-tight">Systembereinigung</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed max-w-[240px] mx-auto">
+                    Daten für ein neues Schuljahr zurücksetzen. Fächer & Master-Passwort bleiben erhalten.
+                  </p>
+                </div>
+                {/* Vertically centered button */}
+                <button 
+                  onClick={() => setShowResetModal(true)} 
+                  className="btn-aurora-base btn-danger-aurora px-8 py-4 rounded-2xl text-sm"
+                >
+                  <RefreshCw size={18} /> <span>Zurücksetzen</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
