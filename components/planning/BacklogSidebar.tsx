@@ -60,9 +60,7 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
           <h3 className="font-bold text-white text-sm tracking-tight flex items-center gap-2">
             <FileJson size={16} className="text-cyan-400" /> Prüfungen
           </h3>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            {exams.length}
-          </span>
+          {/* Badge entfernt gemäß Anweisung */}
         </div>
         
         <div className="relative flex p-1 bg-slate-900/50 rounded-lg border border-slate-700/30">
@@ -113,8 +111,6 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
           const complete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
           const isDragging = draggingExamId === exam.id;
           
-          // Konsistenz-Check auch in der Sidebar (theoretisch nur relevant wenn schon geplant,
-          // aber hier zur Anzeige falls bereits Inkonsistenzen im Backlog existieren)
           const consistency = checkConsistency(exam);
           const hasWarning = consistency.hasWarning;
 

@@ -1,5 +1,6 @@
+
 import { jsPDF } from 'jspdf';
-import { AppState, Room } from '../types';
+import { AppState, Room, Exam } from '../types';
 import { minToTime, examSlotToMin } from '../utils/TimeService';
 
 /**
@@ -121,6 +122,8 @@ export const PdfExportService = {
       group.exams.forEach((exam, eIdx) => {
         if (currentY + rowHeight > pageHeight - 20) {
           pdf.addPage();
+          pdf.setTextColor(0);
+          pdf.setDrawColor(0);
           currentY = marginY;
           drawTableHeader();
         }
@@ -201,6 +204,138 @@ export const PdfExportService = {
   },
 
   /**
+   * Generiert ein Vorbereitungsraum-PDF (A4 Portrait, ein Blatt pro Raum).
+   */
+  async generatePrepRoomPdf(state: AppState, activeDayIdx: number, filename: string): Promise<void> {
+    const activeDay = state.days[activeDayIdx];
+    if (!activeDay) return;
+
+    const pdf = new jsPDF({
+      orientation: 'p',
+      unit: 'mm',
+      format: 'a4',
+      putOnlyUsedFonts: true
+    });
+
+    const marginX = 15;
+    const marginY = 20;
+    const pageWidth = 210;
+    const contentWidth = pageWidth - (2 * marginX);
+    const rowHeight = 9; 
+    const tableHeaderHeight = 10;
+
+    const dayExams = state.exams.filter(e => 
+      e.startTime > 0 && 
+      Math.floor((e.startTime - 1) / 1000) === activeDayIdx &&
+      e.status !== 'cancelled' &&
+      e.prepRoomId
+    );
+
+    const examsByPrepRoom: Record<string, Exam[]> = {};
+    dayExams.forEach(e => {
+      if (!examsByPrepRoom[e.prepRoomId!]) examsByPrepRoom[e.prepRoomId!] = [];
+      examsByPrepRoom[e.prepRoomId!].push(e);
+    });
+
+    const prepRoomIds = Object.keys(examsByPrepRoom).sort((a, b) => {
+      const nameA = state.rooms.find(r => r.id === a)?.name || '';
+      const nameB = state.rooms.find(r => r.id === b)?.name || '';
+      return nameA.localeCompare(nameB, undefined, { numeric: true });
+    });
+
+    prepRoomIds.forEach((prepRoomId, pageIdx) => {
+      if (pageIdx > 0) pdf.addPage();
+      
+      // Reset colors for each page to avoid "blasse" contents
+      pdf.setTextColor(0);
+      pdf.setDrawColor(0);
+      
+      let currentY = marginY;
+      const room = state.rooms.find(r => r.id === prepRoomId);
+      const roomExams = examsByPrepRoom[prepRoomId].sort((a, b) => a.startTime - b.startTime);
+
+      const dateStr = new Intl.DateTimeFormat('de-DE', { 
+        weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' 
+      }).format(new Date(activeDay.date));
+
+      // Header
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`Vorbereitungsraum: ${room?.name || '-'}`, marginX, currentY);
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(dateStr, pageWidth - marginX, currentY, { align: 'right' });
+      
+      currentY += 4;
+      pdf.setLineWidth(0.5);
+      pdf.line(marginX, currentY, pageWidth - marginX, currentY);
+      currentY += 10;
+
+      // Tabelle Header
+      const colWidths = [25, 60, 45, 50];
+      const colLabels = ["Uhrzeit", "SchülerIn", "Prüfer", "Fach"];
+
+      pdf.setFillColor(243, 244, 246);
+      pdf.rect(marginX, currentY, contentWidth, tableHeaderHeight, 'F');
+      pdf.setLineWidth(0.2);
+      pdf.rect(marginX, currentY, contentWidth, tableHeaderHeight, 'D');
+
+      let x = marginX;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      colLabels.forEach((label, i) => {
+        pdf.text(label, x + 3, currentY + (tableHeaderHeight / 2), { baseline: 'middle' });
+        if (i < colLabels.length - 1) {
+          x += colWidths[i];
+          pdf.line(x, currentY, x, currentY + tableHeaderHeight);
+        }
+      });
+      currentY += tableHeaderHeight;
+
+      // Datenzeilen
+      roomExams.forEach((exam) => {
+        const student = state.students.find(s => s.id === exam.studentId);
+        const teacher = state.teachers.find(t => t.id === exam.teacherId);
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.rect(marginX, currentY, contentWidth, rowHeight, 'D');
+
+        let cellX = marginX;
+        // 1. Uhrzeit (20 Min vor Start)
+        const prepMin = examSlotToMin(exam.startTime) - 20;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(minToTime(prepMin), cellX + 3, currentY + (rowHeight / 2), { baseline: 'middle' });
+        cellX += colWidths[0];
+        pdf.line(cellX, currentY, cellX, currentY + rowHeight);
+        
+        // 2. Schüler
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${student?.lastName || '???'}, ${student?.firstName || ''}`, cellX + 3, currentY + (rowHeight / 2), { baseline: 'middle' });
+        cellX += colWidths[1];
+        pdf.line(cellX, currentY, cellX, currentY + rowHeight);
+
+        // 3. Prüfer
+        pdf.text(teacher?.lastName || '-', cellX + 3, currentY + (rowHeight / 2), { baseline: 'middle' });
+        cellX += colWidths[2];
+        pdf.line(cellX, currentY, cellX, currentY + rowHeight);
+
+        // 4. Fach
+        pdf.text(exam.subject, cellX + 3, currentY + (rowHeight / 2), { baseline: 'middle' });
+
+        currentY += rowHeight;
+      });
+
+      const now = new Date();
+      pdf.setFontSize(7);
+      pdf.setTextColor(120);
+      pdf.text(`Erstellt mit LinexioAbi am ${now.toLocaleDateString('de-DE')} um ${now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr.`, pageWidth - marginX, 287, { align: 'right' });
+    });
+
+    pdf.save(`${filename}.pdf`);
+  },
+
+  /**
    * Generiert ein Aufsichtsplan PDF (A4 Landscape).
    */
   async generateSupervisionPdf(state: AppState, activeDayIdx: number, filename: string): Promise<void> {
@@ -255,7 +390,6 @@ export const PdfExportService = {
     };
 
     // --- Grid Definitionen ---
-    // Synchronisation mit der App-Logik (isSupervisionStation ODER Typ Aufsicht-Station)
     const stations = state.rooms.filter(r => r.isSupervisionStation || r.type === 'Aufsicht-Station');
     const totalSubSlots = stations.reduce((sum, s) => sum + (s.requiredSupervisors || 1), 0);
     const timeColWidth = 18;
