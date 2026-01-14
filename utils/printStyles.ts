@@ -54,13 +54,60 @@ export const PRINT_STYLES = `
     width: 100%;
     font-family: 'Inter', sans-serif;
   }
-  .header-left { font-weight: 700; font-size: 14pt; margin: 0; }
-  .header-right { font-size: 10pt; font-weight: 400; color: #333; }
+  .header-left { font-weight: 700; font-size: 14pt; margin: 0; color: black !important; }
+  .header-right { font-size: 10pt; font-weight: 400; color: #333 !important; }
 
   .room-spacer td { 
     border: 0px solid transparent !important;
     height: 14pt;
     padding: 0 !important;
     background: transparent !important;
+  }
+
+  /* Supervision Print Table (Landscape) */
+  .supervision-print-container {
+    width: 100%;
+    height: 100%;
+    font-family: 'Inter', sans-serif;
+    color: black !important;
+    background: white;
+  }
+  .supervision-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    color: black !important;
+  }
+  .supervision-table th, .supervision-table td {
+    border: 0.5pt solid black;
+    padding: 0;
+    text-align: center;
+    overflow: hidden;
+    color: black !important;
+  }
+  .supervision-table th {
+    background-color: #f3f4f6 !important;
+    font-size: 7.5pt;
+    height: 24pt;
+    color: black !important;
+  }
+  .supervision-table td {
+    height: 18pt;
+    font-size: 8pt;
+    color: black !important;
+  }
+  .sup-empty-cell {
+    background-color: #e5e7eb !important;
+    -webkit-print-color-adjust: exact;
+  }
+  .sup-time-cell {
+    font-weight: bold;
+    width: 50pt;
+    color: black !important;
+  }
+  .sup-teacher-cell {
+    font-weight: bold;
+    background-color: white !important;
+    color: black !important;
   }
 `;

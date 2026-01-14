@@ -12,6 +12,7 @@ import { StatsView } from './components/StatsView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/Toast';
 import { ExportPrintView } from './components/ExportPrintView';
+import { SupervisionPrintView } from './components/SupervisionPrintView';
 import { AutoLockWarningModal } from './components/AutoLockWarningModal';
 
 const MainView: React.FC = () => {
@@ -54,10 +55,16 @@ const MainView: React.FC = () => {
       </div>
       
       <div className="print-only w-full">
-        {/* Guard: Sicherstellen, dass days existiert, bevor gemappt wird */}
+        {/* Prüfungspläne */}
         {(days || []).map((_, idx) => (
-          <div key={idx} style={{ pageBreakAfter: 'always' }}>
+          <div key={`exam-print-${idx}`} style={{ pageBreakAfter: 'always' }}>
             <ExportPrintView activeDayIdx={idx} isPreview={false} />
+          </div>
+        ))}
+        {/* Aufsichtspläne */}
+        {(days || []).map((_, idx) => (
+          <div key={`sup-print-${idx}`} style={{ pageBreakAfter: 'always' }}>
+            <SupervisionPrintView activeDayIdx={idx} />
           </div>
         ))}
       </div>

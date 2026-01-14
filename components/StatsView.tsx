@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useData } from '../context/DataContext';
-import { Clock, Search, X, Printer, Loader2, CheckCircle, ShieldAlert, AlertCircle, AlertTriangle, Trash2 } from 'lucide-react';
+import { Clock, Search, X, Printer, Loader2, CheckCircle, ShieldAlert, AlertCircle, AlertTriangle, Trash2, Download } from 'lucide-react';
 import { checkTeacherAvailability, getTeacherBlockedPeriods, getTeacherSubjectPeriods } from '../utils/engine';
 import { Supervision } from '../types';
 import { Modal } from './Modal';
@@ -9,6 +9,7 @@ import { PdfExportService } from '../services/PdfExportService';
 import { runPreflightCheck } from '../utils/validationEngine';
 import { GridTimeColumn } from './common/GridTimeColumn';
 import { WorkloadIndicator } from './stats/WorkloadIndicator';
+import { SupervisionPrintView } from './SupervisionPrintView';
 
 interface StatsViewProps {
   onSetHeaderActions?: (actions: React.ReactNode) => void;
@@ -43,14 +44,28 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
 
   const filteredTeachers = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
-    const sorted = [...teachers].sort((a, b) => a.lastName.localeCompare(b.lastName, 'de'));
+    
+    // Zweistufige Sortierung: 
+    // 1. Stundenanzahl (Punkte) aufsteigend
+    // 2. Nachname alphabetisch
+    const sorted = [...teachers].sort((a, b) => {
+      const pA = getTeacherStats(a.id).points;
+      const pB = getTeacherStats(b.id).points;
+      
+      if (pA !== pB) {
+        return pA - pB;
+      }
+      
+      return a.lastName.localeCompare(b.lastName, 'de');
+    });
+
     if (!term) return sorted;
     return sorted.filter(t => 
       t.lastName.toLowerCase().includes(term) || 
       t.firstName.toLowerCase().includes(term) || 
       t.shortName.toLowerCase().includes(term)
     );
-  }, [teachers, searchTerm]);
+  }, [teachers, searchTerm, getTeacherStats]);
 
   const handleDrop = useCallback((stationId: string, subIdx: number, slotIdx: number) => {
     setHoveredSlot(null);
@@ -103,9 +118,10 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
     const filename = `Aufsichtsplan_${dayLabel.replace(/\s/g, '_')}`;
     try {
       await PdfExportService.generateSupervisionPdf({ exams, supervisions, days, rooms, teachers, subjects } as any, activeDayIdx, filename);
-      showToast('Aufsichtsplan erfolgreich exportiert', 'success');
+      showToast('Aufsichtsplan erfolgreich gespeichert', 'success');
     } catch (err) {
-      showToast('Export fehlgeschlagen', 'error');
+      console.error("PDF Export Error:", err);
+      showToast('Speichern fehlgeschlagen', 'error');
     } finally {
       setIsExporting(false);
       setShowExportPreview(false);
@@ -132,10 +148,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
     if (!draggingTeacherId) return [];
     return getTeacherSubjectPeriods(draggingTeacherId, activeDayIdx, exams, teachers, subjects);
   }, [draggingTeacherId, activeDayIdx, exams, teachers, subjects]);
-
-  const preflightIssues = useMemo(() => {
-    return runPreflightCheck({ exams, supervisions, days, rooms, teachers, students: [], subjects, collectedExamIds: [], isLocked: false, masterPassword: null, settings: { autoLockMinutes: 0 }, lastUpdate: 0 }, activeDayIdx);
-  }, [exams, supervisions, activeDayIdx, days, rooms, teachers, subjects]);
 
   return (
     <div className="h-full flex flex-col gap-4 overflow-hidden animate-page-in select-none">
@@ -194,7 +206,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
                 >
                   <div className="flex flex-col min-w-0">
                     <span className="text-sm font-bold text-slate-200 truncate leading-none">{teacher.lastName}, {teacher.firstName}</span>
-                    <span className="text-[10px] text-slate-500 font-mono mt-1 uppercase">{teacher.shortName}</span>
+                    <span className="text-[10px] text-cyan-500 font-mono mt-1">{teacher.shortName}</span>
                   </div>
                   <div className="badge badge-cyan px-2 py-1 min-w-[32px] text-xs font-black shadow-inner border-cyan-500/30 bg-cyan-500/10">
                     {Math.round(stats.points)}
@@ -244,15 +256,11 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
                           
                           // Hover-Logic für 60-Min-Blöcke (2 Slots)
                           const isHoveredTop = hoveredSlot?.stationId === station.id && hoveredSlot?.slotIdx === slotIdx && hoveredSlot?.subIdx === subIdx;
-                          const isHoveredBottom = hoveredSlot?.stationId === station.id && hoveredSlot?.slotIdx === slotIdx - 1 && hoveredSlot?.subIdx === subIdx;
                           
                           const cellMin = START_MIN_DAY + slotIdx * 30;
                           const isBlocked = draggingTeacherId && dragSubjectBlocked.some(p => cellMin < p.end && (cellMin + 30) > p.start);
                           const isAmber = draggingTeacherId && !isBlocked && dragSubjectAmber.some(p => cellMin < p.end && (cellMin + 30) > p.start);
 
-                          // Zebra Invertierung: Volle Stunden hell (Transparent/Gestreift), halbe Stunden dunkel
-                          // 07:30 (idx 0) -> Dunkel
-                          // 08:00 (idx 1) -> Hell
                           const isZebra = slotIdx % 2 !== 0; 
 
                           return (
@@ -278,7 +286,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
                                 ${isHoveredTop ? 'border-b-transparent' : 'border-b-slate-800/40'}
                               `}
                             >
-                              {/* Hover-Overlay (Einheitlicher Block-Rahmen über 2 Slots) */}
                               {isHoveredTop && (
                                 <div 
                                   className="absolute inset-x-0 top-0 z-30 pointer-events-none ring-1 ring-inset ring-cyan-500 bg-cyan-500/10 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.1)]"
@@ -293,7 +300,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
                                     e.dataTransfer.setData('teacherId', sup.teacherId); 
                                     e.dataTransfer.setData('supId', sup.id); 
                                     e.dataTransfer.dropEffect = 'move'; 
-                                    // Snapshot-Capture
                                     setTimeout(() => {
                                       setDraggingTeacherId(sup.teacherId); 
                                       setDraggingSupId(sup.id);
@@ -327,36 +333,31 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
         <div className="flex flex-col gap-6 h-[85vh] overflow-hidden">
           <div className="flex items-center justify-between pb-4 border-b border-slate-700/30 shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 text-indigo-400"><ShieldAlert size={20} /></div>
-              <div><h3 className="text-lg font-bold text-white tracking-tight">Export Aufsichtsplan</h3><p className="text-xs text-indigo-400 font-medium">Vorschau & Stabilitäts-Check</p></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={handleExport} disabled={isExporting} className="btn-aurora-base btn-indigo-aurora px-6 py-2.5 rounded-xl text-sm uppercase tracking-wider disabled:opacity-50">
-                {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />}{isExporting ? 'Exportiert...' : 'Drucken / PDF'}
-              </button>
-              <button onClick={() => setShowExportPreview(false)} className="p-2 text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
-            </div>
-          </div>
-          <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
-            <div className="w-72 flex flex-col gap-4 overflow-y-auto no-scrollbar shrink-0">
-              <div className="glass-nocturne p-5 border border-slate-700/30 space-y-4">
-                <div className="flex items-center gap-3 border-b border-slate-700/30 pb-3"><AlertCircle size={18} className="text-indigo-400" /><h4 className="text-sm font-bold text-white uppercase tracking-wider">Analyse</h4></div>
-                <div className="space-y-3">
-                  {preflightIssues.filter(i => i.category === 'commission' || i.category === 'collision').length === 0 ? (
-                    <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-start gap-3"><CheckCircle size={16} className="text-emerald-500 shrink-0 mt-0.5" /><p className="text-[11px] text-slate-300">Aufsichtslogik stabil. Keine zeitlichen Konflikte gefunden.</p></div>
-                  ) : (
-                    preflightIssues.filter(i => i.category === 'commission' || i.category === 'collision').map((issue) => (
-                      <div key={issue.id} className={`p-3 rounded-xl border flex flex-col gap-1.5 ${issue.severity === 'error' ? 'bg-red-500/5 border-red-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
-                        <div className="flex items-center gap-2">{issue.severity === 'error' ? <AlertCircle size={14} className="text-red-500" /> : <AlertTriangle size={14} className="text-amber-500" />}<span className={`text-[10px] font-bold uppercase tracking-tight ${issue.severity === 'error' ? 'text-red-400' : 'text-amber-400'}`}>{issue.message}</span></div>
-                        {issue.details && <p className="text-[10px] text-slate-400 leading-tight pl-5 italic">{issue.details}</p>}
-                      </div>
-                    ))
-                  )}
-                </div>
+              <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 text-indigo-400">
+                <ShieldAlert size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white tracking-tight">Export Aufsichtsplan</h3>
+                <p className="text-xs text-indigo-400 font-medium">Vorschau für {days[activeDayIdx]?.label}</p>
               </div>
             </div>
-            <div className="flex-1 overflow-auto bg-white rounded-2xl p-0 shadow-inner border border-slate-300">
-               <div className="p-10 text-center text-slate-400 italic text-sm">PDF Vorschau wird generiert...</div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleExport} 
+                disabled={isExporting} 
+                className="btn-aurora-base btn-indigo-aurora px-6 py-2.5 rounded-xl text-sm disabled:opacity-50"
+              >
+                {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                <span>PDF <span className="normal-case">speichern</span></span>
+              </button>
+              <button onClick={() => setShowExportPreview(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto bg-slate-950/40 rounded-2xl p-6 border border-slate-700/30 shadow-inner no-scrollbar">
+            <div className="mx-auto bg-white rounded-sm shadow-2xl">
+              <SupervisionPrintView activeDayIdx={activeDayIdx} />
             </div>
           </div>
         </div>

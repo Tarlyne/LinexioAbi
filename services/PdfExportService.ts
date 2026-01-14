@@ -164,11 +164,9 @@ export const PdfExportService = {
         drawCellText(student?.lastName || '???', x, currentY, colWidths[3], 'left', true); x += colWidths[3];
         pdf.line(x, currentY, x, currentY + rowHeight);
         pdf.setFontSize(8);
-        // Changed: Removed groupId from the subject string
         const fachStr = `${exam.subject}${isCombined ? '*' : ''}`;
         drawCellText(fachStr, x, currentY, colWidths[4], 'left'); x += colWidths[4];
         
-        // Lehrer-Sonderlogik
         pdf.line(x, currentY, x, currentY + rowHeight);
         let exDisp = teacher?.shortName || '-';
         let prDisp = protocol?.shortName || '-';
@@ -230,11 +228,11 @@ export const PdfExportService = {
       const dateObj = new Date(activeDay.date);
       const weekday = dateObj.toLocaleDateString('de-DE', { weekday: 'long' });
       const datePart = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const dayColor = this.getDayColor(activeDayIdx);
+      const dayColor = PdfExportService.getDayColor(activeDayIdx);
 
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0);
+      pdf.setTextColor(0, 0, 0);
       pdf.text(`Aufsichtsplan für `, marginX, currentY);
       
       const prefixWidth = pdf.getTextWidth(`Aufsichtsplan für `);
@@ -242,7 +240,7 @@ export const PdfExportService = {
       pdf.text(weekday, marginX + prefixWidth, currentY);
       
       const dayWidth = pdf.getTextWidth(weekday);
-      pdf.setTextColor(0);
+      pdf.setTextColor(0, 0, 0);
       pdf.text(`, ${datePart}`, marginX + prefixWidth + dayWidth, currentY);
       
       pdf.setFontSize(10);
@@ -257,8 +255,9 @@ export const PdfExportService = {
     };
 
     // --- Grid Definitionen ---
-    const stations = state.rooms.filter(r => r.isSupervisionStation);
-    const totalSubSlots = stations.reduce((sum, s) => sum + s.requiredSupervisors, 0);
+    // Synchronisation mit der App-Logik (isSupervisionStation ODER Typ Aufsicht-Station)
+    const stations = state.rooms.filter(r => r.isSupervisionStation || r.type === 'Aufsicht-Station');
+    const totalSubSlots = stations.reduce((sum, s) => sum + (s.requiredSupervisors || 1), 0);
     const timeColWidth = 18;
     const gridWidth = pageWidthContent - timeColWidth;
     const subColWidth = totalSubSlots > 0 ? gridWidth / totalSubSlots : 0;
@@ -274,7 +273,7 @@ export const PdfExportService = {
     }
 
     drawHeader();
-    const tableTopY = currentY; // Beginn des Headers
+    const tableTopY = currentY; 
 
     const drawGridHeader = () => {
       pdf.setLineWidth(0.1);
@@ -284,18 +283,18 @@ export const PdfExportService = {
       
       pdf.setFillColor(243, 244, 246);
       pdf.rect(marginX, currentY, timeColWidth, headerRowHeight, 'FD');
-      pdf.setTextColor(0);
+      pdf.setTextColor(0, 0, 0);
       pdf.text("Zeit", marginX + timeColWidth / 2, currentY + headerRowHeight / 2, { align: 'center', baseline: 'middle' });
 
       let currentX = marginX + timeColWidth;
       stations.forEach((station) => {
-        const stationWidth = station.requiredSupervisors * subColWidth;
+        const stationWidth = (station.requiredSupervisors || 1) * subColWidth;
         pdf.setFillColor(243, 244, 246);
         pdf.rect(currentX, currentY, stationWidth, headerRowHeight, 'FD');
         
         const isPrep = station.type === 'Vorbereitungsraum';
         pdf.setFontSize(stationWidth < 20 ? 6 : 8);
-        pdf.setTextColor(0);
+        pdf.setTextColor(0, 0, 0);
         pdf.text(station.name, currentX + stationWidth / 2, currentY + (isPrep ? 3.5 : headerRowHeight / 2), { 
           align: 'center', 
           baseline: 'middle' 
@@ -314,24 +313,22 @@ export const PdfExportService = {
 
     drawGridHeader();
 
-    // Map zur Nachverfolgung blockierter Zellen (wegen Row-Merging)
     const occupiedCells = new Set<string>();
 
-    // --- Body ---
     timeSlots.forEach((time, slotIdx) => {
       pdf.setDrawColor(0);
       pdf.setLineWidth(0.1);
 
-      // Zeit-Zelle (NEU: baseline 'top', Offset reduziert auf 0.5mm)
       pdf.rect(marginX, currentY, timeColWidth, rowHeight);
       pdf.setFontSize(7.5);
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0);
+      pdf.setTextColor(0, 0, 0);
       pdf.text(time, marginX + timeColWidth / 2, currentY + 0.5, { align: 'center', baseline: 'top' });
 
       let currentX = marginX + timeColWidth;
       stations.forEach(station => {
-        for (let subIdx = 0; subIdx < station.requiredSupervisors; subIdx++) {
+        const reqSup = station.requiredSupervisors || 1;
+        for (let subIdx = 0; subIdx < reqSup; subIdx++) {
           const cellKey = `${station.id}-${subIdx}-${slotIdx}`;
           
           if (!occupiedCells.has(cellKey)) {
@@ -345,14 +342,14 @@ export const PdfExportService = {
             if (sup) {
               const teacher = state.teachers.find(t => t.id === sup.teacherId);
               const mergeHeight = rowHeight * 2;
-              pdf.setFillColor(255, 255, 255); // Weißer Hintergrund für Text
+              pdf.setFillColor(255, 255, 255); 
               pdf.rect(currentX, currentY, subColWidth, mergeHeight, 'FD');
               pdf.setFontSize(subColWidth < 12 ? 6.5 : 8.5);
               pdf.setFont('helvetica', 'bold');
+              pdf.setTextColor(0, 0, 0);
               pdf.text(teacher?.shortName || '?', currentX + subColWidth / 2, currentY + mergeHeight / 2, { align: 'center', baseline: 'middle' });
               occupiedCells.add(`${station.id}-${subIdx}-${slotIdx + 1}`);
             } else {
-              // NEU: Graue Hintergrundfarbe für leere Zellen
               pdf.setFillColor(230, 230, 230);
               pdf.rect(currentX, currentY, subColWidth, rowHeight, 'FD');
             }
@@ -365,24 +362,22 @@ export const PdfExportService = {
 
     const tableBottomY = currentY;
 
-    // --- THICK BORDERS (Overlays) ---
     pdf.setLineWidth(0.5);
     pdf.setDrawColor(0);
     
     pdf.line(marginX + timeColWidth, tableTopY, marginX + timeColWidth, tableBottomY);
     let xTracker = marginX + timeColWidth;
     stations.forEach(station => {
-      xTracker += station.requiredSupervisors * subColWidth;
+      xTracker += (station.requiredSupervisors || 1) * subColWidth;
       pdf.line(xTracker, tableTopY, xTracker, tableBottomY);
     });
     pdf.line(marginX, tableTopY + headerRowHeight, marginX + pageWidthContent, tableTopY + headerRowHeight);
 
-    // --- Footer ---
     const now = new Date();
     const footerText = `Erstellt mit LinexioAbi am ${now.toLocaleDateString('de-DE')} um ${now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr.`;
     pdf.setFontSize(7.5);
     pdf.setFont('helvetica', 'italic');
-    pdf.setTextColor(100);
+    pdf.setTextColor(100, 100, 100);
     pdf.text(footerText, pageWidth - marginX, pageHeight - 8, { align: 'right' });
 
     pdf.save(`${filename}.pdf`);
