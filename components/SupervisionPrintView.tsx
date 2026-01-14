@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useData } from '../context/DataContext';
@@ -13,97 +14,61 @@ export const SupervisionPrintView: React.FC<SupervisionPrintViewProps> = ({ acti
 
   const activeDay = days[activeDayIdx];
 
+  const formattedDate = useMemo(() => {
+    if (!activeDay) return '';
+    return new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(activeDay.date));
+  }, [activeDay]);
+
   const timeSlots = useMemo(() => {
     const slots = [];
     for (let h = 7.5; h <= 18.0; h += 0.5) {
-      const hh = Math.floor(h);
-      const mm = h % 1 === 0 ? '00' : '30';
-      slots.push(`${hh.toString().padStart(2, '0')}:${mm}`);
+      slots.push(`${Math.floor(h).toString().padStart(2, '0')}:${h % 1 === 0 ? '00' : '30'}`);
     }
     return slots;
   }, []);
 
   const stations = useMemo(() => rooms.filter(r => r.isSupervisionStation || r.type === 'Aufsicht-Station'), [rooms]);
-  const totalSubSlots = stations.reduce((sum, s) => sum + (s.requiredSupervisors || 1), 0);
-
-  const formattedDate = useMemo(() => {
-    if (!activeDay) return '';
-    return new Intl.DateTimeFormat('de-DE', { 
-      weekday: 'long', 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
-    }).format(new Date(activeDay.date));
-  }, [activeDay]);
-
   const occupiedCells = new Set<string>();
 
   if (!activeDay) return null;
 
   return (
-    <div className="supervision-print-container p-8">
+    <div className="supervision-print-container p-8 relative min-h-[500px]">
       <style>{PRINT_STYLES}</style>
       
       <div className="header-grid mb-6">
-        <h1 className="header-left">Aufsichtsplan Abitur {new Date(activeDay.date).getFullYear()}</h1>
-        <div className="header-right">{formattedDate}</div>
+        <h1 className="header-left">Mündliches Abitur: <span className="header-cyan">Aufsichtsplan</span></h1>
+        <div className="header-right">
+          <span className="header-day">{formattedDate}</span>
+        </div>
       </div>
 
       <table className="supervision-table">
         <thead>
           <tr>
-            <th className="sup-time-cell">Zeit</th>
+            <th className="sup-time-cell !border-b-[1.5pt] !border-black">Zeit</th>
             {stations.map(station => (
-              <th 
-                key={station.id} 
-                colSpan={station.requiredSupervisors || 1}
-                className="px-1"
-              >
+              <th key={station.id} colSpan={station.requiredSupervisors || 1} className="px-1 !border-b-[1.5pt] !border-black">
                 <div className="font-bold">{station.name}</div>
-                {station.type === 'Vorbereitungsraum' && (
-                  <div className="text-[6pt] font-normal italic">(Vorb.-raum)</div>
-                )}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {timeSlots.map((time, slotIdx) => (
+          {timeSlots.map((time, sIdx) => (
             <tr key={time}>
-              <td className="sup-time-cell">{time}</td>
+              <td className="sup-time-cell border-[0.4pt] border-black !font-normal text-[7.5pt]">{time}</td>
               {stations.map(station => {
                 const subs = [];
-                for (let subIdx = 0; subIdx < (station.requiredSupervisors || 1); subIdx++) {
-                  const cellKey = `${station.id}-${subIdx}-${slotIdx}`;
-                  
-                  if (occupiedCells.has(cellKey)) {
-                    subs.push(null);
-                    continue;
-                  }
-
-                  const sup = supervisions.find(s => 
-                    s.dayIdx === activeDayIdx && 
-                    s.stationId === station.id && 
-                    s.subSlotIdx === subIdx && 
-                    s.startTime === time
-                  );
-
+                for (let i = 0; i < (station.requiredSupervisors || 1); i++) {
+                  const key = `${station.id}-${i}-${sIdx}`;
+                  if (occupiedCells.has(key)) { subs.push(null); continue; }
+                  const sup = supervisions.find(s => s.dayIdx === activeDayIdx && s.stationId === station.id && s.subSlotIdx === i && s.startTime === time);
                   if (sup) {
-                    const teacher = teachers.find(t => t.id === sup.teacherId);
-                    occupiedCells.add(`${station.id}-${subIdx}-${slotIdx + 1}`);
-                    subs.push(
-                      <td 
-                        key={cellKey} 
-                        rowSpan={2} 
-                        className="sup-teacher-cell font-bold"
-                      >
-                        {teacher?.shortName || '?'}
-                      </td>
-                    );
+                    occupiedCells.add(`${station.id}-${i}-${sIdx + 1}`);
+                    subs.push(<td key={key} rowSpan={2} className="sup-teacher-cell font-bold border-[0.4pt] border-black">{teachers.find(t => t.id === sup.teacherId)?.shortName || '?'}</td>);
                   } else {
-                    subs.push(
-                      <td key={cellKey} className="sup-empty-cell" />
-                    );
+                    subs.push(<td key={key} className="sup-empty-cell border-[0.4pt] border-black" />);
                   }
                 }
                 return subs;
@@ -113,8 +78,8 @@ export const SupervisionPrintView: React.FC<SupervisionPrintViewProps> = ({ acti
         </tbody>
       </table>
 
-      <div className="mt-4 text-[7pt] text-slate-500 text-right italic">
-        Erstellt mit LinexioAbi am {new Date().toLocaleDateString('de-DE')} um {new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr.
+      <div className="export-footer mt-4">
+        <div className="text-[7.5pt] text-slate-500 italic opacity-80">Erstellt mit LinexioAbi am {new Date().toLocaleDateString('de-DE')} um {new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr.</div>
       </div>
     </div>
   );

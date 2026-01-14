@@ -1,11 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { UIProvider } from './context/UIContext';
+import { HeaderProvider } from './context/HeaderContext';
 import { DataProvider, useData } from './context/DataContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Layout } from './components/Layout';
 import { UnlockScreen } from './components/UnlockScreen';
 import { DataView } from './components/DataView';
-import { PlanningView } from './components/PlanningView';
+import { PlanningView } from './components/planning/PlanningView';
 import { LiveMonitor } from './components/LiveMonitor';
 import { ProtocolView } from './components/ProtocolView';
 import { StatsView } from './components/StatsView';
@@ -20,7 +23,6 @@ const MainView: React.FC = () => {
   const { isLoading } = useApp();
   const { days } = useData();
   const [activeTab, setActiveTab] = useState('monitor');
-  const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
 
   useEffect(() => {
     if (navigator.storage && navigator.storage.persist) {
@@ -39,14 +41,13 @@ const MainView: React.FC = () => {
         <Layout 
           activeTab={activeTab} 
           setActiveTab={setActiveTab} 
-          headerActions={headerActions}
         >
           <div key={activeTab} className="h-full w-full animate-page-in">
             {activeTab === 'monitor' && <LiveMonitor />}
             {activeTab === 'protocols' && <ProtocolView />}
-            {activeTab === 'exams' && <PlanningView onSetHeaderActions={setHeaderActions} />}
+            {activeTab === 'exams' && <PlanningView />}
             {activeTab === 'data' && <DataView />}
-            {activeTab === 'stats' && <StatsView onSetHeaderActions={setHeaderActions} />}
+            {activeTab === 'stats' && <StatsView />}
             {activeTab === 'settings' && <SettingsView />}
           </div>
           <Toast />
@@ -75,11 +76,15 @@ const MainView: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <DataProvider>
-        <AppProvider>
-          <MainView />
-        </AppProvider>
-      </DataProvider>
+      <UIProvider>
+        <HeaderProvider>
+          <DataProvider>
+            <AppProvider>
+              <MainView />
+            </AppProvider>
+          </DataProvider>
+        </HeaderProvider>
+      </UIProvider>
     </AuthProvider>
   );
 };

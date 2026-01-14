@@ -1,6 +1,8 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import { useUI } from '../context/UIContext';
 import { 
   Download, Upload, Database, Lock, ChevronRight, AlertCircle, FileKey, Clock, ShieldCheck, KeyRound, Save, AlertTriangle, CheckCircle2, Info, Trash2,
   RefreshCw, Loader2, X, ChevronDown
@@ -9,7 +11,8 @@ import { Modal } from './Modal';
 
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, changeMasterPassword } = useAuth();
-  const { exportState, importState, resetForNewYear, showToast, exams, supervisions, collectedExamIds } = useApp();
+  const { exportState, importState, resetForNewYear, exams, supervisions, collectedExamIds } = useApp();
+  const { showToast } = useUI();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [showResetModal, setShowResetModal] = useState(false);
@@ -81,7 +84,6 @@ export const SettingsView: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto pr-2 -mr-2 no-scrollbar space-y-6 pb-10">
-        {/* Datensicherung */}
         <div className="glass-nocturne border border-slate-700/30 overflow-hidden relative group">
            <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 opacity-50"></div>
            <div className="p-6">
@@ -119,7 +121,6 @@ export const SettingsView: React.FC = () => {
            </div>
         </div>
 
-        {/* Sicherheit */}
         <div className="glass-nocturne border border-slate-700/30 overflow-hidden relative">
            <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-50"></div>
            <div className="p-6">
@@ -170,35 +171,36 @@ export const SettingsView: React.FC = () => {
            </div>
         </div>
 
-        {/* Gefahrenzone */}
-        <div className="mt-12 p-8 bg-red-950/10 border border-red-500/20 rounded-[2rem] relative overflow-hidden">
+        <div className="mt-12 glass-nocturne border border-red-500/20 bg-red-950/5 overflow-hidden relative">
+           <div className="absolute top-0 left-0 w-1 h-full bg-red-500 opacity-50"></div>
            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none rotate-12">
              <ShieldCheck size={120} className="text-red-500" />
            </div>
            
-           <h3 className="text-[11px] font-black text-red-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
-             <AlertTriangle size={16} /> Gefahrenzone
-           </h3>
-           
-           <div className="flex flex-col md:flex-row items-center gap-6">
-             <div className="flex-1 space-y-2">
-               <h4 className="text-lg font-black text-white tracking-tight">Neues Prüfungsjahr vorbereiten</h4>
-               <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
-                 Diese Funktion bereinigt die Datenbank von allen variablen Daten und Stammdaten (Prüfungen, Lehrer, Räume, Schüler). 
-                 Lediglich die <strong>Fächer</strong> bleiben erhalten, um einen schnellen Start ins neue Jahr zu ermöglichen.
-               </p>
+           <div className="p-6">
+             <h3 className="text-[11px] font-black text-red-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+               <AlertTriangle size={16} /> Gefahrenzone
+             </h3>
+             
+             <div className="flex flex-col md:flex-row items-center gap-6">
+               <div className="flex-1 space-y-2">
+                 <h4 className="text-lg font-black text-white tracking-tight">Neues Prüfungsjahr vorbereiten</h4>
+                 <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
+                   Diese Funktion bereinigt die Datenbank von allen variablen Daten und Stammdaten (Prüfungen, Lehrer, Räume, Schüler). 
+                   Lediglich die <strong>Fächer</strong> bleiben erhalten, um einen schnellen Start ins neue Jahr zu ermöglichen.
+                 </p>
+               </div>
+               <button 
+                 onClick={() => setShowResetModal(true)} 
+                 className="btn-aurora-base btn-danger-aurora w-full md:w-auto px-8 py-4 rounded-2xl text-sm"
+               >
+                 <RefreshCw size={18} /> <span>Zurücksetzen</span>
+               </button>
              </div>
-             <button 
-               onClick={() => setShowResetModal(true)} 
-               className="btn-aurora-base btn-danger-aurora w-full md:w-auto px-8 py-4 rounded-2xl text-sm"
-             >
-               <RefreshCw size={18} /> <span>Zurücksetzen</span>
-             </button>
            </div>
         </div>
       </div>
 
-      {/* Reset Modal */}
       <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} maxWidth="max-w-lg">
          <div className="flex flex-col items-center text-center space-y-6 py-4">
             <div className="w-20 h-20 bg-red-500/10 rounded-3xl flex items-center justify-center border border-red-500/20 text-red-500 shadow-[0_0_50px_rgba(239,68,68,0.2)]">
@@ -255,7 +257,6 @@ export const SettingsView: React.FC = () => {
          </div>
       </Modal>
 
-      {/* Change PW Modal */}
       <Modal isOpen={showChangePwModal} onClose={() => setShowChangePwModal(false)} maxWidth="max-w-md">
          <form onSubmit={handleChangePw} className="space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
@@ -320,7 +321,6 @@ export const SettingsView: React.FC = () => {
          </form>
       </Modal>
 
-      {/* Export Modal with Confirmation and Close Button */}
       <Modal isOpen={showExportModal} onClose={() => setShowExportModal(false)} maxWidth="max-w-md">
         <form onSubmit={handleExport} className="space-y-6">
            <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
@@ -373,7 +373,6 @@ export const SettingsView: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Import Modal */}
       <Modal isOpen={showImportModal} onClose={() => setShowImportModal(false)} maxWidth="max-w-md">
         <form onSubmit={async e => { e.preventDefault(); setIsProcessing(true); const ok = await importState(selectedFile!, backupPassword); setIsProcessing(false); if(ok) setShowImportModal(false); }} className="space-y-6">
            <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
@@ -403,7 +402,7 @@ export const SettingsView: React.FC = () => {
              className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:ring-1 focus:ring-amber-500/40" 
              placeholder="Datei-Passwort eingeben" 
            />
-           <button disabled={isProcessing || !backupPassword} className="btn-aurora-base btn-warning-aurora w-full h-14 rounded-2xl font-black uppercase tracking-widest disabled:opacity-30">
+           <button disabled={isProcessing || !backupPassword} className="btn-aurora-base btn-warning-aurora w-full h-14 rounded-black font-black uppercase tracking-widest disabled:opacity-30">
              {isProcessing ? <Loader2 className="animate-spin" /> : 'Entschlüsseln & Laden'}
            </button>
         </form>

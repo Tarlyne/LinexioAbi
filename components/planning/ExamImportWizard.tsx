@@ -1,7 +1,9 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { RawExamCSVRow } from '../../utils/csvParser';
 import { useApp } from '../../context/AppContext';
+import { useUI } from '../../context/UIContext';
 import { useData } from '../../context/DataContext';
 import { Exam, Student, Teacher, Room, Subject } from '../../types';
 import { 
@@ -31,7 +33,8 @@ interface MappingResult {
 }
 
 export const ExamImportWizard: React.FC<ExamImportWizardProps> = ({ isOpen, onClose, rawData }) => {
-  const { addExams, showToast } = useApp();
+  const { addExams } = useApp();
+  const { showToast } = useUI();
   const { days, rooms, teachers, students, subjects } = useData();
   const [mappings, setMappings] = useState<Record<number, MappingResult>>({});
 

@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { useApp, ToastType } from '../context/AppContext';
+import { useUI, ToastType } from '../context/UIContext';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { Portal } from './Portal';
 
 export const Toast: React.FC = () => {
-  const { toasts, removeToast } = useApp();
+  const { toasts, removeToast } = useUI();
 
   const getIcon = (type: ToastType) => {
     switch (type) {

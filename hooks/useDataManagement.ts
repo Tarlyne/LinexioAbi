@@ -1,5 +1,7 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
+import { useUI } from '../context/UIContext';
 import { useData as useDataContext } from '../context/DataContext';
 import { Teacher, Student, Room, ExamDay, Subject, RoomType } from '../types';
 import { parseTeachersCSV, parseStudentsCSV } from '../utils/csvParser';
@@ -21,7 +23,8 @@ export const useDataManagement = () => {
     isEntityInUse
   } = useDataContext();
 
-  const { exams, supervisions, showToast } = useApp();
+  const { exams, supervisions } = useApp();
+  const { showToast } = useUI();
 
   const [activeTab, setActiveTab] = useState<DataTab>('teachers');
   const [showModal, setShowModal] = useState(false);

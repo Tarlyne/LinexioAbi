@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useHeader } from '../context/HeaderContext';
 import { Clock, Calendar, Database, ShieldCheck, Settings, ChevronsLeft, ChevronsRight, FileStack } from 'lucide-react';
 import { LinexioLogoIcon } from './LinexioLogoIcon';
 
@@ -8,11 +9,11 @@ interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  headerActions?: React.ReactNode;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, headerActions }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { headerActions } = useHeader();
   
   const navItems = [
     { id: 'monitor', label: 'Live-Monitor', icon: <Clock size={20} /> },
@@ -46,7 +47,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
           <h1 className="font-bold text-sm tracking-tight text-slate-200">LinexioAbi</h1>
         </div>
         
-        {/* Header Actions Slot */}
+        {/* Header Actions Slot (now controlled via context) */}
         <div className="flex items-center gap-3">
           {headerActions}
         </div>

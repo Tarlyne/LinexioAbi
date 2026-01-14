@@ -1,13 +1,11 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { AppState, Exam, Supervision } from '../types';
 import * as db from '../store/db';
 import { checkExamCollision, checkExamConsistency, calculateTeacherPoints } from '../utils/engine';
 import { useAuth } from './AuthContext';
 import { useData } from './DataContext';
-
-export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'amber';
-interface Toast { message: string; type: ToastType; id: string; }
+import { useUI } from './UIContext';
 
 interface AppContextType {
   exams: Exam[];
@@ -23,9 +21,6 @@ interface AppContextType {
   toggleProtocolCollected: (examId: string) => void;
   addSupervision: (s: Supervision) => void;
   removeSupervision: (id: string) => void;
-  toasts: Toast[];
-  showToast: (message: string, type?: ToastType, duration?: number | null) => void;
-  removeToast: (id: string) => void;
   checkCollision: (exam: Exam) => { hasConflict: boolean, reason?: string };
   checkConsistency: (exam: Exam) => { hasWarning: boolean, reason?: string };
   getTeacherStats: (teacherId: string) => { points: number };
@@ -40,11 +35,11 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isLocked, settings, masterPassword } = useAuth();
   const { teachers, students, rooms, days, subjects, setDataFromLoad } = useData();
+  const { showToast } = useUI();
   
   const [exams, setExams] = useState<Exam[]>([]);
   const [supervisions, setSupervisions] = useState<Supervision[]>([]);
   const [collectedExamIds, setCollectedExamIds] = useState<string[]>([]);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadDecryptedData = useCallback((saved: any) => {
@@ -70,6 +65,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
     init();
+  }, [loadDecryptedData]);
+
+  /**
+   * CENTRAL VALIDATION GUARD (Kategorie A)
+   * Prüft den State auf strukturelle Integrität, bevor er persistent gespeichert wird.
+   */
+  const validateStateInvariants = useCallback((state: AppState): boolean => {
+    // 1. Verwaiste IDs in Prüfungen prüfen
+    for (const exam of state.exams) {
+      const studentExists = state.students.some(s => s.id === exam.studentId);
+      const teacherExists = state.teachers.some(t => t.id === exam.teacherId);
+      if (!studentExists || !teacherExists) {
+        console.error("Invariant Violation: Exam with missing student/teacher", exam);
+        return false;
+      }
+      if (exam.roomId && !state.rooms.some(r => r.id === exam.roomId)) return false;
+    }
+
+    // 2. Verwaiste IDs in Aufsichten prüfen
+    for (const sup of state.supervisions) {
+      if (!state.teachers.some(t => t.id === sup.teacherId) || !state.rooms.some(r => r.id === sup.stationId)) {
+        console.error("Invariant Violation: Supervision with missing teacher/station", sup);
+        return false;
+      }
+    }
+
+    return true;
   }, []);
 
   const getFullState = useCallback((): AppState => ({
@@ -81,21 +103,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (!isLoading && !isLocked) {
-      const timeout = setTimeout(() => {
-        db.saveState(getFullState());
-      }, 500);
-      return () => clearTimeout(timeout);
+      const state = getFullState();
+      if (validateStateInvariants(state)) {
+        const timeout = setTimeout(() => {
+          db.saveState(state);
+        }, 500);
+        return () => clearTimeout(timeout);
+      } else {
+        // Kritischer Fehler im Background-Sync verhindern
+        console.warn("Save suppressed due to state inconsistency.");
+      }
     }
-  }, [isLoading, isLocked, getFullState]);
+  }, [isLoading, isLocked, getFullState, validateStateInvariants]);
 
-  const removeToast = useCallback((id: string) => setToasts(prev => prev.filter(t => t.id !== id)), []);
-  const showToast = useCallback((message: string, type: ToastType = 'info', duration: number | null = 4000) => {
-    const id = Math.random().toString(36).substr(2, 9);
-    setToasts(prev => [...prev, { message, type, id }]);
-    if (duration !== null) setTimeout(() => removeToast(id), duration);
-  }, [removeToast]);
+  const addExams = useCallback((newList: Exam[]) => {
+    // Vorab-Validierung der neuen IDs gegen aktuellen Data-State
+    const isValid = newList.every(e => 
+      students.some(s => s.id === e.studentId) && 
+      teachers.some(t => t.id === e.teacherId)
+    );
+    
+    if (!isValid) {
+      showToast("Import abgebrochen: Unbekannte IDs im Datensatz.", "error");
+      return;
+    }
+    setExams(prev => [...prev, ...newList]);
+  }, [students, teachers, showToast]);
 
-  const addExams = useCallback((newList: Exam[]) => setExams(prev => [...prev, ...newList]), []);
   const updateExam = useCallback((exam: Exam) => setExams(prev => prev.map(e => e.id === exam.id ? exam : e)), []);
   const deleteExam = useCallback((id: string) => {
     setExams(prev => prev.filter(e => e.id !== id));
@@ -165,9 +199,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const value = useMemo(() => ({
     exams, supervisions, collectedExamIds, isLoading, loadDecryptedData,
     addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected,
-    addSupervision, removeSupervision, toasts, showToast, removeToast,
+    addSupervision, removeSupervision,
     checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset
-  }), [exams, supervisions, collectedExamIds, isLoading, loadDecryptedData, addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected, addSupervision, removeSupervision, toasts, showToast, removeToast, checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset]);
+  }), [exams, supervisions, collectedExamIds, isLoading, loadDecryptedData, addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected, addSupervision, removeSupervision, checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

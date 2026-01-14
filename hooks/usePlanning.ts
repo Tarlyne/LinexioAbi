@@ -2,13 +2,15 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
 import { Exam } from '../types';
 
 export type PlanningSortOption = 'name' | 'teacher' | 'subject';
 
 export const usePlanning = () => {
-  const { exams, supervisions, addExams, updateExam, deleteExam, checkCollision, checkConsistency, showToast } = useApp();
+  const { exams, supervisions, addExams, updateExam, deleteExam, checkCollision, checkConsistency } = useApp();
   const { days, rooms, teachers, students, subjects } = useData();
+  const { showToast } = useUI();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<PlanningSortOption>('name');

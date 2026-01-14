@@ -3,9 +3,10 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { 
   PlusCircle, MapPin, Printer, FileText, Download, Loader2, CheckCircle, Upload, ShieldAlert, Info, AlertTriangle, X, AlertCircle, FileCheck
 } from 'lucide-react';
-import { Exam } from '../types';
+import { Exam } from '../../types';
 import { Modal } from '../Modal';
 import { usePlanning } from '../../hooks/usePlanning';
+import { useHeader } from '../../context/HeaderContext';
 import { BacklogSidebar } from './BacklogSidebar';
 import { ExamCard } from './ExamCard';
 import { ExportPrintView } from '../ExportPrintView';
@@ -20,13 +21,9 @@ import { GridTimeColumn } from '../common/GridTimeColumn';
 import { PlanningGridHeader } from './PlanningGridHeader';
 import { ExamEditorModal } from './ExamEditorModal';
 
-interface PlanningViewProps {
-  onSetHeaderActions?: (actions: React.ReactNode) => void;
-}
-
 type ExportType = 'exam' | 'prep';
 
-export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }) => {
+export const PlanningView: React.FC = () => {
   const {
     exams, days, rooms, teachers, students, subjects,
     searchTerm, setSearchTerm,
@@ -191,22 +188,18 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ onSetHeaderActions }
     return `${day.label} (${dateStr})`;
   }, [days, activeDay]);
 
-  useEffect(() => {
-    if (onSetHeaderActions) {
-      onSetHeaderActions(
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowInstructions(true)} className="btn-secondary-glass h-9 px-4 rounded-xl border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10" title="Prüfungen importieren (CSV)">
-            <Upload size={15} className="text-indigo-400" /><span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Import CSV</span>
-          </button>
-          <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleCsvFileSelect} />
-          <button onClick={() => { setExportType('exam'); setShowPrintPreview(true); }} className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20 hover:border-cyan-500/50 text-slate-200" title="PDF Export">
-            <Printer size={15} className="text-cyan-400" /><span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
-          </button>
-        </div>
-      );
-      return () => onSetHeaderActions(null);
-    }
-  }, [onSetHeaderActions, setShowPrintPreview, showToast, exams, days, rooms, teachers, students, subjects]);
+  // Set header actions via context
+  useHeader(
+    <div className="flex items-center gap-2">
+      <button onClick={() => setShowInstructions(true)} className="btn-secondary-glass h-9 px-4 rounded-xl border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10" title="Prüfungen importieren (CSV)">
+        <Upload size={15} className="text-indigo-400" /><span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Import CSV</span>
+      </button>
+      <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleCsvFileSelect} />
+      <button onClick={() => { setExportType('exam'); setShowPrintPreview(true); }} className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20 hover:border-cyan-500/50 text-slate-200" title="PDF Export">
+        <Printer size={15} className="text-cyan-400" /><span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
+      </button>
+    </div>
+  );
 
   const planningRoomsList = useMemo(() => rooms.filter(r => r.type === 'Prüfungsraum'), [rooms]);
 

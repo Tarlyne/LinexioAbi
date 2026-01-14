@@ -1,6 +1,9 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useData } from '../context/DataContext';
+import { useUI } from '../context/UIContext';
+import { useHeader } from '../context/HeaderContext';
 import { Clock, Search, X, Printer, Loader2, CheckCircle, ShieldAlert, AlertCircle, AlertTriangle, Trash2, Download } from 'lucide-react';
 import { checkTeacherAvailability, getTeacherBlockedPeriods, getTeacherSubjectPeriods } from '../utils/engine';
 import { Supervision } from '../types';
@@ -11,13 +14,11 @@ import { GridTimeColumn } from './common/GridTimeColumn';
 import { WorkloadIndicator } from './stats/WorkloadIndicator';
 import { SupervisionPrintView } from './SupervisionPrintView';
 
-interface StatsViewProps {
-  onSetHeaderActions?: (actions: React.ReactNode) => void;
-}
-
-export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
-  const { exams, supervisions, addSupervision, removeSupervision, getTeacherStats, showToast } = useApp();
+export const StatsView: React.FC = () => {
+  const { exams, supervisions, addSupervision, removeSupervision, getTeacherStats } = useApp();
   const { days, rooms, teachers, subjects } = useData();
+  const { showToast } = useUI();
+  
   const [activeDayIdx, setActiveDayIdx] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [hoveredSlot, setHoveredSlot] = useState<{ stationId: string; slotIdx: number; subIdx: number } | null>(null);
@@ -45,9 +46,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
   const filteredTeachers = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     
-    // Zweistufige Sortierung: 
-    // 1. Stundenanzahl (Punkte) aufsteigend
-    // 2. Nachname alphabetisch
     const sorted = [...teachers].sort((a, b) => {
       const pA = getTeacherStats(a.id).points;
       const pB = getTeacherStats(b.id).points;
@@ -128,16 +126,13 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
     }
   };
 
-  useEffect(() => {
-    if (onSetHeaderActions) {
-      onSetHeaderActions(
-        <button onClick={() => setShowExportPreview(true)} className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg border-indigo-500/30 text-slate-200">
-          <Printer size={15} className="text-indigo-400" />
-          <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export Aufsichten</span>
-        </button>
-      );
-    }
-  }, [onSetHeaderActions]);
+  // Set header actions via context
+  useHeader(
+    <button onClick={() => setShowExportPreview(true)} className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg border-indigo-500/30 text-slate-200">
+      <Printer size={15} className="text-indigo-400" />
+      <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export Aufsichten</span>
+    </button>
+  );
 
   const dragSubjectBlocked = useMemo(() => {
     if (!draggingTeacherId) return [];
@@ -254,7 +249,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ onSetHeaderActions }) => {
                           const sup = supervisions.find(s => s.dayIdx === activeDayIdx && s.stationId === station.id && s.subSlotIdx === subIdx && s.startTime === time);
                           const teacher = sup ? teachers.find(t => t.id === sup.teacherId) : null;
                           
-                          // Hover-Logic für 60-Min-Blöcke (2 Slots)
                           const isHoveredTop = hoveredSlot?.stationId === station.id && hoveredSlot?.slotIdx === slotIdx && hoveredSlot?.subIdx === subIdx;
                           
                           const cellMin = START_MIN_DAY + slotIdx * 30;
