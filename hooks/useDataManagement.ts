@@ -7,11 +7,10 @@ import { parseTeachersCSV, parseStudentsCSV } from '../utils/csvParser';
 export type DataTab = 'teachers' | 'students' | 'rooms' | 'days' | 'subjects';
 
 /**
- * Hook for managing Stammdaten view state and CRUD operations.
- * Category A Refactoring: Renamed to useDataManagement.
+ * Zentraler Hook für die Verwaltung der Stammdaten-Ansicht und CRUD-Operationen.
+ * Kombiniert Logik aus dem alten useData Hook und dem View-Management.
  */
 export const useDataManagement = () => {
-  // Stammdaten kommen direkt aus dem DataContext
   const { 
     teachers, students, rooms, days, subjects,
     addTeacher, updateTeacher, deleteTeacher, upsertTeachers,
@@ -22,7 +21,6 @@ export const useDataManagement = () => {
     isEntityInUse
   } = useDataContext();
 
-  // Prüfungsdaten kommen aus AppContext
   const { exams, supervisions, showToast } = useApp();
 
   const [activeTab, setActiveTab] = useState<DataTab>('teachers');
@@ -42,7 +40,6 @@ export const useDataManagement = () => {
   };
 
   const sortedData = useMemo(() => {
-    // Auswahl der Datenquelle basierend auf activeTab
     const sourceMap: Record<DataTab, any[]> = { teachers, students, rooms, days, subjects };
     const data = [...(sourceMap[activeTab] || [])];
     
@@ -118,7 +115,7 @@ export const useDataManagement = () => {
       const defaults: any = {
         teachers: { lastName: '', firstName: '', shortName: '', isPartTime: false, subjectIds: [] },
         students: { lastName: '', firstName: '' },
-        rooms: { name: '', type: 'Prüfungsraum', requiredSupervisors: 1 },
+        rooms: { name: '', type: 'Prüfungsraum', requiredSupervisors: 1, isSupervisionStation: false },
         days: { date: new Date().toISOString().split('T')[0], label: `${days.length + 1}. Prüfungstag` },
         subjects: { name: '', shortName: '', isCombined: false }
       };
@@ -183,7 +180,6 @@ export const useDataManagement = () => {
     editingItem, openEditor,
     showDeleteConfirm, setShowDeleteConfirm,
     exitingId, formData, setFormData,
-    validationError, setValidationError,
-    sortedData, stats, handleFileUpload, save, remove
+    validationError, sortedData, stats, handleFileUpload, save, remove
   };
 };

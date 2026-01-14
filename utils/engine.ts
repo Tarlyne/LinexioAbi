@@ -1,4 +1,3 @@
-
 import { Exam, Teacher, Supervision, AppState, Subject } from '../types';
 import { TIME_CONFIG, timeToMin, examSlotToMin } from './TimeService';
 
@@ -24,27 +23,27 @@ export const calculateTeacherPoints = (teacherId: string, exams: Exam[], supervi
 };
 
 /**
- * Berechnet alle gesperrten Zeiträume für einen Lehrer an einem Tag (inkl. Puffer).
- * Dies sind Zeiträume, in denen der Lehrer selbst Teil einer Prüfungskommission ist.
+ * Berechnet alle gesperrten Zeiträume für einen Lehrer an einem Tag (inkl. 60 Min Puffer).
+ * Rückgabe in absoluten Minuten seit Mitternacht.
  */
 export const getTeacherBlockedPeriods = (teacherId: string, dayIdx: number, exams: Exam[]): { start: number, end: number }[] => {
   return exams
     .filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === dayIdx)
     .filter(e => e.teacherId === teacherId || e.chairId === teacherId || e.protocolId === teacherId)
     .map(e => {
-      const start = examSlotToMin(e.startTime);
-      const end = start + (TIME_CONFIG.EXAM_DURATION_SLOTS * TIME_CONFIG.SLOT_MINUTES);
-      // Wir markieren den Bereich inkl. Puffer als blockiert
+      const examStartMin = examSlotToMin(e.startTime);
+      const examEndMin = examStartMin + 30; // 30 Min Dauer
+      
+      // Regel: Exakt 60 Min davor und 60 Min danach
       return { 
-        start: start - TIME_CONFIG.SUPERVISION_BUFFER_MINUTES, 
-        end: end + TIME_CONFIG.SUPERVISION_BUFFER_MINUTES 
+        start: examStartMin - 60, 
+        end: examEndMin + 60 
       };
     });
 };
 
 /**
  * Berechnet Zeiträume, in denen Prüfungen in den Fächern des Lehrers stattfinden (ohne Puffer).
- * Dient als informative "Amber"-Kollision.
  */
 export const getTeacherSubjectPeriods = (teacherId: string, dayIdx: number, exams: Exam[], teachers: Teacher[], subjects: Subject[]): { start: number, end: number }[] => {
   const teacher = teachers.find(t => t.id === teacherId);
@@ -59,13 +58,13 @@ export const getTeacherSubjectPeriods = (teacherId: string, dayIdx: number, exam
     .filter(e => teacherSubjectNames.includes(e.subject))
     .map(e => {
       const start = examSlotToMin(e.startTime);
-      const end = start + (TIME_CONFIG.EXAM_DURATION_SLOTS * TIME_CONFIG.SLOT_MINUTES);
+      const end = start + 30;
       return { start, end };
     });
 };
 
 /**
- * Prüft, ob eine Lehrkraft zu einem bestimmten Zeitpunkt bereits beschäftigt ist.
+ * Prüft Verfügbarkeit unter Berücksichtigung der 60-Minuten-Pufferregel.
  */
 export const checkTeacherAvailability = (
   teacherId: string, 
@@ -79,21 +78,22 @@ export const checkTeacherAvailability = (
   
   const endTimeMin = startTimeMin + durationMin;
 
-  // A. Check Prüfungen (MIT PUFFER-LOGIK FÜR AUFSICHTEN AUS TIMESERVICE)
+  // A. Check Prüfungen (Sperrzone inkl. Puffer)
   const blockedPeriods = getTeacherBlockedPeriods(teacherId, dayIdx, exams);
   for (const period of blockedPeriods) {
+    // Überlappungsprüfung: Start A < Ende B && Ende A > Start B
     if (startTimeMin < period.end && endTimeMin > period.start) {
-      return { isBusy: true, reason: `Prüfungs-Pufferzone` };
+      return { isBusy: true, reason: `Überschneidung mit Prüfung` };
     }
   }
 
-  // B. Check andere Aufsichten
+  // B. Check andere Aufsichten (Kein Puffer zwischen Aufsichten nötig)
   for (const s of supervisions) {
     if (s.id === ignoreId || s.teacherId !== teacherId || s.dayIdx !== dayIdx) continue;
     const sStart = timeToMin(s.startTime);
     const sEnd = sStart + s.durationMinutes;
     if (startTimeMin < sEnd && endTimeMin > sStart) {
-      return { isBusy: true, reason: `Andere Aufsicht (${s.startTime})` };
+      return { isBusy: true, reason: `Kollision mit anderer Aufsicht (${s.startTime})` };
     }
   }
 
@@ -109,7 +109,6 @@ export const checkExamCollision = (exam: Exam, allExams: Exam[]): { hasConflict:
   
   const teachers = new Set([exam.teacherId, exam.chairId, exam.protocolId].filter(Boolean));
   
-  // 1. Standard Collisions (Room, Student, Teacher)
   for (const other of allExams) {
     if (other.id === exam.id || other.startTime === 0 || other.status === 'completed') continue;
     const oDay = Math.floor((other.startTime - 1) / 1000);
@@ -123,37 +122,6 @@ export const checkExamCollision = (exam: Exam, allExams: Exam[]): { hasConflict:
       const otherT = [other.teacherId, other.chairId, other.protocolId].filter(Boolean) as string[];
       for (const t of otherT) {
         if (teachers.has(t)) return { hasConflict: true, reason: 'Lehrer-Kollision.' };
-      }
-    }
-  }
-
-  // 2. Group Integrity Check
-  if (exam.groupId) {
-    const groupMembers = allExams.filter(e => 
-      e.id !== exam.id && 
-      e.startTime > 0 &&
-      Math.floor((e.startTime - 1) / 1000) === dayIndex &&
-      e.teacherId === exam.teacherId &&
-      e.subject === exam.subject &&
-      e.groupId === exam.groupId &&
-      e.status !== 'completed'
-    );
-
-    if (groupMembers.length > 0) {
-      // Check for same room
-      if (groupMembers.some(m => m.roomId !== exam.roomId)) {
-        return { hasConflict: true, reason: 'Gruppe muss im selben Raum liegen.' };
-      }
-
-      // Check for contiguity (am Stück)
-      const allGroupSlots = [...groupMembers, exam]
-        .map(e => (e.startTime - 1) % 1000)
-        .sort((a, b) => a - b);
-      
-      for (let i = 0; i < allGroupSlots.length - 1; i++) {
-        if (allGroupSlots[i + 1] - allGroupSlots[i] !== TIME_CONFIG.EXAM_DURATION_SLOTS) {
-          return { hasConflict: true, reason: 'Gruppe muss zeitlich lückenlos sein.' };
-        }
       }
     }
   }
@@ -172,12 +140,5 @@ export const isEntityInUseInternal = (
   if (type === 'teacher') return exams.some(e => e.teacherId === id || e.chairId === id || e.protocolId === id) || supervisions.some(s => s.teacherId === id);
   if (type === 'student') return exams.some(e => e.studentId === id);
   if (type === 'room') return exams.some(e => e.roomId === id || e.prepRoomId === id) || supervisions.some(s => s.stationId === id);
-  if (type === 'day') return exams.some(e => Math.floor((e.startTime - 1) / 1000) === (parseInt(id.split('-')[1]) || -1));
-  if (type === 'subject') {
-    // Check in Prüfungen
-    if (name && exams.some(e => e.subject === name)) return true;
-    // Check in Lehrer-Profilen
-    if (teachers.some(t => t.subjectIds?.includes(id))) return true;
-  }
   return false;
 };

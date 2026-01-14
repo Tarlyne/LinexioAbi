@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trash2, Save, AlertTriangle, GraduationCap, Users, DoorOpen, Calendar, BookOpen, ChevronDown, Shield, Layers, Check } from 'lucide-react';
+import { X, Trash2, Save, AlertTriangle, GraduationCap, Users, DoorOpen, Calendar, BookOpen } from 'lucide-react';
 import { Modal } from '../Modal';
 import { DataTab } from '../../hooks/useDataManagement';
 import { useData } from '../../context/DataContext';
@@ -116,88 +116,5 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
         )}
       </div>
     </Modal>
-  );
-};
-
-// Hilfskomponenten für die verbleibenden Formulare (Raum, Tag, Fach)
-// Diese werden hier der Übersichtlichkeit halber kurz gehalten, könnten aber ebenfalls in eigene Dateien verschoben werden.
-
-// ESM imports are used at the top level instead of require() inside the component
-const RoomForm: React.FC<{formData: any, updateField: any}> = ({ formData, updateField }) => {
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-5">
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Bezeichnung</label>
-          <input autoFocus type="text" value={formData.name || ''} onChange={e => updateField('name', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 font-mono" />
-        </div>
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Aufsichten benötigt</label>
-          <input type="number" min="1" value={formData.requiredSupervisors || 1} onChange={e => updateField('requiredSupervisors', parseInt(e.target.value))} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Raumtyp</label>
-        <div className="relative group">
-          <select value={formData.type} onChange={e => updateField('type', e.target.value)} className="w-full appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer">
-            <option value="Prüfungsraum">Prüfungsraum</option>
-            <option value="Vorbereitungsraum">Vorbereitungsraum</option>
-            <option value="Warteraum">Warteraum</option>
-            <option value="Aufsicht-Station">Aufsicht-Station</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" size={18} />
-        </div>
-      </div>
-      <label className="flex items-center gap-3 cursor-pointer group py-2">
-        <input type="checkbox" checked={formData.isSupervisionStation || false} onChange={e => updateField('isSupervisionStation', e.target.checked)} className="sr-only" />
-        <div className={`w-6 h-6 rounded-lg border flex items-center justify-center ${formData.isSupervisionStation ? 'bg-amber-600 border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]' : 'bg-slate-900/50 border-slate-700 group-hover:border-slate-500'}`}>
-          {formData.isSupervisionStation && <Shield size={14} className="text-white" />}
-        </div>
-        <span className="text-xs font-semibold text-slate-300 group-hover:text-white">In Aufsichts-Grid anzeigen</span>
-      </label>
-    </div>
-  );
-};
-
-const DayForm: React.FC<{formData: any, updateField: any}> = ({ formData, updateField }) => {
-  return (
-    <div className="grid grid-cols-2 gap-5">
-      <div className="space-y-2">
-        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Datum</label>
-        <input autoFocus type="date" value={formData.date || ''} onChange={e => updateField('date', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
-      </div>
-      <div className="space-y-2">
-        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Bezeichnung</label>
-        <input type="text" value={formData.label || ''} onChange={e => updateField('label', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" />
-      </div>
-    </div>
-  );
-};
-
-// ESM imports are used at the top level instead of require() inside the component
-const SubjectForm: React.FC<{formData: any, updateField: any}> = ({ formData, updateField }) => {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-[1fr_80px] gap-4">
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Fachbezeichnung</label>
-          <input autoFocus type="text" value={formData.name || ''} onChange={e => updateField('name', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 font-bold" placeholder="z.B. Mathematik" />
-        </div>
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Kürzel</label>
-          <input type="text" value={formData.shortName || ''} onChange={e => updateField('shortName', e.target.value)} className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-cyan-400 font-mono text-left focus:ring-1 focus:ring-cyan-500/40 font-bold" placeholder="Ma" />
-        </div>
-      </div>
-      <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl space-y-3">
-        <div className="flex items-center gap-3"><Layers size={18} className="text-cyan-400" /><span className="text-xs font-bold text-white uppercase tracking-wider">Erweiterte Logik</span></div>
-        <label className="flex items-center gap-3 cursor-pointer group py-1">
-          <input type="checkbox" checked={formData.isCombined || false} onChange={e => updateField('isCombined', e.target.checked)} className="sr-only" />
-          <div className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${formData.isCombined ? 'bg-cyan-600 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : 'bg-slate-900/50 border-slate-700 group-hover:border-slate-500'}`}>
-            {formData.isCombined && <Check size={14} className="text-white" />}
-          </div>
-          <div className="flex flex-col"><span className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">Kombi-Prüfung</span><span className="text-[10px] text-slate-500 font-medium">Prüfer & Protokollant wechseln Rollen</span></div>
-        </label>
-      </div>
-    </div>
   );
 };

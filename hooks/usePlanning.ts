@@ -6,7 +6,7 @@ import { Exam } from '../types';
 export type PlanningSortOption = 'name' | 'teacher' | 'subject';
 
 export const usePlanning = () => {
-  const { exams, addExams, updateExam, deleteExam, checkCollision, showToast } = useApp();
+  const { exams, supervisions, addExams, updateExam, deleteExam, checkCollision, showToast } = useApp();
   const { days, rooms, teachers, students, subjects } = useData();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,7 +27,6 @@ export const usePlanning = () => {
     }
   }, [days.length, activeDay]);
 
-  const planningRooms = useMemo(() => rooms.filter(r => r.type === 'Prüfungsraum'), [rooms]);
   const backlogExams = useMemo(() => exams.filter(e => e.startTime === 0), [exams]);
   
   const plannedExamsForDay = useMemo(() => {
@@ -123,8 +122,8 @@ export const usePlanning = () => {
   }, [exams, updateExam, draggingExamId]);
 
   return {
-    exams, supervisions: [], // legacy support
-    days, rooms, teachers, students, subjects, // stammdaten
+    exams, supervisions,
+    days, rooms, teachers, students, subjects,
     searchTerm, setSearchTerm,
     sortOption, setSortOption,
     activeDay, setActiveDay,

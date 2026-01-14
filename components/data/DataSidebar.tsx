@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { Upload, Info, DoorOpen, Calendar, BookOpen } from 'lucide-react';
-import { DataTab } from '../../hooks/useData';
+// Fix: Corrected the import path for DataTab from useDataManagement
+import { DataTab } from '../../hooks/useDataManagement';
 
 interface DataSidebarProps {
   activeTab: DataTab;

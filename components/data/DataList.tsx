@@ -1,7 +1,7 @@
 import React from 'react';
 import { Settings } from 'lucide-react';
-import { DataTab } from '../../hooks/useData';
-import { RoomType, Teacher, Subject } from '../../types';
+import { DataTab } from '../../hooks/useDataManagement';
+import { RoomType, Teacher } from '../../types';
 import { useData } from '../../context/DataContext';
 
 interface Column<T> {
