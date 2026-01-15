@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useHeader } from '../context/HeaderContext';
@@ -38,21 +37,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
         <div className="aurora-glow" style={{ top: '40%', right: '-30%', animationDelay: '-15s', opacity: 0.15 }}></div>
       </div>
 
-      {/* Header */}
-      <header className="h-12 border-b border-slate-700/30 flex items-center justify-between px-4 bg-slate-900/40 backdrop-blur-md shrink-0 z-20 print:hidden">
-        <div className="flex items-center gap-2">
+      {/* Header - h-14 mit vergrößertem Branding */}
+      <header className="h-14 border-b border-slate-700/30 flex items-center justify-between px-4 bg-slate-900/40 backdrop-blur-md shrink-0 z-20 print:hidden">
+        <div className="flex items-center gap-4">
           <div className="flex items-center justify-center text-slate-200">
-            <LinexioLogoIcon className="w-7 h-7 drop-shadow-[0_0_8px_rgba(6,182,212,0.3)]" />
+            <LinexioLogoIcon className="w-10 h-10 drop-shadow-[0_0_12px_rgba(6,182,212,0.4)] transition-all" />
           </div>
-          <h1 className="font-bold text-sm tracking-tight text-slate-200">LinexioAbi</h1>
+          <h1 className="font-bold text-xl tracking-tight text-slate-100">LinexioAbi</h1>
         </div>
         
-        {/* Header Actions Slot (now controlled via context) */}
+        {/* Header Actions Slot */}
         <div className="flex items-center gap-3">
           {headerActions}
         </div>
       </header>
 
+      {/* Main Layout Container - Flex hinzugefügt um Sidebar/Content nebeneinander zu halten */}
       <div className="flex flex-1 overflow-hidden z-10 print:block">
         <nav 
           className={`bg-slate-900/10 border-r border-slate-700/20 flex flex-col p-2 select-none transition-all duration-500 ease-in-out shrink-0 print:hidden ${

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useData } from '../context/DataContext';
@@ -130,7 +129,7 @@ export const StatsView: React.FC = () => {
   useHeader(
     <button onClick={() => setShowExportPreview(true)} className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg border-indigo-500/30 text-slate-200">
       <Printer size={15} className="text-indigo-400" />
-      <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export Aufsichten</span>
+      <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
     </button>
   );
 

@@ -204,7 +204,9 @@ export const PlanningView: React.FC = () => {
       <button 
         onClick={() => setIsActionsOpen(!isActionsOpen)}
         className={`btn-aurora-base h-9 px-4 rounded-xl text-[11px] uppercase tracking-wider transition-all border shadow-lg ${
-          isActionsOpen ? 'bg-cyan-500 text-white border-cyan-400' : 'btn-secondary-glass border-slate-700/50'
+          isActionsOpen 
+            ? 'bg-cyan-500 text-white border-cyan-400' 
+            : 'border-cyan-500/50 text-cyan-400 bg-cyan-500/5 hover:bg-cyan-500/10'
         }`}
       >
         <span>Aktionen</span>
