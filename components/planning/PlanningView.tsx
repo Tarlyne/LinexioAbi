@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { 
-  PlusCircle, MapPin, Printer, FileText, Download, Loader2, CheckCircle, Upload, ShieldAlert, Info, AlertTriangle, X, AlertCircle, FileCheck, Layers
+  PlusCircle, MapPin, Printer, FileText, Download, Loader2, CheckCircle, Upload, ShieldAlert, Info, AlertTriangle, X, AlertCircle, FileCheck, Layers, ChevronDown, Search, UserCheck
 } from 'lucide-react';
 import { Exam } from '../../types';
 import { Modal } from '../Modal';
@@ -20,6 +20,7 @@ import { GridTimeColumn } from '../common/GridTimeColumn';
 import { PlanningGridHeader } from './PlanningGridHeader';
 import { ExamEditorModal } from './ExamEditorModal';
 import { PrepBalancerModal } from './PrepBalancerModal';
+import { StudentIntegrityModal } from './StudentIntegrityModal';
 
 type ExportType = 'exam' | 'prep';
 
@@ -45,13 +46,37 @@ export const PlanningView: React.FC = () => {
   
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showPrepBalancer, setShowPrepBalancer] = useState(false);
+  const [showIntegrityCheck, setShowIntegrityCheck] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showDownloadAnleitung, setShowDownloadAnleitung] = useState(false);
   const [exportType, setExportType] = useState<ExportType>('exam');
+  const [isActionsOpen, setIsActionsOpen] = useState(false);
   
+  const actionsRef = useRef<HTMLDivElement>(null);
+
   const preflightIssues = useMemo(() => {
     return runPreflightCheck({ exams, supervisions: [], days, rooms, teachers, students, subjects } as any, activeDay);
   }, [exams, activeDay, days, rooms, teachers, students, subjects]);
+
+  // Added missing helper functions to fix errors
+  const openAddModal = () => {
+    setEditingExam({ subject: 'Deutsch', groupId: '' });
+    setShowDeleteConfirm(false);
+    setShowModal(true);
+  };
+
+  const openEditModal = (exam: Exam) => {
+    setEditingExam({ ...exam });
+    setShowDeleteConfirm(false);
+    setShowModal(true);
+  };
+
+  const formattedDayInfo = useMemo(() => {
+    const day = days[activeDay];
+    if (!day) return '';
+    const dateStr = new Date(day.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    return `${day.label} (${dateStr})`;
+  }, [days, activeDay]);
 
   const [showInstructions, setShowInstructions] = useState(false);
   const [showImportWizard, setShowImportWizard] = useState(false);
@@ -95,18 +120,7 @@ export const PlanningView: React.FC = () => {
     };
     reader.readAsText(file);
     e.target.value = '';
-  };
-
-  const openAddModal = () => {
-    setEditingExam({ subject: 'Deutsch', groupId: '' });
-    setShowDeleteConfirm(false);
-    setShowModal(true);
-  };
-
-  const openEditModal = (exam: Exam) => {
-    setEditingExam({ ...exam });
-    setShowDeleteConfirm(false);
-    setShowModal(true);
+    setIsActionsOpen(false);
   };
 
   const handleSaveExam = (e: React.FormEvent) => {
@@ -125,15 +139,9 @@ export const PlanningView: React.FC = () => {
 
     if (editingExam.id) {
       const collision = checkCollision(editingExam as Exam);
-      if (collision.hasConflict) {
-        showToast(collision.reason || 'Kollision festgestellt!', 'warning');
-      }
-      
+      if (collision.hasConflict) showToast(collision.reason || 'Kollision festgestellt!', 'warning');
       const consistency = checkConsistency(editingExam as Exam);
-      if (consistency.hasWarning) {
-        showToast(consistency.reason || 'Inkonsistenz festgestellt!', 'amber');
-      }
-
+      if (consistency.hasWarning) showToast(consistency.reason || 'Inkonsistenz festgestellt!', 'amber');
       updateExam(editingExam as Exam);
     } else {
       const exam: Exam = {
@@ -153,14 +161,6 @@ export const PlanningView: React.FC = () => {
     setShowModal(false);
   };
 
-  const initiatePdfExport = () => {
-    if (isAppleMobile()) {
-      setShowDownloadAnleitung(true);
-    } else {
-      executePdfExport();
-    }
-  };
-
   const executePdfExport = async () => {
     setShowDownloadAnleitung(false);
     setIsExporting(true);
@@ -168,26 +168,15 @@ export const PlanningView: React.FC = () => {
     const prefix = exportType === 'exam' ? 'Pruefungsplan' : 'Vorbereitungsplan';
     const filename = `${prefix}_${dayLabel.replace(/\s/g, '_')}`;
     try {
-      if (exportType === 'exam') {
-        await PdfExportService.generateAndDownload({ exams, days, rooms, teachers, students, subjects } as any, activeDay, filename);
-      } else {
-        await PdfExportService.generatePrepRoomPdf({ exams, days, rooms, teachers, students, subjects } as any, activeDay, filename);
-      }
+      if (exportType === 'exam') await PdfExportService.generateAndDownload({ exams, days, rooms, teachers, students, subjects } as any, activeDay, filename);
+      else await PdfExportService.generatePrepRoomPdf({ exams, days, rooms, teachers, students, subjects } as any, activeDay, filename);
       showToast('PDF erfolgreich generiert.', 'success');
     } catch (err) {
-      console.error(err);
       showToast('PDF-Export fehlgeschlagen.', 'error');
     } finally {
       setIsExporting(false);
     }
   };
-
-  const formattedDayInfo = useMemo(() => {
-    const day = days[activeDay];
-    if (!day) return '';
-    const dateStr = new Date(day.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-    return `${day.label} (${dateStr})`;
-  }, [days, activeDay]);
 
   const handleApplyPrepMapping = (mapping: Record<string, string>) => {
     let updateCount = 0;
@@ -201,24 +190,53 @@ export const PlanningView: React.FC = () => {
     showToast(`${updateCount} Vorbereitungsräume zugewiesen.`, 'success');
   };
 
-  // Set header actions via context
+  // Close actions dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) setIsActionsOpen(false);
+    };
+    if (isActionsOpen) window.addEventListener('mousedown', handleClick);
+    return () => window.removeEventListener('mousedown', handleClick);
+  }, [isActionsOpen]);
+
   useHeader(
-    <div className="flex items-center gap-2">
+    <div className="relative" ref={actionsRef}>
       <button 
-        onClick={() => setShowPrepBalancer(true)} 
-        className="btn-secondary-glass h-9 px-4 rounded-xl border-amber-500/30 text-amber-300 hover:bg-amber-500/10" 
-        title="Vorbereitung planen"
+        onClick={() => setIsActionsOpen(!isActionsOpen)}
+        className={`btn-aurora-base h-9 px-4 rounded-xl text-[11px] uppercase tracking-wider transition-all border shadow-lg ${
+          isActionsOpen ? 'bg-cyan-500 text-white border-cyan-400' : 'btn-secondary-glass border-slate-700/50'
+        }`}
       >
-        <Layers size={15} className="text-amber-500" />
-        <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Vorbereitung planen</span>
+        <span>Aktionen</span>
+        <ChevronDown size={14} className={`transition-transform duration-300 ${isActionsOpen ? 'rotate-180' : ''}`} />
       </button>
-      <button onClick={() => setShowInstructions(true)} className="btn-secondary-glass h-9 px-4 rounded-xl border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10" title="Prüfungen importieren (CSV)">
-        <Upload size={15} className="text-indigo-400" /><span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Import CSV</span>
-      </button>
+
+      {isActionsOpen && (
+        <div className="absolute right-0 mt-2 w-64 glass-modal border border-slate-700/50 p-1.5 shadow-2xl z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+          <button onClick={() => { setShowIntegrityCheck(true); setIsActionsOpen(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all text-left">
+            <UserCheck size={18} className="shrink-0 text-cyan-400" />
+            <div className="flex flex-col"><span className="text-xs font-bold leading-none">Schüler-Check</span><span className="text-[9px] text-slate-500 font-medium mt-1">Vollständigkeit & Suche</span></div>
+          </button>
+          
+          <button onClick={() => { setShowPrepBalancer(true); setIsActionsOpen(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-amber-500/10 hover:text-amber-400 transition-all text-left">
+            <Layers size={18} className="shrink-0 text-amber-500" />
+            <div className="flex flex-col"><span className="text-xs font-bold leading-none">Vorbereitung planen</span><span className="text-[9px] text-slate-500 font-medium mt-1">Bulk-Zuweisung Räume</span></div>
+          </button>
+          
+          <div className="h-px bg-slate-800/50 my-1 mx-2" />
+          
+          <button onClick={() => { setShowInstructions(true); setIsActionsOpen(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-indigo-500/10 hover:text-indigo-400 transition-all text-left">
+            <Upload size={18} className="shrink-0 text-indigo-400" />
+            <div className="flex flex-col"><span className="text-xs font-bold leading-none">Import CSV</span><span className="text-[9px] text-slate-500 font-medium mt-1">Abitur-Gesamtplan laden</span></div>
+          </button>
+          
+          <button onClick={() => { setExportType('exam'); setShowPrintPreview(true); setIsActionsOpen(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all text-left">
+            <Printer size={18} className="shrink-0 text-cyan-400" />
+            <div className="flex flex-col"><span className="text-xs font-bold leading-none">Export PDF</span><span className="text-[9px] text-slate-500 font-medium mt-1">Druckfertige Pläne</span></div>
+          </button>
+        </div>
+      )}
       <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleCsvFileSelect} />
-      <button onClick={() => { setExportType('exam'); setShowPrintPreview(true); }} className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg shadow-cyan-950/20 hover:border-cyan-500/50 text-slate-200" title="PDF Export">
-        <Printer size={15} className="text-cyan-400" /><span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
-      </button>
     </div>
   );
 
@@ -240,21 +258,11 @@ export const PlanningView: React.FC = () => {
           <div className="flex-1 overflow-auto relative scroll-smooth no-scrollbar" ref={gridContainerRef}><PlanningGridHeader rooms={planningRoomsList} /><div className="relative flex min-h-full"><GridTimeColumn timeSlots={timeSlots} slotHeight={SLOT_HEIGHT} renderSlot={(time, idx) => (<span className={idx % 6 === 0 ? 'text-cyan-400 font-bold text-[11px]' : 'text-slate-200 font-bold text-[10px]'}>{time}</span>)} /><div className="flex-1 flex bg-slate-900/5 relative min-w-max">{planningRoomsList.map(room => (<div key={room.id} className="min-w-[180px] flex-1 relative border-r border-slate-800/40"><div className="absolute inset-0 pointer-events-none z-0">{timeSlots.map((_, idx) => (<div key={idx} style={{ height: SLOT_HEIGHT }} className={`opacity-50 border-b ${idx % 6 === 0 ? 'bg-cyan-500/5 border-slate-700' : 'border-slate-800'}`} />))}</div><div className="relative h-full z-10">{timeSlots.map((_, slotIdx) => (<div key={`${room.id}-${slotIdx}`} onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; if (hoveredSlot?.slotIdx !== slotIdx || hoveredSlot?.roomId !== room.id) setHoveredSlot({roomId: room.id, slotIdx}); }} onDragLeave={() => setHoveredSlot(null)} onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const examId = e.dataTransfer.getData('examId') || draggingExamId; handleDropToSlot(examId, room.id, slotIdx, timeSlots.length); }} style={{ height: SLOT_HEIGHT }} className="w-full relative z-10" />))}{hoveredSlot?.roomId === room.id && (<div className="absolute left-1 right-1 pointer-events-none ring-2 ring-inset ring-cyan-500 bg-cyan-500/10 z-[25] rounded-lg transition-none" style={{ top: hoveredSlot.slotIdx * SLOT_HEIGHT, height: (SLOT_HEIGHT * 3) - 2 }} />)}{plannedExamsForDay.filter(e => e.roomId === room.id).map(examAtSlot => (<ExamCard key={examAtSlot.id} exam={examAtSlot} student={students.find(s => s.id === examAtSlot.studentId)} teacher={teachers.find(t => t.id === examAtSlot.teacherId)} chair={teachers.find(t => t.id === examAtSlot.chairId)} protocol={teachers.find(t => t.id === examAtSlot.protocolId)} prepRoom={rooms.find(r => r.id === examAtSlot.prepRoomId)} hasConflict={checkCollision(examAtSlot).hasConflict} onEdit={openEditModal} onRemove={handleRemoveFromGrid} slotHeight={SLOT_HEIGHT} isAnyDragging={!!draggingExamId} onDragStart={setDraggingExamId} onDragEnd={() => setDraggingExamId(null)} />))}</div></div>))}</div></div></div>)}</div>
       </div>
 
-      <ExamEditorModal 
-        isOpen={showModal} onClose={() => setShowModal(false)}
-        editingExam={editingExam} setEditingExam={setEditingExam}
-        students={students} teachers={teachers} rooms={rooms} subjects={subjects}
-        onSave={handleSaveExam} onDelete={(id) => { deleteExam(id); setShowModal(false); }}
-        showDeleteConfirm={showDeleteConfirm} setShowDeleteConfirm={setShowDeleteConfirm}
-      />
+      <ExamEditorModal isOpen={showModal} onClose={() => setShowModal(false)} editingExam={editingExam} setEditingExam={setEditingExam} students={students} teachers={teachers} rooms={rooms} subjects={subjects} onSave={handleSaveExam} onDelete={(id) => { deleteExam(id); setShowModal(false); }} showDeleteConfirm={showDeleteConfirm} setShowDeleteConfirm={setShowDeleteConfirm} />
 
-      <PrepBalancerModal 
-        isOpen={showPrepBalancer} 
-        onClose={() => setShowPrepBalancer(false)}
-        dayExams={plannedExamsForDay}
-        prepRooms={prepRoomsList}
-        onApply={handleApplyPrepMapping}
-      />
+      <PrepBalancerModal isOpen={showPrepBalancer} onClose={() => setShowPrepBalancer(false)} dayExams={plannedExamsForDay} prepRooms={prepRoomsList} onApply={handleApplyPrepMapping} />
+
+      <StudentIntegrityModal isOpen={showIntegrityCheck} onClose={() => setShowIntegrityCheck(false)} />
 
       <Modal isOpen={showPrintPreview} onClose={() => setShowPrintPreview(false)} maxWidth="max-w-[1200px]">
         <div className="flex flex-col gap-6 h-[85vh] overflow-hidden">
@@ -270,29 +278,17 @@ export const PlanningView: React.FC = () => {
             </div>
 
             <div className="segmented-control-wrapper w-64 h-9">
-              <div 
-                className="segmented-control-slider" 
-                style={{ 
-                  width: 'calc((100% - 6px) / 2)', 
-                  transform: `translateX(calc(${exportType === 'exam' ? 0 : 1} * 100%))` 
-                }}
-              />
-              <button onClick={() => setExportType('exam')} className={`segmented-control-item ${exportType === 'exam' ? 'text-white' : 'text-slate-500'}`}>
-                Prüfungen
-              </button>
-              <button onClick={() => setExportType('prep')} className={`segmented-control-item ${exportType === 'prep' ? 'text-white' : 'text-slate-500'}`}>
-                Vorbereitung
-              </button>
+              <div className="segmented-control-slider" style={{ width: 'calc((100% - 6px) / 2)', transform: `translateX(calc(${exportType === 'exam' ? 0 : 1} * 100%))` }} />
+              <button onClick={() => setExportType('exam')} className={`segmented-control-item ${exportType === 'exam' ? 'text-white' : 'text-slate-500'}`}>Prüfungen</button>
+              <button onClick={() => setExportType('prep')} className={`segmented-control-item ${exportType === 'prep' ? 'text-white' : 'text-slate-500'}`}>Vorbereitung</button>
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={initiatePdfExport} disabled={isExporting} className="btn-primary-aurora px-6 py-2.5 rounded-xl text-sm disabled:opacity-50">
+              <button onClick={executePdfExport} disabled={isExporting} className="btn-primary-aurora px-6 py-2.5 rounded-xl text-sm disabled:opacity-50">
                 {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
                 {isExporting ? 'Generiere...' : 'PDF speichern'}
               </button>
-              <button onClick={() => setShowPrintPreview(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
-                <X size={20} />
-              </button>
+              <button onClick={() => setShowPrintPreview(false)} className="p-2 text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
             </div>
           </div>
 
@@ -322,18 +318,10 @@ export const PlanningView: React.FC = () => {
                   )}
                 </div>
               </div>
-              <div className="p-4 bg-slate-900/40 rounded-2xl border border-slate-800 text-[10px] text-slate-500 leading-relaxed italic">
-                Hinweis: Der Export wird trotz Warnungen zugelassen, um Zwischenstände speichern zu können.
-              </div>
             </div>
-
             <div className="flex-1 overflow-auto bg-slate-950/40 rounded-2xl p-6 border border-slate-700/30 shadow-inner no-scrollbar text-black">
               <div className="mx-auto origin-top transition-transform duration-300">
-                {exportType === 'exam' ? (
-                  <ExportPrintView activeDayIdx={activeDay} isPreview={true} />
-                ) : (
-                  <PrepRoomPrintView activeDayIdx={activeDay} />
-                )}
+                {exportType === 'exam' ? <ExportPrintView activeDayIdx={activeDay} isPreview={true} /> : <PrepRoomPrintView activeDayIdx={activeDay} />}
               </div>
             </div>
           </div>
