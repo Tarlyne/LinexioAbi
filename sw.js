@@ -1,5 +1,4 @@
-
-const CACHE_NAME = 'linexioabi-v2';
+const CACHE_NAME = 'linexioabi-v2.1'; // Versionierung für GitHub Pages Updates
 const ASSETS = [
   './',
   './index.html',

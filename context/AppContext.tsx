@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { AppState, Exam, Supervision } from '../types';
 import * as db from '../store/db';
@@ -28,6 +27,7 @@ interface AppContextType {
   importState: (file: File, password: string) => Promise<boolean>;
   resetForNewYear: () => void;
   factoryReset: () => void;
+  getFullState: () => AppState;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -55,7 +55,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const init = async () => {
       try {
         const saved = await db.loadState();
-        // FIXED: Using property check 'teachers' in saved to correctly identify AppState in union and avoid unsafe cast
         if (saved && 'teachers' in saved) {
           loadDecryptedData(saved);
         }
@@ -68,37 +67,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     init();
   }, [loadDecryptedData]);
 
-  /**
-   * CENTRAL VALIDATION GUARD (Kategorie A)
-   * Prüft den State auf strukturelle Integrität, bevor er persistent gespeichert wird.
-   */
   const validateStateInvariants = useCallback((state: AppState): boolean => {
     try {
-      // 1. Verwaiste IDs in Prüfungen prüfen
       for (const exam of state.exams) {
         const studentExists = state.students.some(s => s.id === exam.studentId);
         const teacherExists = state.teachers.some(t => t.id === exam.teacherId);
-        if (!studentExists || !teacherExists) {
-          console.error("Invariant Violation: Exam with missing student/teacher", exam);
-          return false;
-        }
-        if (exam.roomId && !state.rooms.some(r => r.id === exam.roomId)) return false;
+        if (!studentExists || !teacherExists) return false;
       }
-
-      // 2. Verwaiste IDs in Aufsichten prüfen
-      for (const sup of state.supervisions) {
-        if (!state.teachers.some(t => t.id === sup.teacherId) || !state.rooms.some(r => r.id === sup.stationId)) {
-          console.error("Invariant Violation: Supervision with missing teacher/station", sup);
-          return false;
-        }
-      }
-
-      // 3. Typ-Sanity-Check
-      if (!Array.isArray(state.teachers) || !Array.isArray(state.students)) return false;
-      
       return true;
     } catch (err) {
-      console.error("Validation Guard Crashed:", err);
       return false;
     }
   }, []);
@@ -118,24 +95,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           db.saveState(state);
         }, 500);
         return () => clearTimeout(timeout);
-      } else {
-        console.warn("Save suppressed due to state inconsistency.");
       }
     }
   }, [isLoading, isLocked, getFullState, validateStateInvariants]);
 
   const addExams = useCallback((newList: Exam[]) => {
-    const isValid = newList.every(e => 
-      students.some(s => s.id === e.studentId) && 
-      teachers.some(t => t.id === e.teacherId)
-    );
-    
-    if (!isValid) {
-      showToast("Import abgebrochen: Unbekannte IDs im Datensatz.", "error");
-      return;
-    }
     setExams(prev => [...prev, ...newList]);
-  }, [students, teachers, showToast]);
+  }, []);
 
   const updateExam = useCallback((exam: Exam) => setExams(prev => prev.map(e => e.id === exam.id ? exam : e)), []);
   const deleteExam = useCallback((id: string) => {
@@ -145,7 +111,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const togglePresence = useCallback((id: string) => setExams(prev => prev.map(e => e.id === id ? { ...e, isPresent: !e.isPresent } : e)), []);
   const completeExam = useCallback((id: string) => setExams(prev => prev.map(e => e.id === id ? { ...e, status: 'completed' } : e)), []);
-
   const toggleProtocolCollected = useCallback((examId: string) => {
     setCollectedExamIds(prev => prev.includes(examId) ? prev.filter(id => id !== examId) : [...prev, examId]);
   }, []);
@@ -186,20 +151,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const resetForNewYear = useCallback(() => {
     const minimalState: AppState = {
       subjects: subjects,
-      exams: [],
-      supervisions: [],
-      collectedExamIds: [],
-      teachers: [],
-      students: [],
-      rooms: [],
-      days: [],
-      isLocked: false,
-      masterPassword: masterPassword,
-      settings: settings,
+      exams: [], supervisions: [], collectedExamIds: [],
+      teachers: [], students: [], rooms: [], days: [],
+      isLocked: false, masterPassword: masterPassword, settings: settings,
       lastUpdate: Date.now()
     };
     loadDecryptedData(minimalState);
-    showToast('Datenbank für neues Jahr bereinigt (Fächer & Passwort behalten)', 'success');
+    showToast('Datenbank bereinigt', 'success');
   }, [subjects, loadDecryptedData, showToast, masterPassword, settings]);
 
   const factoryReset = useCallback(async () => {
@@ -211,8 +169,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     exams, supervisions, collectedExamIds, isLoading, loadDecryptedData,
     addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected,
     addSupervision, removeSupervision,
-    checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset
-  }), [exams, supervisions, collectedExamIds, isLoading, loadDecryptedData, addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected, addSupervision, removeSupervision, checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset]);
+    checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset, getFullState
+  }), [exams, supervisions, collectedExamIds, isLoading, loadDecryptedData, addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected, addSupervision, removeSupervision, checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset, getFullState]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

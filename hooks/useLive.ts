@@ -2,9 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useData } from '../context/DataContext';
 import { Exam, Room, Student } from '../types';
-import { getExamTimes, getLivePhase, formatCountdown } from '../utils/timeEngine';
-
-export type LivePhase = 'WAITING' | 'CHECK_IN_WARNING' | 'TAXI_TO_PREP' | 'IN_PREP' | 'TAXI_TO_EXAM' | 'IN_EXAM';
+import { getExamTimes, getLivePhase, formatCountdown, LivePhase } from '../utils/TimeService';
 
 export interface LiveExamStatus {
   phase: LivePhase;
