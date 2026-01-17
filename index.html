@@ -6,6 +6,7 @@
     <title>LinexioAbi</title>
     
     <!-- PWA & iOS Branding -->
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="LinexioAbi">
@@ -15,52 +16,26 @@
     <meta name="msapplication-TileImage" content="icon-512.png">
     <meta name="msapplication-TileColor" content="#0a0f1d">
     
-    <!-- Dynamischer Manifest-Loader zur Vermeidung von CORS-Fehlern in Sandboxes -->
-    <script>
-      (function() {
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const isGitHubPages = window.location.hostname.endsWith('.github.io');
-        if (isLocal || isGitHubPages) {
-          const link = document.createElement('link');
-          link.rel = 'manifest';
-          link.href = 'manifest.json';
-          document.head.appendChild(link);
-        }
-      })();
-    </script>
+    <!-- Manifest Link (Relativ für Subfolder-Hosting wie GitHub Pages) -->
+    <link rel="manifest" href="./manifest.json">
     
     <!-- Icons -->
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 
-        <!-- iPad Splash Screens (alle nutzen dasselbe PNG) -->
+    <!-- iPad Splash Screens -->
     <link rel="apple-touch-startup-image" href="ios-splash.png"
         media="(device-width: 1024px) and (device-height: 1366px)
                 and (-webkit-device-pixel-ratio: 2)
                 and (orientation: portrait)">
     <link rel="apple-touch-startup-image" href="ios-splash.png"
-        media="(device-width: 1024px) and (device-height: 1366px)
-                and (-webkit-device-pixel-ratio: 2)
-                and (orientation: landscape)">
-
-    <link rel="apple-touch-startup-image" href="ios-splash.png"
         media="(device-width: 820px) and (device-height: 1180px)
-                and (-webkit-device-pixel-ratio: 2)
-                and (orientation: portrait)">
-    <link rel="apple-touch-startup-image" href="ios-splash.png"
-        media="(device-width: 820px) and (device-height: 1180px)
-                and (-webkit-device-pixel-ratio: 2)
-                and (orientation: landscape)">
-
-    <link rel="apple-touch-startup-image" href="ios-splash.png"
-        media="(device-width: 768px) and (device-height: 1024px)
                 and (-webkit-device-pixel-ratio: 2)
                 and (orientation: portrait)">
     <link rel="apple-touch-startup-image" href="ios-splash.png"
         media="(device-width: 768px) and (device-height: 1024px)
                 and (-webkit-device-pixel-ratio: 2)
-                and (orientation: landscape)">
-
+                and (orientation: portrait)">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -83,7 +58,6 @@
             box-sizing: border-box;
         }
 
-        /* iPad Drag & Drop Fix (Linexio-Methode) */
         .draggable-item {
             touch-action: none !important;
             -webkit-user-select: none !important;
@@ -103,7 +77,6 @@
             color: #f1f5f9;
         }
 
-        /* --- Splash Screen Styles --- */
         #splash-screen {
             position: fixed;
             inset: 0;
@@ -160,12 +133,10 @@
             100% { left: 100%; }
         }
 
-        /* --- Global App Styles --- */
         .dashboard-gradient {
             background: radial-gradient(circle at 50% -20%, #1e293b 0%, #0a0f1d 80%);
         }
 
-        /* Aurora Button Base & Shared Logic */
         .btn-aurora-base, .btn-primary-aurora, .btn-indigo-aurora, .btn-warning-aurora, .btn-danger-aurora {
             position: relative;
             color: white;
@@ -212,27 +183,15 @@
             background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
             box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3);
         }
-        .btn-indigo-aurora:hover {
-            transform: translateY(-1.5px);
-            box-shadow: 0 8px 16px -4px rgba(79, 70, 229, 0.55), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.4);
-        }
 
         .btn-warning-aurora {
             background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
             box-shadow: 0 4px 12px -2px rgba(245, 158, 11, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3);
         }
-        .btn-warning-aurora:hover {
-            transform: translateY(-1.5px);
-            box-shadow: 0 8px 16px -4px rgba(245, 158, 11, 0.55), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.4);
-        }
 
         .btn-danger-aurora {
             background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
             box-shadow: 0 4px 12px -2px rgba(220, 38, 38, 0.4), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3);
-        }
-        .btn-danger-aurora:hover {
-            transform: translateY(-1.5px);
-            box-shadow: 0 8px 16px -4px rgba(220, 38, 38, 0.55), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.4);
         }
 
         .btn-secondary-glass {
@@ -248,13 +207,6 @@
             justify-content: center;
             gap: 8px;
             white-space: nowrap !important;
-        }
-
-        .btn-secondary-glass:hover {
-            background: rgba(51, 65, 85, 0.6);
-            color: white;
-            border-color: rgba(6, 182, 212, 0.4);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
         }
 
         .segmented-control-wrapper {
@@ -293,21 +245,6 @@
             padding: 8px 12px;
         }
 
-        .grid-row, .grid-row-hour {
-            height: var(--slot-height);
-            border-bottom: 1px solid rgba(51, 65, 85, 0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            width: 100%;
-        }
-
-        .grid-row-hour {
-            border-bottom: 1.5px solid rgba(6, 182, 212, 0.35);
-            background: rgba(6, 182, 212, 0.05);
-        }
-
         .badge {
             display: inline-flex;
             align-items: center;
@@ -324,8 +261,6 @@
         .badge-cyan { color: var(--color-accent-primary); background: rgba(6, 182, 212, 0.1); border-color: rgba(6, 182, 212, 0.2); }
         .badge-amber { color: var(--color-accent-amber); background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); }
         .badge-slate { color: #94a3b8; background: rgba(148, 163, 184, 0.1); border-color: rgba(148, 163, 184, 0.2); }
-        .badge-emerald { color: #10b981; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2); }
-        .badge-red { color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); }
 
         .aurora-container {
             position: fixed;
@@ -342,15 +277,6 @@
             filter: blur(120px);
             opacity: 0.28;
             animation: move-aurora 30s infinite alternate ease-in-out;
-        }
-
-        .aurora-glow-secondary {
-            position: absolute;
-            width: 100%; height: 100%;
-            background: radial-gradient(circle at 50% 50%, #4f46e5 0%, transparent 60%);
-            filter: blur(100px);
-            opacity: 0.15;
-            animation: move-aurora 35s infinite alternate-reverse ease-in-out;
         }
 
         @keyframes move-aurora {
@@ -373,31 +299,11 @@
             -webkit-backdrop-filter: blur(24px);
             border: 1px solid rgba(51, 65, 85, 0.6);
             border-radius: 1.5rem;
-            box-shadow: 
-                0 0 0 1px rgba(0,0,0,0.5),
-                0 25px 60px -12px rgba(0, 0, 0, 0.9),
-                0 0 80px 4px rgba(6, 182, 212, 0.22);
-        }
-
-        @media print {
-            .no-print { display: none !important; }
-            .print-only { display: block !important; }
-            body { background: white !important; overflow: visible !important; }
-        }
-        @media screen {
-            .print-only { display: none !important; }
+            box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.9), 0 0 80px 4px rgba(6, 182, 212, 0.22);
         }
 
         ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.6); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(6, 182, 212, 0.4); }
-
-        @keyframes row-exit {
-            0% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0; transform: scale(0.95); }
-        }
-        .animate-row-exit { animation: row-exit 0.3s forwards; }
 
         @keyframes page-in {
             from { opacity: 0; transform: scale(0.995) translateY(4px); }
@@ -405,30 +311,7 @@
         }
         .animate-page-in {
             animation: page-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            will-change: transform, opacity;
         }
-
-        @keyframes backdrop-in {
-            from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
-            to { opacity: 1; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-        }
-        @keyframes backdrop-out {
-            from { opacity: 1; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-            to { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
-        }
-        @keyframes modal-in {
-            from { opacity: 0; transform: scale(0.92) translateY(20px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        @keyframes modal-out {
-            from { opacity: 1; transform: scale(1) translateY(0); }
-            to { opacity: 0; transform: scale(0.96) translateY(10px); }
-        }
-
-        .animate-backdrop-in { animation: backdrop-in 0.3s ease-out forwards; }
-        .animate-backdrop-out { animation: backdrop-out 0.3s ease-in forwards; }
-        .animate-modal-in { animation: modal-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .animate-modal-out { animation: modal-out 0.3s ease-in forwards; }
 
         .exam-card-shadow {
             box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.7), 0 0 15px rgba(6, 182, 212, 0.1);
@@ -439,21 +322,20 @@
 <script type="importmap">
 {
   "imports": {
-    "jspdf": "https://esm.sh/jspdf@^4.0.0",
-    "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "vite": "https://esm.sh/vite@^7.3.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "localforage": "https://esm.sh/localforage@^1.10.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "react-dom": "https://esm.sh/react-dom@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "localforage": "https://esm.sh/localforage@^1.10.0"
+    "jspdf": "https://esm.sh/jspdf@^4.0.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
 </head>
 <body>
-    <!-- Splash Screen -->
     <div id="splash-screen">
         <div class="splash-logo-container">
             <div class="splash-glow"></div>
@@ -480,8 +362,6 @@
     </div>
 
     <div id="root"></div>
-
-    <!-- Einstiegspunkt für Vite/Build-Prozess -->
     <script type="module" src="./index.tsx"></script>
 </body>
 </html>
