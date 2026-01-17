@@ -5,6 +5,7 @@ import { UIProvider } from './context/UIContext';
 import { HeaderProvider } from './context/HeaderContext';
 import { DataProvider, useData } from './context/DataContext';
 import { AppProvider, useApp } from './context/AppContext';
+import { DnDProvider } from './context/DnDContext';
 import { Layout } from './components/Layout';
 import { UnlockScreen } from './components/UnlockScreen';
 import { DataView } from './components/DataView';
@@ -25,11 +26,22 @@ const MainView: React.FC = () => {
   const [activeTab, setActiveTab] = useState('monitor');
 
   useEffect(() => {
-    if (navigator.storage && navigator.storage.persist) {
-      navigator.storage.persist().then((persistent) => {
-        if (persistent) console.debug("Storage persistent");
-      });
-    }
+    // Versuch, Speicherpersistenz automatisch zu erlangen
+    const initPersistence = async () => {
+      if (navigator.storage && navigator.storage.persist) {
+        try {
+          const persistent = await navigator.storage.persist();
+          if (persistent) {
+            console.debug("Storage is persistent");
+          } else {
+            console.debug("Storage is temporary");
+          }
+        } catch (err) {
+          console.debug("Persistence request failed:", err);
+        }
+      }
+    };
+    initPersistence();
   }, []);
 
   if (isLoading) return null;
@@ -80,7 +92,9 @@ const App: React.FC = () => {
         <HeaderProvider>
           <DataProvider>
             <AppProvider>
-              <MainView />
+              <DnDProvider>
+                <MainView />
+              </DnDProvider>
             </AppProvider>
           </DataProvider>
         </HeaderProvider>

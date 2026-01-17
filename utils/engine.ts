@@ -1,3 +1,4 @@
+
 import { Exam, Teacher, Supervision, AppState, Subject } from '../types';
 import { TIME_CONFIG, timeToMin, examSlotToMin } from './TimeService';
 
@@ -8,9 +9,11 @@ export const SUPERVISION_BUFFER_MINUTES = TIME_CONFIG.SUPERVISION_BUFFER_MINUTES
 
 /**
  * Kern-Berechnung für das Deputat einer Lehrkraft.
+ * Geändert: Nur geplante Prüfungen (startTime > 0) fließen in die Wertung ein.
  */
 export const calculateTeacherPoints = (teacherId: string, exams: Exam[], supervisions: Supervision[]): number => {
   const examPoints = exams.filter(e => 
+    e.startTime > 0 && // Nur Prüfungen im Grid zählen
     (e.teacherId === teacherId || e.chairId === teacherId || e.protocolId === teacherId) && 
     e.status !== 'cancelled'
   ).length;
@@ -24,9 +27,6 @@ export const calculateTeacherPoints = (teacherId: string, exams: Exam[], supervi
 
 /**
  * Berechnet die Lastverteilung der Vorbereitungsräume für eine Simulation.
- * @param dayExams Liste der bereits terminierten Prüfungen des Tages
- * @param mapping Mapping von Fach-Name zu Vorbereitungsraum-ID
- * @returns Objekt mit Peak-Werten und Zeitpunkten pro Raum
  */
 export const calculatePrepLoadSimulation = (
   dayExams: Exam[], 
@@ -34,10 +34,6 @@ export const calculatePrepLoadSimulation = (
 ): Record<string, { peak: number; time: string }> => {
   const roomLoad: Record<string, Record<number, number>> = {};
   const results: Record<string, { peak: number; time: string }> = {};
-
-  // Alle 10-Minuten-Slots von 07:30 bis 18:30 prüfen
-  const startMin = 7.5 * 60;
-  const endMin = 18.5 * 60;
 
   dayExams.forEach(exam => {
     const roomId = mapping[exam.subject];
@@ -48,8 +44,6 @@ export const calculatePrepLoadSimulation = (
     const examStartMin = examSlotToMin(exam.startTime);
     const prepStartMin = examStartMin - 20;
     
-    // Ein Schüler ist von T-20 bis T im Vorbereitungsraum
-    // Wir zählen ihn für die Slots T-20 und T-10
     for (let t = prepStartMin; t < examStartMin; t += 10) {
       roomLoad[roomId][t] = (roomLoad[roomId][t] || 0) + 1;
     }
@@ -102,7 +96,7 @@ export const getTeacherSubjectPeriods = (teacherId: string, dayIdx: number, exam
 
   return exams
     .filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === dayIdx)
-    .filter(e => teacherSubjectNames.includes(e.subject))
+    .filter(e => teacherSubjectNames.some(tsn => tsn.toLowerCase() === e.subject.toLowerCase()))
     .map(e => {
       const start = examSlotToMin(e.startTime);
       const end = start + 30;
@@ -128,7 +122,7 @@ export const checkTeacherAvailability = (
   const blockedPeriods = getTeacherBlockedPeriods(teacherId, dayIdx, exams);
   for (const period of blockedPeriods) {
     if (startTimeMin < period.end && endTimeMin > period.start) {
-      return { isBusy: true, reason: `Überschneidung mit Prüfung` };
+      return { isBusy: true, reason: `Überschneidung mit Prüfung (Pufferzeit)` };
     }
   }
 

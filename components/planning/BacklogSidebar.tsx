@@ -1,8 +1,8 @@
-
-import React from 'react';
-import { Search, FileJson, PlusCircle, Check, AlertTriangle } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { Search, FileJson, PlusCircle, Check, AlertTriangle, User, Settings } from 'lucide-react';
 import { Exam, Student, Teacher, Room } from '../../types';
 import { PlanningSortOption } from '../../hooks/usePlanning';
+import { useDnD } from '../../context/DnDContext';
 
 interface BacklogSidebarProps {
   exams: Exam[];
@@ -19,9 +19,6 @@ interface BacklogSidebarProps {
   isDraggingOver: boolean;
   onDragCounterChange: (val: number) => void;
   setIsDraggingOver: (val: boolean) => void;
-  onDragStart: (id: string) => void;
-  onDragEnd: () => void;
-  draggingExamId: string | null;
   checkConsistency: (exam: Exam) => { hasWarning: boolean, reason?: string };
 }
 
@@ -29,38 +26,40 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
   exams, students, teachers, rooms, searchTerm, onSearchChange, 
   sortOption, onSortChange, onAddExam, onEditExam, 
   onRemoveFromGrid, isDraggingOver, onDragCounterChange, 
-  setIsDraggingOver, onDragStart, onDragEnd, draggingExamId,
-  checkConsistency
+  setIsDraggingOver, checkConsistency
 }) => {
   const sortOptions: PlanningSortOption[] = ['name', 'teacher', 'subject'];
+  const { dropTarget, startDrag, activeDrag } = useDnD();
+
+  // STABILITY FIX: Always hold the latest handler reference to prevent stale closures
+  const onRemoveRef = useRef(onRemoveFromGrid);
+  useEffect(() => {
+    onRemoveRef.current = onRemoveFromGrid;
+  }, [onRemoveFromGrid]);
+
+  const isActuallyHovered = dropTarget?.info.type === 'backlog';
 
   return (
     <aside 
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+      data-drop-zone="true"
+      data-drop-info={JSON.stringify({ type: 'backlog', onDrop: true })}
+      ref={(el) => {
+        if (el && !el.dataset.listenerAdded) {
+          el.addEventListener('linexio-drop', ((e: CustomEvent) => {
+            const { dragId } = e.detail;
+            // Execute the LATEST version of the handler
+            onRemoveRef.current(dragId);
+          }) as EventListener);
+          el.dataset.listenerAdded = 'true';
+        }
       }}
-      onDragEnter={(e) => {
-        e.preventDefault();
-        onDragCounterChange(1);
-        setIsDraggingOver(true);
-      }}
-      onDragLeave={() => {
-        onDragCounterChange(-1);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        const examId = e.dataTransfer.getData('examId') || draggingExamId;
-        if (examId) onRemoveFromGrid(examId);
-      }}
-      className={`w-80 flex flex-col glass-nocturne border-slate-700/30 overflow-hidden shrink-0 transition-all duration-300 relative ${isDraggingOver ? 'bg-cyan-500/10' : 'bg-slate-900/40'}`}
+      className={`w-80 flex flex-col glass-nocturne border-slate-700/30 overflow-hidden shrink-0 transition-all duration-300 relative ${isActuallyHovered ? 'bg-cyan-500/10' : 'bg-slate-900/40'}`}
     >
       <div className="p-4 border-b border-slate-700/30 space-y-4 shrink-0">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-white text-sm tracking-tight flex items-center gap-2">
             <FileJson size={16} className="text-cyan-400" /> Prüfungen
           </h3>
-          {/* Badge entfernt gemäß Anweisung */}
         </div>
         
         <div className="relative flex p-1 bg-slate-900/50 rounded-lg border border-slate-700/30">
@@ -108,72 +107,104 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
           const chair = teachers.find(t => t.id === exam.chairId);
           const protocol = teachers.find(t => t.id === exam.protocolId);
           const prepRoom = rooms.find(r => r.id === exam.prepRoomId);
-          const complete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
-          const isDragging = draggingExamId === exam.id;
           
+          const isDraggingReal = activeDrag?.id === exam.id && activeDrag?.isDraggingStarted;
           const consistency = checkConsistency(exam);
           const hasWarning = consistency.hasWarning;
+          const isComplete = !!(exam.teacherId && exam.chairId && exam.protocolId);
+
+          const ghostUI = (
+            <div className="w-56 p-3 flex flex-col gap-1.5 bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                  <User size={14} />
+                </div>
+                <span className="text-xs font-bold text-white truncate">{student?.lastName}, {student?.firstName}</span>
+              </div>
+              <div className="bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md inline-block self-start">
+                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest leading-none">{exam.subject}</span>
+              </div>
+            </div>
+          );
 
           return (
             <div 
               key={exam.id}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('examId', exam.id);
-                e.dataTransfer.effectAllowed = 'move';
-                setTimeout(() => onDragStart(exam.id), 0);
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                startDrag(exam.id, 'exam', e, { fromBacklog: true }, ghostUI);
               }}
-              onDragEnd={onDragEnd}
-              onClick={() => onEditExam(exam)}
-              className={`p-3 border rounded-xl cursor-grab active:cursor-grabbing hover:border-cyan-500/40 transition-all group relative ${
-                isDragging ? 'opacity-20 scale-95 border-cyan-500' : 'opacity-100'
+              className={`draggable-item p-3 border rounded-xl hover:border-cyan-500/40 transition-all group relative flex flex-col ${
+                isDraggingReal ? 'opacity-20 scale-95 border-cyan-500' : 'opacity-100'
               } ${
                 hasWarning ? 'bg-amber-900/20 border-amber-500/30' : 'bg-slate-800/40 border-slate-700/50'
               }`}
             >
-              <div className="flex justify-between items-start mb-1 pointer-events-none">
-                <div className="text-sm font-bold text-slate-200 group-hover:text-white truncate pr-2">
-                  {student?.lastName}, {student?.firstName}
+              <div className="flex justify-between items-start mb-1">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1 pointer-events-none">
+                  <span className="text-sm font-bold text-slate-200 group-hover:text-white truncate pr-1">
+                    {student?.lastName}, {student?.firstName}
+                  </span>
+                  <div className="shrink-0">
+                     {hasWarning ? (
+                       <AlertTriangle size={12} className="text-amber-500" />
+                     ) : isComplete ? (
+                       <Check size={12} className="text-emerald-500" />
+                     ) : (
+                       <AlertTriangle size={12} className="text-red-500" />
+                     )}
+                  </div>
                 </div>
-                <div className="flex items-center justify-center w-5 h-5 shrink-0">
-                  {hasWarning ? (
-                    <AlertTriangle size={14} className="text-amber-500" />
-                  ) : complete ? (
-                    <Check size={14} className="text-emerald-500" />
-                  ) : (
-                    <AlertTriangle size={14} className="text-red-500" />
-                  )}
-                </div>
+
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditExam(exam);
+                  }}
+                  className="w-6 h-6 -mr-1 -mt-1 rounded-lg flex items-center justify-center text-slate-600 hover:text-white hover:bg-white/5 active:scale-90 transition-all pointer-events-auto"
+                >
+                  <Settings size={14} />
+                </button>
               </div>
-              <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pointer-events-none truncate">
+              
+              <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider pointer-events-none truncate mb-2">
                 {exam.subject} {exam.groupId && `(${exam.groupId})`}
                 {prepRoom && (
                   <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>
                 )}
               </div>
-              <div className="mt-2 flex flex-wrap gap-1 pointer-events-none">
-                <span className="text-[9px] font-mono text-cyan-500/80 bg-cyan-500/5 border border-cyan-500/20 px-1 rounded">
-                  {teacher?.shortName || '?'}
-                </span>
-                {chair && (
-                  <span className="text-[9px] font-mono text-amber-500/80 bg-amber-500/5 border border-amber-500/20 px-1 rounded">
-                    {chair.shortName}
-                  </span>
-                )}
-                {protocol && (
-                  <span className="text-[9px] font-mono text-indigo-500/80 bg-indigo-500/5 border border-indigo-500/20 px-1 rounded">
-                    {protocol.shortName}
-                  </span>
-                )}
+
+              {/* Kommission im 3-Spalten Grid - Zentrierte Badges mit Min-Width */}
+              <div className="grid grid-cols-3 gap-1 mt-auto pt-1.5 border-t border-slate-700/30 pointer-events-none overflow-hidden">
+                {/* Prüfer (Links) */}
+                <div className="flex justify-center">
+                  <div className="bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded text-[9px] font-bold text-cyan-300 text-center min-w-[34px]">
+                    {teacher?.shortName || '?'}
+                  </div>
+                </div>
+                
+                {/* Prot (Mitte) */}
+                <div className="flex justify-center">
+                  <div className={`px-2 py-0.5 rounded text-[9px] font-bold text-center border transition-all min-w-[34px] ${
+                    protocol ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300' : 'border-transparent text-transparent'
+                  }`}>
+                    {protocol?.shortName || '---'}
+                  </div>
+                </div>
+
+                {/* Vorsitz (Rechts) */}
+                <div className="flex justify-center">
+                  <div className={`px-2 py-0.5 rounded text-[9px] font-bold text-center border transition-all min-w-[34px] ${
+                    chair ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'border-transparent text-transparent'
+                  }`}>
+                    {chair?.shortName || '---'}
+                  </div>
+                </div>
               </div>
             </div>
           );
         })}
-        {exams.length === 0 && (
-          <div className="py-10 text-center text-slate-600 italic text-xs px-4">
-            Keine Prüfungen gefunden.
-          </div>
-        )}
       </div>
 
       <div className="bg-slate-900/60 border-t border-slate-700/30 px-4 py-2 flex justify-between items-center shrink-0">

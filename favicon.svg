@@ -1,0 +1,18 @@
+<svg viewBox="0 0 270.93333 270.93333" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="logoGradient" x1="117.68" y1="121.68" x2="166.11" y2="121.68" gradientUnits="userSpaceOnUse">
+            <stop offset="0.158" stop-color="#22d3ee" />
+            <stop offset="0.570" stop-color="#f59e0b" />
+        </linearGradient>
+    </defs>
+    <!-- Background for better visibility on different OS themes -->
+    <rect width="270.93333" height="270.93333" rx="50" fill="#0a0f1d" />
+    
+    <g transform="translate(0, 5)">
+        <path stroke="#22d3ee" stroke-width="6" d="m 62.584546,45.554174 0.328916,166.313296 141.764338,0.65737 -38.81249,-38.12716 h -64.79717 l 0.32891,-90.71636 z" />
+        <path stroke="#22d3ee" stroke-width="6" d="M 165.53639,212.52484 62.255627,109.31859" />
+        <text x="114.93772" y="147.99986" style="font-size: 74px; font-family: 'Comic Sans MS', cursive; stroke: url(#logoGradient); stroke-width: 5; fill: none;">
+            <tspan x="114.93772" y="147.99986">A</tspan>
+        </text>
+    </g>
+</svg>

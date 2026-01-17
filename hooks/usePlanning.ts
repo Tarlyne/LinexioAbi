@@ -20,7 +20,6 @@ export const usePlanning = () => {
   const [editingExam, setEditingExam] = useState<Partial<Exam> | null>(null);
   const [hoveredSlot, setHoveredSlot] = useState<{roomId: string, slotIdx: number} | null>(null);
   const [isDraggingOverBacklog, setIsDraggingOverBacklog] = useState(false);
-  const [draggingExamId, setDraggingExamId] = useState<string | null>(null);
   
   const dragCounter = useRef(0);
 
@@ -85,11 +84,8 @@ export const usePlanning = () => {
     return result;
   }, [backlogExams, students, teachers, searchTerm, sortOption]);
 
-  const handleDropToSlot = useCallback((examIdFromEv: string, roomId: string, slotIdx: number, timeSlotsLength: number) => {
+  const handleDropToSlot = useCallback((examId: string, roomId: string, slotIdx: number, timeSlotsLength: number) => {
     setHoveredSlot(null);
-    const examId = examIdFromEv || draggingExamId;
-    setDraggingExamId(null);
-
     if (!examId) return;
 
     const exam = exams.find(e => e.id === examId);
@@ -103,33 +99,29 @@ export const usePlanning = () => {
     const newStartTime = (activeDay * 1000) + slotIdx + 1;
     const updatedExam: Exam = { ...exam, roomId, startTime: newStartTime, status: 'scheduled' };
     
-    // Check Kollision (Rot)
     const collision = checkCollision(updatedExam);
     if (collision.hasConflict) {
       showToast(collision.reason || 'Kollision festgestellt!', 'warning');
       if (collision.reason?.startsWith('Raumbelegung')) return;
     }
 
-    // Check Konsistenz (Amber)
     const consistency = checkConsistency(updatedExam);
     if (consistency.hasWarning) {
       showToast(consistency.reason || 'Inkonsistenz festgestellt!', 'amber');
     }
     
     updateExam(updatedExam);
-  }, [exams, activeDay, checkCollision, checkConsistency, updateExam, showToast, draggingExamId]);
+  }, [exams, activeDay, checkCollision, checkConsistency, updateExam, showToast]);
 
-  const handleRemoveFromGrid = useCallback((examIdFromEv: string) => {
+  const handleRemoveFromGrid = useCallback((examId: string) => {
     dragCounter.current = 0;
     setIsDraggingOverBacklog(false);
-    const examId = examIdFromEv || draggingExamId;
-    setDraggingExamId(null);
 
     if (!examId) return;
     const exam = exams.find(e => e.id === examId);
     if (!exam) return;
     updateExam({ ...exam, startTime: 0, roomId: undefined, status: 'backlog' });
-  }, [exams, updateExam, draggingExamId]);
+  }, [exams, updateExam]);
 
   return {
     exams, supervisions,
@@ -142,7 +134,6 @@ export const usePlanning = () => {
     editingExam, setEditingExam,
     hoveredSlot, setHoveredSlot,
     isDraggingOverBacklog, setIsDraggingOverBacklog,
-    draggingExamId, setDraggingExamId,
     dragCounter,
     plannedExamsForDay,
     filteredAndSortedBacklog,

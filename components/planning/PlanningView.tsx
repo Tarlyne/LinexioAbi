@@ -5,6 +5,7 @@ import {
 import { Exam } from '../../types';
 import { usePlanning } from '../../hooks/usePlanning';
 import { useHeader } from '../../context/HeaderContext';
+import { useDnD } from '../../context/DnDContext';
 import { BacklogSidebar } from './BacklogSidebar';
 import { ExamCard } from './ExamCard';
 import { parseAbiturExamsCSV, RawExamCSVRow } from '../../utils/csvParser';
@@ -28,7 +29,6 @@ export const PlanningView: React.FC = () => {
     editingExam, setEditingExam,
     hoveredSlot, setHoveredSlot,
     isDraggingOverBacklog, setIsDraggingOverBacklog,
-    draggingExamId, setDraggingExamId,
     dragCounter,
     plannedExamsForDay,
     filteredAndSortedBacklog,
@@ -37,6 +37,7 @@ export const PlanningView: React.FC = () => {
     addExams, updateExam, deleteExam, checkCollision, checkConsistency, showToast
   } = usePlanning();
   
+  const { dropTarget, activeDrag } = useDnD();
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showPrepBalancer, setShowPrepBalancer] = useState(false);
   const [showIntegrityCheck, setShowIntegrityCheck] = useState(false);
@@ -62,6 +63,14 @@ export const PlanningView: React.FC = () => {
     }
     return slots;
   }, []);
+
+  useEffect(() => {
+    if (dropTarget && dropTarget.info.type === 'slot') {
+      setHoveredSlot({ roomId: dropTarget.info.roomId, slotIdx: dropTarget.info.slotIdx });
+    } else {
+      setHoveredSlot(null);
+    }
+  }, [dropTarget]);
 
   const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,7 +108,7 @@ export const PlanningView: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleSaveExam = (e: React.FormEvent) => {
+  const handleSaveExam = (e: React.FormEvent, applyToGroup: boolean = false) => {
     e.preventDefault();
     if (!editingExam?.studentId || !editingExam?.teacherId || !editingExam?.subject) {
       showToast('Bitte Basis-Felder ausfüllen.', 'warning');
@@ -112,14 +121,17 @@ export const PlanningView: React.FC = () => {
       return;
     }
 
+    let savedExam: Exam;
     if (editingExam.id) {
       const collision = checkCollision(editingExam as Exam);
       if (collision.hasConflict) showToast(collision.reason || 'Kollision!', 'warning');
       const consistency = checkConsistency(editingExam as Exam);
       if (consistency.hasWarning) showToast(consistency.reason || 'Inkonsistenz!', 'amber');
-      updateExam(editingExam as Exam);
+      
+      savedExam = editingExam as Exam;
+      updateExam(savedExam);
     } else {
-      const exam: Exam = {
+      savedExam = {
         id: `e-${Date.now()}`,
         studentId: editingExam.studentId!,
         teacherId: editingExam.teacherId!,
@@ -131,8 +143,31 @@ export const PlanningView: React.FC = () => {
         startTime: 0,
         status: 'backlog'
       };
-      addExams([exam]);
+      addExams([savedExam]);
     }
+
+    // Gruppen-Intelligenz: Propagation
+    if (applyToGroup && savedExam.groupId) {
+      const siblings = exams.filter(ex => 
+        ex.id !== savedExam.id &&
+        ex.groupId === savedExam.groupId &&
+        ex.subject === savedExam.subject &&
+        ex.teacherId === savedExam.teacherId
+      );
+
+      if (siblings.length > 0) {
+        siblings.forEach(s => {
+          updateExam({
+            ...s,
+            chairId: savedExam.chairId,
+            protocolId: savedExam.protocolId,
+            prepRoomId: savedExam.prepRoomId
+          });
+        });
+        showToast(`Kommission auf ${siblings.length} Gruppenmitglieder übertragen.`, 'success');
+      }
+    }
+
     setShowModal(false);
   };
 
@@ -147,6 +182,12 @@ export const PlanningView: React.FC = () => {
     });
     showToast(`${updateCount} Vorbereitungsräume zugewiesen.`, 'success');
   };
+
+  // STABILITY FIX: Use refs to ensure event listeners always call the LATEST handler logic
+  const handleDropToSlotRef = useRef(handleDropToSlot);
+  const handleRemoveFromGridRef = useRef(handleRemoveFromGrid);
+  useEffect(() => { handleDropToSlotRef.current = handleDropToSlot; }, [handleDropToSlot]);
+  useEffect(() => { handleRemoveFromGridRef.current = handleRemoveFromGrid; }, [handleRemoveFromGrid]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -196,7 +237,6 @@ export const PlanningView: React.FC = () => {
   );
 
   const planningRoomsList = useMemo(() => rooms.filter(r => r.type === 'Prüfungsraum'), [rooms]);
-  const prepRoomsList = useMemo(() => rooms.filter(r => r.type === 'Vorbereitungsraum'), [rooms]);
 
   return (
     <div className="flex flex-col h-full gap-4 overflow-hidden select-none print:hidden">
@@ -208,13 +248,55 @@ export const PlanningView: React.FC = () => {
       </div>
 
       <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
-        <BacklogSidebar exams={filteredAndSortedBacklog} students={students} teachers={teachers} rooms={rooms} searchTerm={searchTerm} onSearchChange={setSearchTerm} sortOption={sortOption} onSortChange={setSortOption} onAddExam={openAddModal} onEditExam={openEditModal} onRemoveFromGrid={handleRemoveFromGrid} isDraggingOver={isDraggingOverBacklog} setIsDraggingOver={setIsDraggingOverBacklog} draggingExamId={draggingExamId} onDragStart={setDraggingExamId} onDragEnd={() => setDraggingExamId(null)} onDragCounterChange={(val) => { dragCounter.current += val; if (dragCounter.current === 0) setIsDraggingOverBacklog(false); }} checkConsistency={checkConsistency} />
+        <BacklogSidebar exams={filteredAndSortedBacklog} students={students} teachers={teachers} rooms={rooms} searchTerm={searchTerm} onSearchChange={setSearchTerm} sortOption={sortOption} onSortChange={setSortOption} onAddExam={openAddModal} onEditExam={openEditModal} onRemoveFromGrid={handleRemoveFromGrid} isDraggingOver={isDraggingOverBacklog} setIsDraggingOver={setIsDraggingOverBacklog} onDragCounterChange={(val) => { dragCounter.current += val; if (dragCounter.current === 0) setIsDraggingOverBacklog(false); }} checkConsistency={checkConsistency} />
         <div className="flex-1 glass-nocturne border-slate-700/30 overflow-hidden flex flex-col min-w-0">{planningRoomsList.length === 0 ? (<div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-3 italic text-sm"><MapPin size={40} className="opacity-10 mb-2" />Keine Prüfungsräume.</div>) : (
-          <div className="flex-1 overflow-auto relative scroll-smooth no-scrollbar" ref={gridContainerRef}><PlanningGridHeader rooms={planningRoomsList} /><div className="relative flex min-h-full"><GridTimeColumn timeSlots={timeSlots} slotHeight={SLOT_HEIGHT} renderSlot={(time, idx) => (<span className={idx % 6 === 0 ? 'text-cyan-400 font-bold text-[11px]' : 'text-slate-200 font-bold text-[10px]'}>{time}</span>)} /><div className="flex-1 flex bg-slate-900/5 relative min-w-max">{planningRoomsList.map(room => (<div key={room.id} className="min-w-[180px] flex-1 relative border-r border-slate-800/40"><div className="absolute inset-0 pointer-events-none z-0">{timeSlots.map((_, idx) => (<div key={idx} style={{ height: SLOT_HEIGHT }} className={`opacity-50 border-b ${idx % 6 === 0 ? 'bg-cyan-500/5 border-slate-700' : 'border-slate-800'}`} />))}</div><div className="relative h-full z-10">{timeSlots.map((_, slotIdx) => (<div key={`${room.id}-${slotIdx}`} onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (hoveredSlot?.slotIdx !== slotIdx || hoveredSlot?.roomId !== room.id) setHoveredSlot({roomId: room.id, slotIdx}); }} onDragLeave={() => setHoveredSlot(null)} onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDropToSlot(e.dataTransfer.getData('examId') || draggingExamId, room.id, slotIdx, timeSlots.length); }} style={{ height: SLOT_HEIGHT }} className="w-full relative z-10" />))}{hoveredSlot?.roomId === room.id && (<div className="absolute left-1 right-1 pointer-events-none ring-2 ring-inset ring-cyan-500 bg-cyan-500/10 z-[25] rounded-lg" style={{ top: hoveredSlot.slotIdx * SLOT_HEIGHT, height: (SLOT_HEIGHT * 3) - 2 }} />)}{plannedExamsForDay.filter(e => e.roomId === room.id).map(examAtSlot => (<ExamCard key={examAtSlot.id} exam={examAtSlot} student={students.find(s => s.id === examAtSlot.studentId)} teacher={teachers.find(t => t.id === examAtSlot.teacherId)} chair={teachers.find(t => t.id === examAtSlot.chairId)} protocol={teachers.find(t => t.id === examAtSlot.protocolId)} prepRoom={rooms.find(r => r.id === examAtSlot.prepRoomId)} hasConflict={checkCollision(examAtSlot).hasConflict} onEdit={openEditModal} onRemove={handleRemoveFromGrid} slotHeight={SLOT_HEIGHT} isAnyDragging={!!draggingExamId} onDragStart={setDraggingExamId} onDragEnd={() => setDraggingExamId(null)} />))}</div></div>))}</div></div></div>)}</div>
+          <div className="flex-1 overflow-auto relative scroll-smooth no-scrollbar" ref={gridContainerRef}>
+            <PlanningGridHeader rooms={planningRoomsList} />
+            <div className="relative flex min-h-full">
+              <GridTimeColumn timeSlots={timeSlots} slotHeight={SLOT_HEIGHT} renderSlot={(time, idx) => (<span className={idx % 6 === 0 ? 'text-cyan-400 font-bold text-[11px]' : 'text-slate-200 font-bold text-[10px]'}>{time}</span>)} />
+              <div className="flex-1 flex bg-slate-900/5 relative min-w-max">
+                {planningRoomsList.map(room => (
+                  <div key={room.id} className="min-w-[180px] flex-1 relative border-r border-slate-800/40">
+                    <div className="absolute inset-0 pointer-events-none z-0">
+                      {timeSlots.map((_, idx) => (
+                        <div key={idx} style={{ height: SLOT_HEIGHT }} className={`opacity-50 border-b ${idx % 6 === 0 ? 'bg-cyan-500/5 border-slate-700' : 'border-slate-800'}`} />
+                      ))}
+                    </div>
+                    <div className="relative h-full z-10">
+                      {timeSlots.map((_, slotIdx) => (
+                        <div 
+                          key={`${room.id}-${slotIdx}`} 
+                          data-drop-zone="true"
+                          data-drop-info={JSON.stringify({ type: 'slot', roomId: room.id, slotIdx, onDrop: true })}
+                          ref={(el) => {
+                            if (el && !el.dataset.listenerAdded) {
+                              el.addEventListener('linexio-drop', ((e: CustomEvent) => {
+                                const { dragId, dropInfo } = e.detail;
+                                handleDropToSlotRef.current(dragId, dropInfo.roomId, dropInfo.slotIdx, timeSlots.length);
+                              }) as EventListener);
+                              el.dataset.listenerAdded = 'true';
+                            }
+                          }}
+                          style={{ height: SLOT_HEIGHT }} 
+                          className="w-full relative z-10" 
+                        />
+                      ))}
+                      {hoveredSlot?.roomId === room.id && (
+                        <div className="absolute left-1 right-1 pointer-events-none ring-2 ring-inset ring-cyan-500 bg-cyan-500/10 z-[25] rounded-lg" style={{ top: hoveredSlot.slotIdx * SLOT_HEIGHT, height: (SLOT_HEIGHT * 3) - 2 }} />
+                      )}
+                      {plannedExamsForDay.filter(e => e.roomId === room.id).map(examAtSlot => (
+                        <ExamCard key={examAtSlot.id} exam={examAtSlot} student={students.find(s => s.id === examAtSlot.studentId)} teacher={teachers.find(t => t.id === examAtSlot.teacherId)} chair={teachers.find(t => t.id === examAtSlot.chairId)} protocol={teachers.find(t => t.id === examAtSlot.protocolId)} prepRoom={rooms.find(r => r.id === examAtSlot.prepRoomId)} hasConflict={checkCollision(examAtSlot).hasConflict} onEdit={openEditModal} onRemove={handleRemoveFromGrid} slotHeight={SLOT_HEIGHT} searchTerm={searchTerm} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>)}</div>
       </div>
 
       <ExamEditorModal isOpen={showModal} onClose={() => setShowModal(false)} editingExam={editingExam} setEditingExam={setEditingExam} students={students} teachers={teachers} rooms={rooms} subjects={subjects} onSave={handleSaveExam} onDelete={(id) => { deleteExam(id); setShowModal(false); }} showDeleteConfirm={showDeleteConfirm} setShowDeleteConfirm={setShowDeleteConfirm} />
-      <PrepBalancerModal isOpen={showPrepBalancer} onClose={() => setShowPrepBalancer(false)} dayExams={plannedExamsForDay} prepRooms={prepRoomsList} onApply={handleApplyPrepMapping} />
+      <PrepBalancerModal isOpen={showPrepBalancer} onClose={() => setShowPrepBalancer(false)} dayExams={plannedExamsForDay} prepRooms={rooms.filter(r => r.type === 'Vorbereitungsraum')} onApply={handleApplyPrepMapping} />
       <StudentIntegrityModal isOpen={showIntegrityCheck} onClose={() => setShowIntegrityCheck(false)} />
       
       <PlanningExportModal 

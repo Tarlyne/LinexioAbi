@@ -1,12 +1,14 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useUI } from '../context/UIContext';
 import { 
   Upload, Database, Lock, ChevronRight, AlertCircle, FileKey, Clock, ShieldCheck, KeyRound, Save, AlertTriangle, CheckCircle2, Trash2,
-  RefreshCw, Loader2, X, ChevronDown
+  RefreshCw, Loader2, X, ChevronDown, Tablet, Smartphone, ExternalLink
 } from 'lucide-react';
 import { Modal } from './Modal';
+import { isAppleMobile, isStandalone } from '../utils/Platform';
 
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, changeMasterPassword } = useAuth();
@@ -29,11 +31,40 @@ export const SettingsView: React.FC = () => {
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
 
-  useEffect(() => {
+  const isPWA = isStandalone();
+  const isiPad = isAppleMobile();
+
+  const checkPersistence = async () => {
     if (navigator.storage && navigator.storage.persisted) {
-      navigator.storage.persisted().then(p => setIsStoragePersistent(p));
+      const p = await navigator.storage.persisted();
+      setIsStoragePersistent(p);
+      return p;
     }
+    return false;
+  };
+
+  useEffect(() => {
+    checkPersistence();
   }, []);
+
+  const requestPersistence = async () => {
+    if (navigator.storage && navigator.storage.persist) {
+      setIsProcessing(true);
+      const persistent = await navigator.storage.persist();
+      setIsStoragePersistent(persistent);
+      setIsProcessing(false);
+      
+      if (persistent) {
+        showToast('Datenbank erfolgreich auf "Dauerhaft" umgestellt.', 'success');
+      } else {
+        if (isiPad && !isPWA) {
+          showToast('Anfrage abgelehnt. Bitte App zuerst zum Home-Bildschirm hinzufügen.', 'warning');
+        } else {
+          showToast('Anfrage wurde vom System abgelehnt.', 'error');
+        }
+      }
+    }
+  };
 
   const handleChangePw = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,21 +100,55 @@ export const SettingsView: React.FC = () => {
           <p className="text-cyan-500/80 text-[10px] font-bold tracking-wide mt-0.5">Systemverwaltung & Datensicherheit</p>
         </div>
         
-        {isStoragePersistent !== null && (
-          <div className={`px-4 py-2 rounded-xl border flex items-center gap-3 transition-all ${
-            isStoragePersistent ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-          }`}>
-            {isStoragePersistent ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-            <div className="flex flex-col">
-               <span className="text-[10px] font-black uppercase leading-none mb-0.5">Datenbank-Status</span>
-               <span className="text-xs font-bold">{isStoragePersistent ? 'Persistent (Sicher)' : 'Temporär'}</span>
+        <div className="flex gap-3">
+          {/* PWA STATUS BADGE */}
+          {isiPad && (
+             <div className={`px-4 py-2 rounded-xl border flex items-center gap-3 transition-all ${
+               isPWA ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
+             }`}>
+               <Tablet size={16} />
+               <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase leading-none mb-0.5">Modus</span>
+                  <span className="text-xs font-bold">{isPWA ? 'Home-Bildschirm (Sicher)' : 'Browser-Tab (Gefahr)'}</span>
+               </div>
+             </div>
+          )}
+
+          {isStoragePersistent !== null && (
+            <div className={`px-4 py-2 rounded-xl border flex items-center gap-3 transition-all ${
+              isStoragePersistent ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+            }`}>
+              {isStoragePersistent ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+              <div className="flex flex-col">
+                 <span className="text-[10px] font-black uppercase leading-none mb-0.5">Datenbank-Status</span>
+                 <span className="text-xs font-bold">{isStoragePersistent ? 'Persistent (Sicher)' : 'Temporär'}</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto pr-2 -mr-2 no-scrollbar pb-10">
-        {/* Main Sections Grid: Enforces same height on tablet/desktop */}
+        
+        {/* iOS SPEZIAL WARNUNG */}
+        {isiPad && !isPWA && (
+          <div className="mb-6 p-5 bg-red-900/20 border border-red-500/40 rounded-2xl flex flex-col md:flex-row items-center gap-6 animate-in slide-in-from-top-4 duration-500">
+            <div className="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center text-red-500 shrink-0 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+              <Smartphone size={32} />
+            </div>
+            <div className="flex-1 space-y-1 text-center md:text-left">
+              <h4 className="text-white font-black uppercase tracking-wider">Kritischer Sicherheitshinweis für iPad</h4>
+              <p className="text-sm text-red-200/70 leading-relaxed">
+                Du nutzt die App aktuell im Browser-Tab. Apple löscht alle lokalen Daten automatisch nach <span className="text-white font-bold">7 Tagen Inaktivität</span>.
+              </p>
+              <div className="flex items-center gap-2 text-xs font-bold text-red-400 mt-2 justify-center md:justify-start">
+                <ExternalLink size={14} />
+                <span>Lösung: Über das 'Teilen'-Icon zum Home-Bildschirm hinzufügen!</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 auto-rows-fr">
           
           {/* Sektion 1: Datensicherung */}
@@ -94,7 +159,6 @@ export const SettingsView: React.FC = () => {
                 <Database size={16} className="text-cyan-400" /> Datensicherung
               </h3>
               <div className="flex-1 flex flex-col gap-4">
-                {/* 3-Column Layout for Export Card */}
                 <button 
                   onClick={() => setShowExportModal(true)} 
                   className="btn-secondary-glass p-4 rounded-2xl text-left border-slate-700/50 hover:bg-slate-800/40 group/btn grid grid-cols-[40px_1fr_40px] items-center gap-4 transition-all"
@@ -111,7 +175,6 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </button>
 
-                {/* 3-Column Layout for Import Card */}
                 <button 
                   onClick={() => fileInputRef.current?.click()} 
                   className="btn-secondary-glass p-4 rounded-2xl text-left border-slate-700/50 hover:bg-slate-800/40 group/btn grid grid-cols-[40px_1fr_40px] items-center gap-4 transition-all"
@@ -132,6 +195,18 @@ export const SettingsView: React.FC = () => {
                   const f = e.target.files?.[0];
                   if (f) { setSelectedFile(f); setShowImportModal(true); }
                 }} />
+
+                {/* NEU: Manueller Persistenz-Trigger */}
+                {!isStoragePersistent && (
+                   <button 
+                    onClick={requestPersistence}
+                    disabled={isProcessing}
+                    className="mt-4 btn-aurora-base btn-primary-aurora w-full py-3 rounded-xl text-[10px] uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                    <span>Persistenz manuell anfordern</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -204,7 +279,6 @@ export const SettingsView: React.FC = () => {
                     Daten für ein neues Schuljahr zurücksetzen. Fächer & Master-Passwort bleiben erhalten.
                   </p>
                 </div>
-                {/* Vertically centered button */}
                 <button 
                   onClick={() => setShowResetModal(true)} 
                   className="btn-aurora-base btn-danger-aurora px-8 py-4 rounded-2xl text-sm"

@@ -1,14 +1,15 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
 import { useHeader } from '../context/HeaderContext';
-import { Clock, Search, X, Printer, Loader2, CheckCircle, ShieldAlert, AlertCircle, AlertTriangle, Trash2, Download } from 'lucide-react';
+import { useDnD } from '../context/DnDContext';
+import { Clock, Search, X, Printer, Loader2, ShieldAlert, GraduationCap, Download } from 'lucide-react';
 import { checkTeacherAvailability, getTeacherBlockedPeriods, getTeacherSubjectPeriods } from '../utils/engine';
-import { Supervision } from '../types';
+import { Supervision, Teacher } from '../types';
 import { Modal } from './Modal';
 import { PdfExportService } from '../services/PdfExportService';
-import { runPreflightCheck } from '../utils/validationEngine';
 import { GridTimeColumn } from './common/GridTimeColumn';
 import { WorkloadIndicator } from './stats/WorkloadIndicator';
 import { SupervisionPrintView } from './SupervisionPrintView';
@@ -17,18 +18,26 @@ export const StatsView: React.FC = () => {
   const { exams, supervisions, addSupervision, removeSupervision, getTeacherStats } = useApp();
   const { days, rooms, teachers, subjects } = useData();
   const { showToast } = useUI();
+  const { startDrag, activeDrag, dropTarget } = useDnD();
   
   const [activeDayIdx, setActiveDayIdx] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [hoveredSlot, setHoveredSlot] = useState<{ stationId: string; slotIdx: number; subIdx: number } | null>(null);
-  const [draggingTeacherId, setDraggingTeacherId] = useState<string | null>(null);
-  const [draggingSupId, setDraggingSupId] = useState<string | null>(null);
   const [showExportPreview, setShowExportPreview] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [workloadInfo, setWorkloadInfo] = useState<{ time: string, count: number } | null>(null);
 
   const SLOT_HEIGHT = 44;
-  const START_MIN_DAY = 450; // 07:30 Uhr
+  const START_MIN_DAY = 450; 
+
+  // Spotlight Logic
+  const isSpotlightActive = searchTerm.trim().length >= 2;
+  const isTeacherMatch = (t?: Teacher) => {
+    if (!t || !isSpotlightActive) return false;
+    const term = searchTerm.toLowerCase().trim();
+    return t.shortName.toLowerCase().includes(term) || 
+           t.lastName.toLowerCase().includes(term);
+  };
 
   const timeSlots = useMemo(() => {
     const slots = [];
@@ -40,19 +49,26 @@ export const StatsView: React.FC = () => {
     return slots;
   }, []);
 
+  useEffect(() => {
+    if (dropTarget && dropTarget.info.type === 'supervision-slot') {
+      setHoveredSlot({ 
+        stationId: dropTarget.info.stationId, 
+        slotIdx: dropTarget.info.slotIdx, 
+        subIdx: dropTarget.info.subIdx 
+      });
+    } else {
+      setHoveredSlot(null);
+    }
+  }, [dropTarget]);
+
   const stations = useMemo(() => rooms.filter(r => r.isSupervisionStation || r.type === 'Aufsicht-Station'), [rooms]);
 
   const filteredTeachers = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
-    
     const sorted = [...teachers].sort((a, b) => {
       const pA = getTeacherStats(a.id).points;
       const pB = getTeacherStats(b.id).points;
-      
-      if (pA !== pB) {
-        return pA - pB;
-      }
-      
+      if (pA !== pB) return pA - pB;
       return a.lastName.localeCompare(b.lastName, 'de');
     });
 
@@ -64,9 +80,8 @@ export const StatsView: React.FC = () => {
     );
   }, [teachers, searchTerm, getTeacherStats]);
 
-  const handleDrop = useCallback((stationId: string, subIdx: number, slotIdx: number) => {
-    setHoveredSlot(null);
-    if (!draggingTeacherId) return;
+  const handleDrop = useCallback((teacherId: string, stationId: string, subIdx: number, slotIdx: number, existingSupId?: string) => {
+    if (!teacherId) return;
 
     if (slotIdx >= timeSlots.length - 1) {
       showToast('Nicht genügend Zeit für eine volle Aufsicht (60 Min).', 'warning');
@@ -77,13 +92,13 @@ export const StatsView: React.FC = () => {
     const startTimeMin = START_MIN_DAY + slotIdx * 30;
     
     const availability = checkTeacherAvailability(
-      draggingTeacherId, 
+      teacherId, 
       activeDayIdx, 
       startTimeMin, 
       60, 
       exams, 
       supervisions, 
-      draggingSupId || undefined
+      existingSupId
     );
 
     if (availability.isBusy) {
@@ -91,12 +106,14 @@ export const StatsView: React.FC = () => {
       return;
     }
 
-    if (draggingSupId) removeSupervision(draggingSupId);
+    if (existingSupId) {
+      removeSupervision(existingSupId);
+    }
 
     const newSup: Supervision = {
       id: `s-${Date.now()}`,
       stationId,
-      teacherId: draggingTeacherId,
+      teacherId: teacherId,
       dayIdx: activeDayIdx,
       startTime: time,
       durationMinutes: 60,
@@ -105,9 +122,12 @@ export const StatsView: React.FC = () => {
     };
 
     addSupervision(newSup);
-    setDraggingTeacherId(null);
-    setDraggingSupId(null);
-  }, [draggingTeacherId, draggingSupId, activeDayIdx, exams, supervisions, timeSlots, addSupervision, removeSupervision, showToast]);
+  }, [activeDayIdx, exams, supervisions, timeSlots, addSupervision, removeSupervision, showToast]);
+
+  const handleDropRef = useRef(handleDrop);
+  const removeSupervisionRef = useRef(removeSupervision);
+  useEffect(() => { handleDropRef.current = handleDrop; }, [handleDrop]);
+  useEffect(() => { removeSupervisionRef.current = removeSupervision; }, [removeSupervision]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -125,7 +145,6 @@ export const StatsView: React.FC = () => {
     }
   };
 
-  // Set header actions via context
   useHeader(
     <button onClick={() => setShowExportPreview(true)} className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg border-indigo-500/30 text-slate-200">
       <Printer size={15} className="text-indigo-400" />
@@ -133,15 +152,19 @@ export const StatsView: React.FC = () => {
     </button>
   );
 
+  const isDraggingReal = activeDrag?.isDraggingStarted;
+  const activeDraggingTeacherId = (activeDrag?.type === 'teacher' && isDraggingReal) ? activeDrag.id : null;
+  const activeDraggingSupId = activeDrag?.type === 'teacher' ? activeDrag.extraData?.supId : null;
+
   const dragSubjectBlocked = useMemo(() => {
-    if (!draggingTeacherId) return [];
-    return getTeacherBlockedPeriods(draggingTeacherId, activeDayIdx, exams);
-  }, [draggingTeacherId, activeDayIdx, exams]);
+    if (!activeDraggingTeacherId) return [];
+    return getTeacherBlockedPeriods(activeDraggingTeacherId, activeDayIdx, exams);
+  }, [activeDraggingTeacherId, activeDayIdx, exams]);
 
   const dragSubjectAmber = useMemo(() => {
-    if (!draggingTeacherId) return [];
-    return getTeacherSubjectPeriods(draggingTeacherId, activeDayIdx, exams, teachers, subjects);
-  }, [draggingTeacherId, activeDayIdx, exams, teachers, subjects]);
+    if (!activeDraggingTeacherId) return [];
+    return getTeacherSubjectPeriods(activeDraggingTeacherId, activeDayIdx, exams, teachers, subjects);
+  }, [activeDraggingTeacherId, activeDayIdx, exams, teachers, subjects]);
 
   return (
     <div className="h-full flex flex-col gap-4 overflow-hidden animate-page-in select-none">
@@ -162,16 +185,20 @@ export const StatsView: React.FC = () => {
 
       <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
         <div 
-          className={`w-80 flex flex-col glass-nocturne border-slate-700/30 overflow-hidden shrink-0 transition-all ${draggingSupId ? 'bg-red-500/10 border-red-500/30' : 'bg-slate-900/40'}`}
-          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-          onDrop={(e) => {
-            if (draggingSupId) {
-              removeSupervision(draggingSupId);
-              showToast('Aufsicht entfernt', 'info');
-              setDraggingSupId(null);
-              setDraggingTeacherId(null);
+          data-drop-zone="true"
+          data-drop-info={JSON.stringify({ type: 'trash-sup', onDrop: true })}
+          ref={(el) => {
+            if (el && !el.dataset.listenerAdded) {
+              el.addEventListener('linexio-drop', ((e: CustomEvent) => {
+                const { extraData } = e.detail;
+                if (extraData?.supId) {
+                  removeSupervisionRef.current(extraData.supId);
+                }
+              }) as EventListener);
+              el.dataset.listenerAdded = 'true';
             }
           }}
+          className={`w-80 flex flex-col glass-nocturne border-slate-700/30 overflow-hidden shrink-0 transition-all ${activeDraggingSupId && isDraggingReal ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]' : 'bg-slate-900/40'}`}
         >
           <div className="p-4 border-b border-slate-700/30 space-y-3">
             <h3 className="font-bold text-white text-xs uppercase tracking-widest flex items-center gap-2">
@@ -185,24 +212,41 @@ export const StatsView: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-2 space-y-1.5 no-scrollbar">
             {filteredTeachers.map(teacher => {
               const stats = getTeacherStats(teacher.id);
-              const isDragging = draggingTeacherId === teacher.id && !draggingSupId;
+              const isDraggingThis = activeDrag?.id === teacher.id && !activeDraggingSupId && isDraggingReal;
+              const hasHighlight = isTeacherMatch(teacher);
+              
+              const ghostUI = (
+                <div className="w-56 p-3 flex items-center gap-3 bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
+                  <div className="w-9 h-9 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+                    <GraduationCap size={18} />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-bold text-white truncate leading-none">{teacher.lastName}, {teacher.firstName}</span>
+                    <div className="bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded mt-1 self-start">
+                      <span className="text-[10px] text-cyan-400 font-black font-mono leading-none">{teacher.shortName}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+
               return (
                 <div 
                   key={teacher.id} 
-                  draggable 
-                  onDragStart={(e) => { 
-                    e.dataTransfer.setData('teacherId', teacher.id); 
-                    e.dataTransfer.dropEffect = 'move'; 
-                    setTimeout(() => setDraggingTeacherId(teacher.id), 0);
-                  }} 
-                  onDragEnd={() => setDraggingTeacherId(null)} 
-                  className={`p-2.5 rounded-xl border flex items-center justify-between cursor-grab active:cursor-grabbing transition-all hover:border-cyan-500/50 bg-[#1e293b] border-slate-700/50 shadow-sm ${isDragging ? 'opacity-20 scale-95' : ''}`}
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    startDrag(teacher.id, 'teacher', e, { supId: null }, ghostUI);
+                  }}
+                  className={`draggable-item p-2.5 rounded-xl border flex items-center gap-3 transition-all duration-300 hover:border-cyan-500/50 bg-[#1e293b] border-slate-700/50 shadow-sm 
+                    ${isDraggingThis ? 'opacity-20 scale-95' : ''} 
+                    ${hasHighlight ? 'ring-1 ring-cyan-500 bg-cyan-500/10 border-cyan-500/50' : ''}`}
                 >
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold text-slate-200 truncate leading-none">{teacher.lastName}, {teacher.firstName}</span>
-                    <span className="text-[10px] text-cyan-500 font-mono mt-1">{teacher.shortName}</span>
+                  <div className="flex flex-col min-w-0 flex-1 pointer-events-none">
+                    <span className={`text-sm font-bold truncate leading-none ${hasHighlight ? 'text-cyan-300' : 'text-slate-200'}`}>{teacher.lastName}, {teacher.firstName}</span>
+                    <span className={`text-[10px] font-mono mt-1 ${hasHighlight ? 'text-cyan-400' : 'text-cyan-500'}`}>{teacher.shortName}</span>
                   </div>
-                  <div className="badge badge-cyan px-2 py-1 min-w-[32px] text-xs font-black shadow-inner border-cyan-500/30 bg-cyan-500/10">
+                  <div className={`badge px-2 py-1 min-w-[32px] text-xs font-black shadow-inner border transition-all ${
+                    hasHighlight ? 'badge-cyan border-cyan-400 bg-cyan-500/20' : 'badge-cyan border-cyan-500/30 bg-cyan-500/10'
+                  } pointer-events-none`}>
                     {Math.round(stats.points)}
                   </div>
                 </div>
@@ -219,7 +263,7 @@ export const StatsView: React.FC = () => {
                 {Array.from({ length: station.requiredSupervisors || 1 }).map((_, subIdx) => (
                   <div key={subIdx} className="flex-1 min-w-[60px] flex flex-col items-center justify-center border-r last:border-r-0 border-slate-800/20 px-1">
                     <span className="text-[10px] font-black text-slate-200 uppercase truncate w-full text-center">{station.name}</span>
-                    <span className="text-[7px] text-slate-500 font-bold uppercase">Anzahl: {subIdx + 1}</span>
+                    <span className="text-[7px] text-slate-500 font-bold uppercase">Nr: {subIdx + 1}</span>
                   </div>
                 ))}
               </div>
@@ -247,36 +291,34 @@ export const StatsView: React.FC = () => {
                         {timeSlots.map((time, slotIdx) => {
                           const sup = supervisions.find(s => s.dayIdx === activeDayIdx && s.stationId === station.id && s.subSlotIdx === subIdx && s.startTime === time);
                           const teacher = sup ? teachers.find(t => t.id === sup.teacherId) : null;
+                          const hasHighlight = isTeacherMatch(teacher);
                           
                           const isHoveredTop = hoveredSlot?.stationId === station.id && hoveredSlot?.slotIdx === slotIdx && hoveredSlot?.subIdx === subIdx;
-                          
                           const cellMin = START_MIN_DAY + slotIdx * 30;
-                          const isBlocked = draggingTeacherId && dragSubjectBlocked.some(p => cellMin < p.end && (cellMin + 30) > p.start);
-                          const isAmber = draggingTeacherId && !isBlocked && dragSubjectAmber.some(p => cellMin < p.end && (cellMin + 30) > p.start);
-
+                          
+                          const isBlocked = activeDraggingTeacherId && dragSubjectBlocked.some(p => cellMin < p.end && (cellMin + 30) > p.start);
+                          const isAmber = activeDraggingTeacherId && !isBlocked && dragSubjectAmber.some(p => cellMin < p.end && (cellMin + 30) > p.start);
                           const isZebra = slotIdx % 2 !== 0; 
 
                           return (
                             <div 
                               key={slotIdx} 
-                              onDragOver={(e) => { 
-                                e.preventDefault(); 
-                                e.stopPropagation(); 
-                                e.dataTransfer.dropEffect = 'move'; 
-                                if (hoveredSlot?.slotIdx !== slotIdx) setHoveredSlot({ stationId: station.id, slotIdx, subIdx }); 
-                              }} 
-                              onDragLeave={() => setHoveredSlot(null)} 
-                              onDrop={(e) => { 
-                                e.preventDefault(); 
-                                e.stopPropagation(); 
-                                handleDrop(station.id, subIdx, slotIdx); 
-                              }} 
+                              data-drop-zone="true"
+                              data-drop-info={JSON.stringify({ type: 'supervision-slot', stationId: station.id, subIdx, slotIdx, onDrop: true })}
+                              ref={(el) => {
+                                if (el && !el.dataset.listenerAdded) {
+                                  el.addEventListener('linexio-drop', ((e: CustomEvent) => {
+                                    const { dragId, extraData, dropInfo } = e.detail;
+                                    handleDropRef.current(dragId, dropInfo.stationId, dropInfo.subIdx, dropInfo.slotIdx, extraData?.supId);
+                                  }) as EventListener);
+                                  el.dataset.listenerAdded = 'true';
+                                }
+                              }}
                               style={{ height: SLOT_HEIGHT }} 
-                              className={`w-full relative transition-colors border-b
-                                ${isZebra ? 'bg-slate-800/25' : 'bg-transparent'}
-                                ${isBlocked ? 'bg-red-500/20' : ''}
-                                ${isAmber ? 'bg-amber-500/15' : ''}
+                              className={`w-full relative transition-all duration-300 border-b
+                                ${isBlocked ? 'bg-red-500/30' : isAmber ? 'bg-amber-500/20' : isZebra ? 'bg-slate-800/25' : 'bg-transparent'}
                                 ${isHoveredTop ? 'border-b-transparent' : 'border-b-slate-800/40'}
+                                ${isSpotlightActive && !hasHighlight && sup ? 'opacity-20' : 'opacity-100'}
                               `}
                             >
                               {isHoveredTop && (
@@ -288,21 +330,34 @@ export const StatsView: React.FC = () => {
 
                               {sup && (
                                 <div 
-                                  draggable 
-                                  onDragStart={(e) => { 
-                                    e.dataTransfer.setData('teacherId', sup.teacherId); 
-                                    e.dataTransfer.setData('supId', sup.id); 
-                                    e.dataTransfer.dropEffect = 'move'; 
-                                    setTimeout(() => {
-                                      setDraggingTeacherId(sup.teacherId); 
-                                      setDraggingSupId(sup.id);
-                                    }, 0);
-                                  }} 
-                                  onDragEnd={() => { setDraggingTeacherId(null); setDraggingSupId(null); }} 
-                                  className={`absolute inset-x-1 top-1 rounded-xl bg-[#1e293b] border border-slate-700/50 shadow-2xl z-20 flex items-center justify-center cursor-grab active:cursor-grabbing overflow-hidden group/sup transition-all hover:border-cyan-500/50 ${draggingSupId === sup.id ? 'opacity-20 scale-95' : 'opacity-100'}`}
-                                  style={{ height: (SLOT_HEIGHT * 2) - 8 }}
+                                  onPointerDown={(e) => {
+                                    if (e.button !== 0) return;
+                                    const ghostUI = (
+                                      <div className="w-56 p-3 flex items-center gap-3 bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
+                                        <div className="w-9 h-9 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+                                          <GraduationCap size={18} />
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="text-xs font-bold text-white truncate leading-none">{teacher?.lastName}, {teacher?.firstName}</span>
+                                          <div className="bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded mt-1 self-start">
+                                            <span className="text-[10px] text-cyan-400 font-black font-mono leading-none">{teacher?.shortName}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                    startDrag(sup.teacherId, 'teacher', e, { supId: sup.id }, ghostUI);
+                                  }}
+                                  className={`draggable-item absolute inset-x-1 top-1 rounded-xl transition-all duration-300 z-20 flex items-center justify-center shadow-2xl ${
+                                    hasHighlight 
+                                      ? 'bg-cyan-500 border-cyan-400 ring-2 ring-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.6)] z-30' 
+                                      : 'bg-[#1e293b] border border-slate-700/50 hover:border-cyan-500/50'
+                                  } ${activeDraggingSupId === sup.id && isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'}`}
+                                  style={{ 
+                                    height: (SLOT_HEIGHT * 2) - 8,
+                                    pointerEvents: activeDrag && !isDraggingReal ? 'none' : 'auto'
+                                  }}
                                 >
-                                  <span className="text-[11px] font-black text-slate-200 tracking-widest drop-shadow-md group-hover/sup:text-cyan-400">
+                                  <span className={`text-[11px] font-black tracking-widest drop-shadow-md pointer-events-none ${hasHighlight ? 'text-white' : 'text-slate-200'}`}>
                                     {teacher?.shortName || '?'}
                                   </span>
                                 </div>

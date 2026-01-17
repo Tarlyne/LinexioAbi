@@ -1,7 +1,8 @@
-import React from 'react';
-import { X, Trash2, Save, PlusCircle, Settings, ChevronDown, Layers, AlertCircle } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { X, Trash2, Save, PlusCircle, Settings, ChevronDown, Layers, AlertCircle, Check, Users } from 'lucide-react';
 import { Modal } from '../Modal';
 import { Exam, Student, Teacher, Room, Subject } from '../../types';
+import { useApp } from '../../context/AppContext';
 
 interface ExamEditorModalProps {
   isOpen: boolean;
@@ -12,7 +13,7 @@ interface ExamEditorModalProps {
   teachers: Teacher[];
   rooms: Room[];
   subjects: Subject[];
-  onSave: (e: React.FormEvent) => void;
+  onSave: (e: React.FormEvent, applyToGroup: boolean) => void;
   onDelete: (id: string) => void;
   showDeleteConfirm: boolean;
   setShowDeleteConfirm: (val: boolean) => void;
@@ -23,6 +24,25 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
   students, teachers, rooms, subjects,
   onSave, onDelete, showDeleteConfirm, setShowDeleteConfirm
 }) => {
+  const { exams } = useApp();
+  const [applyToGroup, setApplyToGroup] = useState(true);
+
+  // Gruppen-Logik: Finde andere Prüfungen in der gleichen Gruppe mit gleichem Fach & Prüfer
+  const groupSiblings = useMemo(() => {
+    if (!editingExam?.groupId || !editingExam?.subject || !editingExam?.teacherId) return [];
+    return exams.filter(e => 
+      e.groupId === editingExam.groupId && 
+      e.subject === editingExam.subject && 
+      e.teacherId === editingExam.teacherId && 
+      e.id !== editingExam.id
+    );
+  }, [exams, editingExam]);
+
+  // Reset des Flags bei Öffnen
+  useEffect(() => {
+    if (isOpen) setApplyToGroup(true);
+  }, [isOpen]);
+
   const prepRoomsList = rooms.filter(r => r.type === 'Vorbereitungsraum');
 
   const getDeletingItemName = () => {
@@ -52,7 +72,7 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
         </div>
 
         {!showDeleteConfirm ? (
-          <form onSubmit={onSave} className="space-y-6">
+          <form onSubmit={(e) => onSave(e, applyToGroup)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500 ml-1">SchülerIn</label>
@@ -108,10 +128,10 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
               <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-800 pb-2">Kommission</h4>
               <div className="space-y-4">
                 <div className="grid grid-cols-3 items-center gap-4">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Prüfer</label>
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-cyan-400">Prüfer</label>
                   <div className="col-span-2 relative group">
                     <select 
-                      className="w-full appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 py-2.5 text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer text-sm"
+                      className="w-full appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 py-2.5 text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer text-sm font-bold"
                       onChange={e => setEditingExam((prev: any) => ({...prev, teacherId: e.target.value}))}
                       value={editingExam?.teacherId || ''}
                     >
@@ -125,12 +145,12 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-3 items-center gap-4">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Vorsitz</label>
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-indigo-400">Protokoll</label>
                   <div className="col-span-2 relative group">
                     <select 
                       className="w-full appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 py-2.5 text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer text-sm"
-                      onChange={e => setEditingExam((prev: any) => ({...prev, chairId: e.target.value}))}
-                      value={editingExam?.chairId || ''}
+                      onChange={e => setEditingExam((prev: any) => ({...prev, protocolId: e.target.value}))}
+                      value={editingExam?.protocolId || ''}
                     >
                       <option value="">Nicht zugewiesen</option>
                       {teachers.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(t => (
@@ -142,12 +162,12 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-3 items-center gap-4">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Protokoll</label>
+                  <label className="text-[10px] uppercase tracking-widest font-bold text-amber-500">Vorsitz</label>
                   <div className="col-span-2 relative group">
                     <select 
                       className="w-full appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 py-2.5 text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer text-sm"
-                      onChange={e => setEditingExam((prev: any) => ({...prev, protocolId: e.target.value}))}
-                      value={editingExam?.protocolId || ''}
+                      onChange={e => setEditingExam((prev: any) => ({...prev, chairId: e.target.value}))}
+                      value={editingExam?.chairId || ''}
                     >
                       <option value="">Nicht zugewiesen</option>
                       {teachers.sort((a,b) => a.lastName.localeCompare(b.lastName)).map(t => (
@@ -179,6 +199,41 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Gruppen-Intelligenz Bereich */}
+            {groupSiblings.length > 0 && (
+              <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl animate-in slide-in-from-top-2 duration-300">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
+                    <Users size={16} className="text-cyan-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white leading-tight">Gruppe erkannt</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {groupSiblings.length} weitere Prüfung{groupSiblings.length === 1 ? '' : 'en'} in Gruppe "{editingExam.groupId}" gefunden.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer group shrink-0">
+                    <input 
+                      type="checkbox" 
+                      checked={applyToGroup} 
+                      onChange={e => setApplyToGroup(e.target.checked)} 
+                      className="sr-only" 
+                    />
+                    <div className={`w-10 h-6 rounded-full transition-all flex items-center px-1 border ${
+                      applyToGroup ? 'bg-cyan-600 border-cyan-500' : 'bg-slate-800 border-slate-700'
+                    }`}>
+                      <div className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${
+                        applyToGroup ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                    </div>
+                  </label>
+                </div>
+                <div className="mt-3 flex items-center gap-1.5 text-[9px] font-bold text-cyan-400/80 uppercase tracking-wider">
+                  <Check size={10} /> Vorsitz, Protokoll & Vorbereitungsraum übertragen
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-4 pt-4">
               {editingExam?.id && (

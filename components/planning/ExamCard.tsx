@@ -1,9 +1,9 @@
-
 import React from 'react';
 import { Exam, Student, Teacher, Room } from '../../types';
-import { Check, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Check, AlertCircle, AlertTriangle, User, Settings } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useData } from '../../context/DataContext';
+import { useDnD } from '../../context/DnDContext';
 
 interface ExamCardProps {
   exam: Exam;
@@ -16,39 +16,64 @@ interface ExamCardProps {
   onEdit: (exam: Exam) => void;
   onRemove: (examId: string) => void;
   slotHeight: number;
-  isAnyDragging: boolean;
-  onDragStart: (id: string) => void;
-  onDragEnd: () => void;
+  searchTerm?: string;
 }
 
 export const ExamCard: React.FC<ExamCardProps> = ({ 
   exam, student, teacher, chair, protocol, prepRoom,
-  hasConflict, onEdit, onRemove, slotHeight,
-  isAnyDragging, onDragStart, onDragEnd
+  hasConflict, onEdit, onRemove, slotHeight, searchTerm = ''
 }) => {
   const { subjects } = useData();
   const { checkConsistency } = useApp();
+  const { startDrag, activeDrag } = useDnD();
+  
   const slotIdx = (exam.startTime - 1) % 1000;
   const isComplete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
   const consistency = checkConsistency(exam);
   const hasWarning = consistency.hasWarning;
   
-  // Kombi-Check
+  // Spotlight Logic
+  const isSpotlightActive = searchTerm.trim().length >= 2;
+  const isTeacherMatch = (t?: Teacher) => {
+    if (!t || !isSpotlightActive) return false;
+    const term = searchTerm.toLowerCase().trim();
+    return t.shortName.toLowerCase().includes(term) || 
+           t.lastName.toLowerCase().includes(term);
+  };
+
+  const matchedTeacher = isTeacherMatch(teacher);
+  const matchedChair = isTeacherMatch(chair);
+  const matchedProtocol = isTeacherMatch(protocol);
+  const hasSpotlightMatch = matchedTeacher || matchedChair || matchedProtocol;
+
+  // Echter Drag-Status basierend auf Bewegungsschwelle aus DnDContext
+  const isDraggingReal = activeDrag?.id === exam.id && activeDrag?.isDraggingStarted;
+  
+  // Verhindert Interaktions-Konflikte
+  const isAnyOtherDragging = activeDrag !== null && activeDrag.id !== exam.id;
+
   const subjectData = subjects.find(s => s.name === exam.subject);
   const isCombined = subjectData?.isCombined;
 
+  const ghostUI = (
+    <div className="w-56 p-3 flex flex-col gap-1.5 bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+          <User size={14} />
+        </div>
+        <span className="text-xs font-bold text-white truncate">{student?.lastName}, {student?.firstName}</span>
+      </div>
+      <div className="bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md inline-block self-start">
+        <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest leading-none">{exam.subject}</span>
+      </div>
+    </div>
+  );
+
   return (
     <div 
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('examId', exam.id);
-        e.dataTransfer.effectAllowed = 'move';
-        setTimeout(() => onDragStart(exam.id), 0);
-      }}
-      onDragEnd={onDragEnd}
-      onClick={(e) => {
-        e.stopPropagation();
-        onEdit(exam);
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        startDrag(exam.id, 'exam', e, { currentSlot: exam.startTime }, ghostUI);
       }}
       style={{ 
         position: 'absolute',
@@ -56,66 +81,115 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         height: (slotHeight * 3) - 4,
         left: 4,
         right: 4,
-        pointerEvents: isAnyDragging ? 'none' : 'auto'
+        pointerEvents: isAnyOtherDragging ? 'none' : 'auto'
       }}
-      className={`rounded-xl p-2.5 shadow-2xl border transition-all z-[35] cursor-grab active:cursor-grabbing overflow-hidden flex flex-col group exam-card-shadow
+      className={`draggable-item rounded-xl p-3 shadow-2xl border transition-all duration-300 z-[35] overflow-hidden flex flex-col group exam-card-shadow
         ${hasConflict 
           ? 'bg-red-900/60 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]' 
           : hasWarning
           ? 'bg-amber-900/40 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
           : 'bg-[#1e293b] border-slate-700 hover:border-cyan-500/50'
-        } ${isAnyDragging ? 'opacity-40 scale-95' : 'opacity-100'}`}
+        } 
+        ${isSpotlightActive && hasSpotlightMatch ? 'ring-2 ring-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.6)] z-[40]' : ''}
+        ${isSpotlightActive && !hasSpotlightMatch ? 'opacity-30' : 'opacity-100'}
+        ${isDraggingReal ? 'opacity-20 scale-95' : ''}`}
     >
-      <div className="flex justify-between items-start mb-1 pointer-events-none">
-        <div className="text-[12px] font-bold text-white truncate leading-tight group-hover:text-cyan-300 transition-colors">
-          {student?.lastName}, {student?.firstName}
+      <div className="flex-1 flex flex-col min-w-0 pointer-events-none">
+        <div className="flex justify-between items-start mb-1">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-1">
+            <span className={`text-[12px] font-bold truncate leading-tight transition-colors ${
+              isSpotlightActive && hasSpotlightMatch ? 'text-cyan-300' : 'text-white'
+            }`}>
+              {student?.lastName}, {student?.firstName}
+            </span>
+            
+            <div className="flex items-center justify-center shrink-0">
+              {hasConflict ? (
+                <AlertCircle size={13} className="text-white animate-pulse" />
+              ) : hasWarning ? (
+                <AlertTriangle size={13} className="text-amber-500" />
+              ) : isComplete ? (
+                <Check size={13} className="text-emerald-500" />
+              ) : (
+                <AlertTriangle size={13} className="text-red-500" /> 
+              )}
+            </div>
+          </div>
+
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(exam);
+            }}
+            className="w-6 h-6 -mr-1.5 -mt-1.5 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 active:scale-90 transition-all pointer-events-auto"
+          >
+            <Settings size={14} />
+          </button>
         </div>
         
-        <div className="flex items-center justify-center w-5 h-5 shrink-0">
-          {hasConflict ? (
-            <AlertCircle size={14} className="text-white animate-pulse" />
-          ) : hasWarning ? (
-            <AlertTriangle size={14} className="text-amber-500" />
-          ) : isComplete ? (
-            <Check size={14} className="text-emerald-500" />
-          ) : (
-            <AlertTriangle size={14} className="text-red-500" /> 
+        <div className="text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest truncate mb-2">
+          {exam.subject}{isCombined ? '*' : ''} {exam.groupId && `(${exam.groupId})`}
+          {prepRoom && (
+            <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>
           )}
         </div>
-      </div>
-      
-      <div className="text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest truncate mb-2 pointer-events-none">
-        {exam.subject}{isCombined ? '*' : ''} {exam.groupId && `(${exam.groupId})`}
-        {prepRoom && (
-          <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>
-        )}
-      </div>
-      
-      <div className="mt-auto flex items-end justify-between gap-1 border-t border-slate-800/60 pt-1.5 overflow-hidden pointer-events-none">
-        <div className="flex flex-col items-center gap-0.5 min-w-0">
-          <span className="text-[7px] text-slate-300 font-bold uppercase leading-none">Prüfer</span>
-          <div className="flex items-center justify-center h-5 bg-cyan-500/10 border border-cyan-500/20 px-1.5 rounded min-w-[3.2rem] text-center">
-            <span className="text-[9px] font-bold text-cyan-300 font-mono leading-none">{teacher?.shortName || '?'}</span>
+        
+        {/* Kommission im 3-Spalten Grid (Prüfer - Prot - Vorsitz) - Zentrierte Badges */}
+        <div className="mt-auto grid grid-cols-3 gap-1 border-t border-slate-800/60 pt-1.5 overflow-hidden">
+          <div className="flex flex-col items-center gap-0.5 min-w-0">
+            <span className="text-[7px] text-slate-300 font-bold uppercase leading-none">Prüfer</span>
+            <div className="w-full flex justify-center mt-0.5">
+              <div className={`flex items-center justify-center h-5 border px-2 rounded min-w-[34px] text-center transition-all ${
+                matchedTeacher 
+                  ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]' 
+                  : 'bg-cyan-500/10 border-cyan-500/20'
+              }`}>
+                <span className={`text-[9px] font-bold font-mono leading-none ${matchedTeacher ? 'text-white' : 'text-cyan-300'}`}>
+                  {teacher?.shortName || '?'}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {protocol && (
           <div className="flex flex-col items-center gap-0.5 min-w-0">
             <span className="text-[7px] text-slate-300 font-bold uppercase leading-none">Prot.</span>
-            <div className="flex items-center justify-center h-5 bg-indigo-500/10 border border-indigo-500/20 px-1.5 rounded min-w-[3.2rem] text-center">
-              <span className="text-[9px] font-bold text-indigo-300 font-mono leading-none">{protocol.shortName}</span>
+            <div className="w-full flex justify-center mt-0.5">
+              <div className={`flex items-center justify-center h-5 border px-2 rounded min-w-[34px] text-center transition-all ${
+                protocol 
+                  ? matchedProtocol 
+                    ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]' 
+                    : 'bg-indigo-500/10 border-indigo-500/20'
+                  : 'border-transparent'
+              }`}>
+                <span className={`text-[9px] font-bold font-mono leading-none ${
+                  protocol ? (matchedProtocol ? 'text-white' : 'text-indigo-300') : 'text-transparent'
+                }`}>
+                  {protocol?.shortName || '--'}
+                </span>
+              </div>
             </div>
           </div>
-        )}
 
-        {chair && (
           <div className="flex flex-col items-center gap-0.5 min-w-0">
             <span className="text-[7px] text-slate-300 font-bold uppercase leading-none">Vorsitz</span>
-            <div className="flex items-center justify-center h-5 bg-amber-500/10 border border-amber-500/20 px-1.5 rounded min-w-[3.2rem] text-center">
-              <span className="text-[9px] font-bold text-amber-300 font-mono leading-none">{chair.shortName}</span>
+            <div className="w-full flex justify-center mt-0.5">
+              <div className={`flex items-center justify-center h-5 border px-2 rounded min-w-[34px] text-center transition-all ${
+                chair 
+                  ? matchedChair 
+                    ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]' 
+                    : 'bg-amber-500/10 border-amber-500/20'
+                  : 'border-transparent'
+              }`}>
+                <span className={`text-[9px] font-bold font-mono leading-none ${
+                  chair ? (matchedChair ? 'text-white' : 'text-amber-300') : 'text-transparent'
+                }`}>
+                  {chair?.shortName || '--'}
+                </span>
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

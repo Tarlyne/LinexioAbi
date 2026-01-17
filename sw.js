@@ -1,8 +1,11 @@
-const CACHE_NAME = 'linexioabi-v2.1'; // Versionierung für GitHub Pages Updates
+const CACHE_NAME = 'linexioabi-v2.2'; // Update für Icon-Ressourcen
 const ASSETS = [
   './',
   './index.html',
   './favicon.svg',
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
   './manifest.json',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
