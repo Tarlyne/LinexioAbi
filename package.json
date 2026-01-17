@@ -19,7 +19,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && cp sw.js manifest.json favicon.svg apple-touch-icon.png icon-192.png icon-512.png dist/ 2>/dev/null || true",
     "preview": "vite preview"
   }
 }
