@@ -1,4 +1,4 @@
-# LinexioAbi: Die Source of Truth (V3.2)
+# LinexioAbi: Die Source of Truth (V3.3)
 
 Diese Datei ist das oberste Gesetz für die Entwicklung von LinexioAbi. Sie definiert Design, Logik und Architektur. Bei Widersprüchen zwischen Code und dieser Datei muss aktiv nachgefragt werden und darauf hingewiesen werden.
 
@@ -45,6 +45,10 @@ Diese Datei ist das oberste Gesetz für die Entwicklung von LinexioAbi. Sie defi
 2. **Context:** `context/AppContext.tsx` (Zustand & Business-Logic).
 3. **Components:** Reine UI-Layer.
 4. **Hooks:** Kapselung komplexer Logik.
+
+### 3.2. Asset-Management (NEU V3.3)
+- **Strikte Binär-Sperre:** Bilddateien (.png, .jpg, .ico) dürfen NIEMALS durch die KI generiert oder im Code-Update-Block überschrieben werden. 
+- **Verfahren:** Assets werden manuell auf GitHub hochgeladen. Die KI referenziert lediglich die Dateinamen im Code.
 
 ---
 
