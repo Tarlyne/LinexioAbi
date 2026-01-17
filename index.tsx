@@ -14,21 +14,19 @@ root.render(
   </React.StrictMode>
 );
 
-// PWA Service Worker Registration - Umgebungsbewusst für GitHub Pages & Localhost
+// PWA Service Worker Registration - Pfad-Korrektur für Hosting in Unterverzeichnissen
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const isGitHubPages = window.location.hostname.endsWith('.github.io');
     
-    // Registrierung nur in stabilen Umgebungen, um Origin-Fehler in Sandboxes (wie AI Studio) zu vermeiden
     if (isLocal || isGitHubPages) {
+      // Nutze relativen Pfad ohne führenden Slash, damit Vite/GH-Pages das korrekt auflösen
       navigator.serviceWorker.register('./sw.js').then(reg => {
-        console.debug('ServiceWorker registered with scope:', reg.scope);
+        console.debug('ServiceWorker registered:', reg.scope);
       }).catch(err => {
-        console.error('ServiceWorker registration failed:', err);
+        console.warn('ServiceWorker registration failed:', err);
       });
-    } else {
-      console.debug('ServiceWorker registration skipped (Sandbox/AI-Studio Environment)');
     }
   });
 }
