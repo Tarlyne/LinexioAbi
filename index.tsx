@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -16,17 +17,19 @@ root.render(
 );
 
 /**
- * Robust Service Worker Registration System V3.7
- * Implementiert Umgebungserkennung zur Vermeidung von Sandbox-Fehlern (Kategorie B).
+ * Robust Service Worker Registration System V4.2
+ * Nutzt absolute Pfade zur Vermeidung von Scope-Konflikten auf GitHub Pages.
  */
 const isAiStudio = window.location.hostname.includes('usercontent.goog');
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then(registration => {
+    // Registrierung über den absoluten Pfad des Repositoriums
+    const swPath = '/LinexioAbi/sw.js';
+    
+    navigator.serviceWorker.register(swPath).then(registration => {
       console.debug('[PWA] ServiceWorker registered:', registration.scope);
       
-      // Regelmäßige Prüfung auf Updates (alle 30 Min)
       setInterval(() => {
         registration.update();
       }, 1000 * 60 * 30);
@@ -44,8 +47,6 @@ if ('serviceWorker' in navigator) {
         }
       };
     }).catch(err => {
-      // In der AI Studio Sandbox schlägt die Registrierung aufgrund von Cross-Origin-Policies 
-      // zwangsläufig fehl. Wir loggen dies nur als Debug-Information, um die Konsole sauber zu halten.
       if (isAiStudio) {
         console.debug('[PWA] ServiceWorker registration skipped (AI Studio Sandbox environment)');
       } else {
@@ -54,7 +55,6 @@ if ('serviceWorker' in navigator) {
     });
   });
 
-  // Automatischer Reload bei neuem Controller (Update-Abschluss)
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!refreshing) {
@@ -65,7 +65,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Splash-Screen Entfernung
 window.addEventListener('load', () => {
   const splash = document.getElementById('splash-screen');
   if (splash) {

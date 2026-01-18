@@ -1,3 +1,4 @@
+
 {
   "name": "linexioabi",
   "version": "1.0.0",
@@ -21,7 +22,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build && mkdir -p dist/assets && (cp sw.js manifest.json favicon.svg apple-touch-icon.png icon-192.png icon-512.png dist/ 2>/dev/null || true) && (cp favicon.svg apple-touch-icon.png icon-192.png icon-512.png dist/assets/ 2>/dev/null || true)",
+    "build": "vite build && cp sw.js manifest.json favicon.svg apple-touch-icon.png icon-192.png icon-512.png dist/ 2>/dev/null || true",
     "preview": "vite preview"
   }
 }

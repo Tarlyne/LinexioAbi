@@ -1,19 +1,21 @@
 
-/* LinexioAbi Service Worker V4.1 - Smart Navigation Recovery */
-/* Build Timestamp: 2025-05-22-1615 */
+/* LinexioAbi Service Worker V4.2 - Root Protocol */
+/* Build Timestamp: 2025-05-22-1745 */
 
-const CACHE_NAME = 'linexioabi-cache-v4.1';
+const CACHE_NAME = 'linexioabi-cache-v4.2';
+const BASE_PATH = '/LinexioAbi/';
+
 const STATIC_ASSETS = [
-  './',
-  'index.html',
-  'manifest.json',
-  'favicon.svg',
-  'apple-touch-icon.png',
-  'icon-192.png',
-  'icon-512.png'
+  BASE_PATH,
+  BASE_PATH + 'index.html',
+  BASE_PATH + 'manifest.json',
+  BASE_PATH + 'favicon.svg',
+  BASE_PATH + 'apple-touch-icon.png',
+  BASE_PATH + 'icon-192.png',
+  BASE_PATH + 'icon-512.png'
 ];
 
-// Installation: Robustes Caching
+// Installation: Robustes Caching mit absoluten Pfaden
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
@@ -21,7 +23,7 @@ self.addEventListener('install', (event) => {
         try {
           await cache.add(asset);
         } catch (err) {
-          console.warn(`[PWA] Skipping optional asset: ${asset}`);
+          console.warn(`[PWA] Skipping asset: ${asset}`, err);
         }
       }
     })
@@ -45,31 +47,24 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch-Strategie: Network-First mit 404-Fallback für Navigation
+// Fetch-Strategie: Network-First mit 404-Fallback auf die absolute App-Shell
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // 1. NAVIGATION (HTML/App-Start)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Falls das Netzwerk antwortet, aber eine Fehlerseite (404/500) sendet:
-          // Nutze die gecachte App-Shell.
           if (!response || response.status >= 400) {
-            return caches.match('index.html');
+            return caches.match(BASE_PATH + 'index.html');
           }
           return response;
         })
         .catch(() => {
-          // Totaler Offline-Zustand: Nutze Cache
-          return caches.match('index.html');
+          return caches.match(BASE_PATH + 'index.html');
         })
     );
     return;
   }
 
-  // 2. ASSETS (JS, CSS, Bilder)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
@@ -86,6 +81,7 @@ self.addEventListener('fetch', (event) => {
 
         return networkResponse;
       }).catch(() => {
+        // Fallback für Bilder oder kritische Assets falls nötig
         return new Response('Offline Content Unavailable', { status: 408 });
       });
     })

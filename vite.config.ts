@@ -13,15 +13,13 @@ export default defineConfig({
       },
     }
   ],
-  base: './', // Wichtig für GitHub Pages
+  base: '/LinexioAbi/', // Absoluter Pfad für GitHub Pages Unterverzeichnisse
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
     minify: 'terser',
     rollupOptions: {
-      // Wir verhindern, dass Vite die manifest.json als Asset behandelt, 
-      // da wir sie manuell im Build-Prozess kopieren.
       external: ['manifest.json'],
       output: {
         manualChunks: {
