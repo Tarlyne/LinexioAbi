@@ -1,6 +1,5 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { AppSettings } from '../types';
+import { AppSettings, AppState } from '../types';
 import * as db from '../store/db';
 
 interface AuthContextType {
@@ -15,6 +14,7 @@ interface AuthContextType {
   setMasterPassword: (password: string) => Promise<void>;
   changeMasterPassword: (oldPassword: string, newPassword: string, currentState: any) => Promise<boolean>;
   updateSettings: (settings: Partial<AppSettings>) => void;
+  persistEncrypted: (state: AppState, specificKey?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,14 +31,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sessionPassword = useRef<string | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
-  // Initial Load (Auth Only)
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const saved = await db.loadState();
-      if (saved) {
-        if ('masterPassword' in saved && saved.masterPassword === 'SET') setMasterPasswordState('SET');
-        // FIXED: Using 'in' operator to safely check for 'settings' property on union type
-        if ('settings' in saved && saved.settings) setSettings({ ...defaultSettings, ...saved.settings });
+      try {
+        const saved = await db.loadState();
+        if (saved) {
+          if ('masterPassword' in saved && saved.masterPassword === 'SET') setMasterPasswordState('SET');
+          if ('settings' in saved && saved.settings) setSettings({ ...defaultSettings, ...saved.settings });
+        }
+      } catch (e) {
+        // Encrypted but not monolith - will show unlock screen
       }
     };
     checkAuthStatus();
@@ -57,24 +59,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLockCountdown(null);
   }, []);
 
-  // User interaction listener for auto-lock reset
   useEffect(() => {
     if (isLocked) return;
-
     const handleInteraction = () => {
       const now = Date.now();
-      // Throttle updates to once per second to prevent UI jank on iPads and save CPU
-      if (now - lastActivityRef.current > 1000) {
-        extendSession();
-      }
+      if (now - lastActivityRef.current > 1000) extendSession();
     };
-
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
     events.forEach(event => window.addEventListener(event, handleInteraction, { passive: true }));
-
-    return () => {
-      events.forEach(event => window.removeEventListener(event, handleInteraction));
-    };
+    return () => events.forEach(event => window.removeEventListener(event, handleInteraction));
   }, [isLocked, extendSession]);
 
   useEffect(() => {
@@ -98,13 +91,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const unlock = useCallback(async (password: string) => {
     const decrypted = await db.loadState(password);
-    if (decrypted) {
+    if (decrypted && !('isLocked' in decrypted)) {
       sessionPassword.current = password;
-      // FIXED: Using 'in' operator to safely check for 'settings' property on union type after decryption
-      if ('settings' in decrypted && decrypted.settings) setSettings({ ...defaultSettings, ...decrypted.settings });
+      const state = decrypted as AppState;
+      if (state.settings) setSettings({ ...defaultSettings, ...state.settings });
       setIsLocked(false);
       extendSession();
-      return decrypted;
+      return state;
     }
     return null;
   }, [extendSession]);
@@ -117,21 +110,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [extendSession]);
 
   const changeMasterPassword = useCallback(async (oldPw: string, newPw: string, currentState: any) => {
-    const verified = await db.loadState(oldPw);
-    if (!verified) return false;
-    sessionPassword.current = newPw;
-    await db.saveState(currentState, newPw);
-    return true;
+    try {
+      const verified = await db.loadState(oldPw);
+      if (!verified) return false;
+      sessionPassword.current = newPw;
+      await db.saveState(currentState, newPw);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }, []);
 
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
   }, []);
 
+  /**
+   * Zentraler Persistenz-Hub: Nutzt das sessionPassword um Daten granular zu sichern.
+   */
+  const persistEncrypted = useCallback(async (state: AppState, specificKey?: string) => {
+    if (isLocked) return;
+    await db.saveState(state, sessionPassword.current || undefined, specificKey);
+  }, [isLocked]);
+
   const value = React.useMemo(() => ({
     isLocked, masterPassword, settings, lockCountdown, isLockWarningVisible,
-    unlock, lock, extendSession, setMasterPassword, changeMasterPassword, updateSettings
-  }), [isLocked, masterPassword, settings, lockCountdown, isLockWarningVisible, unlock, lock, extendSession, setMasterPassword, changeMasterPassword, updateSettings]);
+    unlock, lock, extendSession, setMasterPassword, changeMasterPassword, updateSettings, persistEncrypted
+  }), [isLocked, masterPassword, settings, lockCountdown, isLockWarningVisible, unlock, lock, extendSession, setMasterPassword, changeMasterPassword, updateSettings, persistEncrypted]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

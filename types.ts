@@ -10,7 +10,7 @@ export interface ExamDay {
 export interface Subject {
   id: string;
   name: string;
-  shortName: string; // Neu: Kürzel des Fachs (z.B. Ma, Bio, Info)
+  shortName: string; 
   isCombined?: boolean; 
 }
 
@@ -20,7 +20,7 @@ export interface Teacher {
   lastName: string;
   shortName: string;
   isPartTime: boolean;
-  subjectIds?: string[]; // Neu: IDs der unterrichteten Fächer (max 3)
+  subjectIds?: string[];
   notes?: string;
   targetHours?: number; 
 }
@@ -87,7 +87,25 @@ export interface AppState {
 }
 
 /**
- * Type for data stored in IndexedDB (Encrypted bundle or plain state)
+ * Metadata stored in lx_meta to track encryption status
+ */
+export interface DbMeta {
+  version: number;
+  isEncrypted: boolean;
+  lastUpdate: number;
+  salt?: string; // Base64
+}
+
+/**
+ * Type for an encrypted unit in IndexedDB
+ */
+export interface EncryptedUnit {
+  ciphertext: string; // Base64
+  iv: string; // Base64
+}
+
+/**
+ * Type for data stored in IndexedDB (Legacy compatibility)
  */
 export interface SerializedState {
   ciphertext?: string;

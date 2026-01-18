@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppState, Exam, Supervision } from '../types';
 import * as db from '../store/db';
 import { checkExamCollision, checkExamConsistency, calculateTeacherPoints } from '../utils/engine';
@@ -33,7 +33,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isLocked, settings, masterPassword } = useAuth();
+  const { isLocked, settings, masterPassword, persistEncrypted } = useAuth();
   const { teachers, students, rooms, days, subjects, setDataFromLoad } = useData();
   const { showToast } = useUI();
   
@@ -56,7 +56,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const saved = await db.loadState();
         if (saved && 'teachers' in saved) {
-          loadDecryptedData(saved);
+          loadDecryptedData(saved as AppState);
         }
       } catch (e) {
         console.debug("Initialization skipped (encrypted)");
@@ -87,17 +87,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     lastUpdate: Date.now()
   }), [teachers, students, rooms, days, subjects, exams, supervisions, collectedExamIds, isLocked, masterPassword, settings]);
 
+  // Debounced Granular Save
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
     if (!isLoading && !isLocked) {
-      const state = getFullState();
-      if (validateStateInvariants(state)) {
-        const timeout = setTimeout(() => {
-          db.saveState(state);
-        }, 500);
-        return () => clearTimeout(timeout);
-      }
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      
+      saveTimeoutRef.current = setTimeout(() => {
+        const state = getFullState();
+        if (validateStateInvariants(state)) {
+          persistEncrypted(state); // Nutzt nun die gesicherte Session-Schnittstelle
+        }
+      }, 1000);
     }
-  }, [isLoading, isLocked, getFullState, validateStateInvariants]);
+    return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
+  }, [isLoading, isLocked, getFullState, validateStateInvariants, persistEncrypted]);
 
   const addExams = useCallback((newList: Exam[]) => {
     setExams(prev => [...prev, ...newList]);

@@ -15,24 +15,57 @@ root.render(
   </React.StrictMode>
 );
 
-// PWA Service Worker Registration - Pfad-Korrektur für Hosting in Unterverzeichnissen
+/**
+ * Robust Service Worker Registration System V3.7
+ * Implementiert Umgebungserkennung zur Vermeidung von Sandbox-Fehlern (Kategorie B).
+ */
+const isAiStudio = window.location.hostname.includes('usercontent.goog');
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const isGitHubPages = window.location.hostname.endsWith('.github.io');
-    
-    if (isLocal || isGitHubPages) {
-      // Nutze relativen Pfad ohne führenden Slash, damit Vite/GH-Pages das korrekt auflösen
-      navigator.serviceWorker.register('./sw.js').then(reg => {
-        console.debug('ServiceWorker registered:', reg.scope);
-      }).catch(err => {
-        console.warn('ServiceWorker registration failed:', err);
-      });
+    navigator.serviceWorker.register('./sw.js').then(registration => {
+      console.debug('[PWA] ServiceWorker registered:', registration.scope);
+      
+      // Regelmäßige Prüfung auf Updates (alle 30 Min)
+      setInterval(() => {
+        registration.update();
+      }, 1000 * 60 * 30);
+
+      registration.onupdatefound = () => {
+        const installingWorker = registration.installing;
+        if (installingWorker) {
+          installingWorker.onstatechange = () => {
+            if (installingWorker.state === 'installed') {
+              if (navigator.serviceWorker.controller) {
+                console.info('[PWA] New version detected. Activation on next reload.');
+              }
+            }
+          };
+        }
+      };
+    }).catch(err => {
+      // In der AI Studio Sandbox schlägt die Registrierung aufgrund von Cross-Origin-Policies 
+      // zwangsläufig fehl. Wir loggen dies nur als Debug-Information, um die Konsole sauber zu halten.
+      if (isAiStudio) {
+        console.debug('[PWA] ServiceWorker registration skipped (AI Studio Sandbox environment)');
+      } else {
+        console.warn('[PWA] ServiceWorker registration failed:', err);
+      }
+    });
+  });
+
+  // Automatischer Reload bei neuem Controller (Update-Abschluss)
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      console.info('[PWA] Controller changed. Refreshing...');
+      window.location.reload();
+      refreshing = true;
     }
   });
 }
 
-// Remove splash screen after mounting
+// Splash-Screen Entfernung
 window.addEventListener('load', () => {
   const splash = document.getElementById('splash-screen');
   if (splash) {
