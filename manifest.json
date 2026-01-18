@@ -1,8 +1,9 @@
+
 {
   "name": "LinexioAbi - Prüfungsmanagement",
   "short_name": "LinexioAbi",
   "description": "Professionelles Prüfungsmanagement für das Abitur.",
-  "start_url": "./index.html",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#0a0f1d",
   "theme_color": "#0a0f1d",

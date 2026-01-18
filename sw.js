@@ -1,17 +1,19 @@
-/* LinexioAbi Service Worker V3.6 */
-/* Build Timestamp: 2025-05-21-1015 */
 
-const CACHE_NAME = 'linexioabi-cache-v3.6';
+/* LinexioAbi Service Worker V3.7 - GitHub Pages Fix */
+/* Build Timestamp: 2025-05-22-1115 */
+
+const CACHE_NAME = 'linexioabi-cache-v3.7';
 const FONT_CACHE_NAME = 'linexioabi-fonts-v1';
 
+// Wir verwenden relative Pfade ohne führendes "./" für die Cache-Schlüssel, 
+// um die Auflösung auf GitHub Pages (Subfolder) zu stabilisieren.
 const ASSETS = [
-  './',
-  './index.html',
-  './favicon.svg',
-  './apple-touch-icon.png',
-  './icon-192.png',
-  './icon-512.png',
-  './manifest.json'
+  'index.html',
+  'favicon.svg',
+  'apple-touch-icon.png',
+  'icon-192.png',
+  'icon-512.png',
+  'manifest.json'
 ];
 
 // Installation: Core Assets cachen
@@ -19,7 +21,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.debug('[SW] Pre-caching core assets');
-      return cache.addAll(ASSETS);
+      // Wir cachen sowohl den Root als auch die index.html explizit
+      return cache.addAll(['./', ...ASSETS]);
     })
   );
   self.skipWaiting();
@@ -46,26 +49,25 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. NAVIGATIONS-STRATEGIE: Stale-While-Revalidate (Lösung für Lie-Fi & 404)
-  // Wir liefern SOFORT die index.html aus dem Cache, damit die App instant startet.
+  // 1. NAVIGATIONS-STRATEGIE: App Shell Pattern
+  // Kritisch für PWA-Start auf GitHub Pages: Map alle Navigationsanfragen auf index.html
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.open(CACHE_NAME).then((cache) => {
-        return cache.match('./index.html').then((cachedResponse) => {
-          const fetchPromise = fetch(event.request).then((networkResponse) => {
-            cache.put('./index.html', networkResponse.clone());
-            return networkResponse;
-          }).catch(() => {
-            // Offline-Fall: cachedResponse wird zurückgegeben
-          });
-          return cachedResponse || fetchPromise;
+      caches.match('index.html').then((cachedResponse) => {
+        // Wir bevorzugen das Netzwerk für Updates, fallen aber sofort auf den Cache zurück,
+        // um den "404 File not found" bei App-Start zu verhindern.
+        const fetchPromise = fetch(event.request).catch(() => {
+          console.debug('[SW] Navigation failed, serving from cache');
+          return cachedResponse;
         });
+        
+        return cachedResponse || fetchPromise;
       })
     );
     return;
   }
 
-  // 2. FONT-STRATEGIE: Cache-First für Google Fonts (Google APIs & GStatic)
+  // 2. FONT-STRATEGIE: Cache-First für Google Fonts
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     event.respondWith(
       caches.open(FONT_CACHE_NAME).then((cache) => {
@@ -80,7 +82,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. STANDARD-STRATEGIE: Cache-First mit Network-Fallback für Assets
+  // 3. STANDARD-STRATEGIE: Cache-First mit Network-Fallback für statische Assets
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request);
