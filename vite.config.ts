@@ -22,7 +22,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'lucide-react'],
-          utils: ['localforage', 'jspdf', 'html2canvas']
+          utils: ['localforage', 'jspdf']
         }
       }
     }
