@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -12,13 +13,16 @@ export default defineConfig({
       },
     }
   ],
-  base: './', // Wichtig für GitHub Pages (relative Pfade)
+  base: './', // Wichtig für GitHub Pages
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
     minify: 'terser',
     rollupOptions: {
+      // Wir verhindern, dass Vite die manifest.json als Asset behandelt, 
+      // da wir sie manuell im Build-Prozess kopieren.
+      external: ['manifest.json'],
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'lucide-react'],
