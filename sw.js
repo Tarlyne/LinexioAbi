@@ -1,8 +1,8 @@
 
-/* LinexioAbi Service Worker V4.0 - Robust Asset Management */
-/* Build Timestamp: 2025-05-22-1530 */
+/* LinexioAbi Service Worker V4.1 - Smart Navigation Recovery */
+/* Build Timestamp: 2025-05-22-1615 */
 
-const CACHE_NAME = 'linexioabi-cache-v4.0';
+const CACHE_NAME = 'linexioabi-cache-v4.1';
 const STATIC_ASSETS = [
   './',
   'index.html',
@@ -13,18 +13,15 @@ const STATIC_ASSETS = [
   'icon-512.png'
 ];
 
-// Installation: Robustes Caching der statischen Kern-Dateien
+// Installation: Robustes Caching
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      console.debug('[PWA] Pre-caching static assets...');
-      // Wir nutzen eine Schleife statt addAll, damit ein einzelner 404 
-      // nicht die gesamte Installation abbricht.
       for (const asset of STATIC_ASSETS) {
         try {
           await cache.add(asset);
         } catch (err) {
-          console.warn(`[PWA] Failed to pre-cache: ${asset}`);
+          console.warn(`[PWA] Skipping optional asset: ${asset}`);
         }
       }
     })
@@ -32,14 +29,13 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Aktivierung: Alte Caches aufräumen
+// Aktivierung: Cache-Migration
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.debug('[PWA] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -49,32 +45,40 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch-Strategie: Cache-First für Assets, Network-First für Navigation
+// Fetch-Strategie: Network-First mit 404-Fallback für Navigation
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Navigation (HTML): Immer Netzwerk versuchen, Fallback auf Cache
+  // 1. NAVIGATION (HTML/App-Start)
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('index.html'))
+      fetch(event.request)
+        .then((response) => {
+          // Falls das Netzwerk antwortet, aber eine Fehlerseite (404/500) sendet:
+          // Nutze die gecachte App-Shell.
+          if (!response || response.status >= 400) {
+            return caches.match('index.html');
+          }
+          return response;
+        })
+        .catch(() => {
+          // Totaler Offline-Zustand: Nutze Cache
+          return caches.match('index.html');
+        })
     );
     return;
   }
 
-  // 2. Statische Assets & Vite Bundles: Dynamisches Caching
+  // 2. ASSETS (JS, CSS, Bilder)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+      if (cachedResponse) return cachedResponse;
 
       return fetch(event.request).then((networkResponse) => {
-        // Nur gültige Responses cachen (keine opaque/error responses)
         if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
           return networkResponse;
         }
 
-        // Wir cachen alle lokalen Assets (JS, CSS, Bilder) dynamisch
         const responseToCache = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseToCache);
@@ -82,8 +86,7 @@ self.addEventListener('fetch', (event) => {
 
         return networkResponse;
       }).catch(() => {
-        // Fallback für Offline-Bilder (optional)
-        return new Response('Offline', { status: 408, statusText: 'Network unavailable' });
+        return new Response('Offline Content Unavailable', { status: 408 });
       });
     })
   );
