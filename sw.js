@@ -1,14 +1,15 @@
 
-/* LinexioAbi Service Worker V3.7 - GitHub Pages Fix */
-/* Build Timestamp: 2025-05-22-1115 */
+/* LinexioAbi Service Worker V3.8 - GitHub Pages Robustness Fix */
+/* Build Timestamp: 2025-05-22-1230 */
 
-const CACHE_NAME = 'linexioabi-cache-v3.7';
+const CACHE_NAME = 'linexioabi-cache-v3.8';
 const FONT_CACHE_NAME = 'linexioabi-fonts-v1';
 
-// Wir verwenden relative Pfade ohne führendes "./" für die Cache-Schlüssel, 
-// um die Auflösung auf GitHub Pages (Subfolder) zu stabilisieren.
+// Wir fügen die kritischen Code-Dateien zur Pre-Cache-Liste hinzu.
 const ASSETS = [
   'index.html',
+  'index.tsx',
+  'index.css',
   'favicon.svg',
   'apple-touch-icon.png',
   'icon-192.png',
@@ -20,8 +21,7 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.debug('[SW] Pre-caching core assets');
-      // Wir cachen sowohl den Root als auch die index.html explizit
+      console.debug('[SW] Pre-caching core assets including logic and styles');
       return cache.addAll(['./', ...ASSETS]);
     })
   );
@@ -50,13 +50,17 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // 1. NAVIGATIONS-STRATEGIE: App Shell Pattern
-  // Kritisch für PWA-Start auf GitHub Pages: Map alle Navigationsanfragen auf index.html
   if (event.request.mode === 'navigate') {
     event.respondWith(
       caches.match('index.html').then((cachedResponse) => {
-        // Wir bevorzugen das Netzwerk für Updates, fallen aber sofort auf den Cache zurück,
-        // um den "404 File not found" bei App-Start zu verhindern.
-        const fetchPromise = fetch(event.request).catch(() => {
+        const fetchPromise = fetch(event.request).then((networkResponse) => {
+          // Falls wir online sind, aktualisieren wir den Cache im Hintergrund
+          if (networkResponse && networkResponse.status === 200) {
+             const responseClone = networkResponse.clone();
+             caches.open(CACHE_NAME).then(cache => cache.put('index.html', responseClone));
+          }
+          return networkResponse;
+        }).catch(() => {
           console.debug('[SW] Navigation failed, serving from cache');
           return cachedResponse;
         });
