@@ -2,7 +2,16 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'remove-tailwind-cdn',
+      apply: 'build',
+      transformIndexHtml(html) {
+        return html.replace('<script src="https://cdn.tailwindcss.com"></script>', '');
+      },
+    }
+  ],
   base: './', // Wichtig für GitHub Pages (relative Pfade)
   build: {
     outDir: 'dist',
