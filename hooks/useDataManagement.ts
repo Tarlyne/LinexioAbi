@@ -10,7 +10,6 @@ export type DataTab = 'teachers' | 'students' | 'rooms' | 'days' | 'subjects';
 
 /**
  * Zentraler Hook für die Verwaltung der Stammdaten-Ansicht und CRUD-Operationen.
- * Kombiniert Logik aus dem alten useData Hook und dem View-Management.
  */
 export const useDataManagement = () => {
   const { 
@@ -23,7 +22,7 @@ export const useDataManagement = () => {
     isEntityInUse
   } = useDataContext();
 
-  const { exams, supervisions } = useApp();
+  const { exams, supervisions, logAction } = useApp();
   const { showToast } = useUI();
 
   const [activeTab, setActiveTab] = useState<DataTab>('teachers');
@@ -87,26 +86,23 @@ export const useDataManagement = () => {
       const text = event.target?.result as string;
       if (type === 'teachers') {
         const result = parseTeachersCSV(text, subjects);
-        
         if (result.skippedSubjects.length > 0) {
-          showToast(
-            `Import abgebrochen! Die folgenden Fächer sind unbekannt: ${result.skippedSubjects.join(', ')}. Bitte legen Sie diese zuerst im Reiter 'Fächer' an.`, 
-            'error', 
-            null
-          );
+          showToast(`Import abgebrochen! Unbekannte Fächer: ${result.skippedSubjects.join(', ')}`, 'error');
           return;
         }
-
         upsertTeachers(result.teachers);
+        logAction('CSV Import: Lehrer', [`${result.teachers.length} Lehrkräfte importiert oder aktualisiert.`], 'create');
         showToast('Lehrer erfolgreich importiert', 'success');
       } else if (type === 'students') {
-        upsertStudents(parseStudentsCSV(text));
+        const newStudents = parseStudentsCSV(text);
+        upsertStudents(newStudents);
+        logAction('CSV Import: Schüler', [`${newStudents.length} Schüler importiert.`], 'create');
         showToast('Schüler erfolgreich importiert', 'success');
       }
     };
     reader.readAsText(file);
     e.target.value = ''; 
-  }, [upsertTeachers, upsertStudents, showToast, subjects]);
+  }, [upsertTeachers, upsertStudents, showToast, subjects, logAction]);
 
   const openEditor = (item: any = null) => {
     setEditingItem(item);
@@ -127,54 +123,84 @@ export const useDataManagement = () => {
     setShowModal(true);
   };
 
-  const validate = () => {
-    if (activeTab === 'teachers') {
-      if (!formData.lastName?.trim()) return 'Nachname fehlt.';
-      if (!formData.firstName?.trim()) return 'Vorname fehlt.';
-      if (!formData.shortName?.trim()) return 'Kürzel fehlt.';
-    } else if (activeTab === 'students') {
-      if (!formData.lastName?.trim()) return 'Nachname fehlt.';
-      if (!formData.firstName?.trim()) return 'Vorname fehlt.';
-    } else if (activeTab === 'rooms' && !formData.name?.trim()) return 'Raumnummer fehlt.';
-    else if (activeTab === 'days' && (!formData.date || !formData.label?.trim())) return 'Datum oder Bezeichnung fehlt.';
-    else if (activeTab === 'subjects') {
-      if (!formData.name?.trim()) return 'Fachbezeichnung fehlt.';
-      if (!formData.shortName?.trim()) return 'Fachkürzel fehlt.';
-    }
-    return null;
+  const getDiffDetails = (old: any, next: any) => {
+    const details: string[] = [];
+    const fieldsToTrack: Record<string, string> = {
+      lastName: 'Nachname', firstName: 'Vorname', shortName: 'Kürzel',
+      name: 'Bezeichnung', type: 'Typ', date: 'Datum', label: 'Label'
+    };
+    
+    Object.keys(fieldsToTrack).forEach(key => {
+      if (old[key] !== next[key] && (old[key] || next[key])) {
+        details.push(`${fieldsToTrack[key]}: ${old[key] || '--'} -> ${next[key] || '--'}`);
+      }
+    });
+    return details;
   };
 
   const save = () => {
     const error = validate();
     if (error) { setValidationError(error); return; }
     
-    const name = displayNames[activeTab];
-    if (activeTab === 'teachers') editingItem ? updateTeacher(formData) : addTeacher({ ...formData, id: `t-${Date.now()}` });
-    else if (activeTab === 'students') editingItem ? updateStudent(formData) : addStudent({ ...formData, id: `s-${Date.now()}`, examIds: [] });
-    else if (activeTab === 'rooms') editingItem ? updateRoom(formData) : addRoom({ ...formData, id: `r-${Date.now()}`, capacity: 1 });
-    else if (activeTab === 'days') editingItem ? updateDay(formData) : addDay({ ...formData, id: `d-${Date.now()}` });
-    else editingItem ? updateSubject(formData) : addSubject({ ...formData, id: `sub-${Date.now()}` });
+    const label = displayNames[activeTab];
+    const identifier = formData.lastName || formData.name || formData.label;
     
-    showToast(`${name} wurde erfolgreich ${editingItem ? 'aktualisiert' : 'gespeichert'}`, 'success');
+    if (editingItem) {
+      const diff = getDiffDetails(editingItem, formData);
+      const updateMap: any = { teachers: updateTeacher, students: updateStudent, rooms: updateRoom, days: updateDay, subjects: updateSubject };
+      updateMap[activeTab](formData);
+      logAction(`${label} aktualisiert`, [`${identifier}`, ...diff], 'update');
+    } else {
+      const newId = `${activeTab[0]}-${Date.now()}`;
+      const addMap: any = { 
+        teachers: () => addTeacher({ ...formData, id: newId }),
+        students: () => addStudent({ ...formData, id: newId, examIds: [] }),
+        rooms: () => addRoom({ ...formData, id: newId, capacity: 1 }),
+        days: () => addDay({ ...formData, id: newId }),
+        subjects: () => addSubject({ ...formData, id: newId })
+      };
+      addMap[activeTab]();
+      logAction(`${label} erstellt`, [`Eintrag: ${identifier}`], 'create');
+    }
+    
+    showToast(`${label} wurde gespeichert`, 'success');
     setShowModal(false);
   };
 
   const remove = () => {
     const id = editingItem.id;
-    const name = displayNames[activeTab];
+    const label = displayNames[activeTab];
+    const identifier = editingItem.lastName || editingItem.name || editingItem.label;
+    
     if (isEntityInUse(activeTab.slice(0, -1) as any, id, exams, supervisions)) {
       setValidationError('Datensatz wird noch verwendet.');
       setShowDeleteConfirm(false);
       return;
     }
+    
     setExitingId(id);
     setShowModal(false);
     setTimeout(() => {
       const deleteMap: any = { teachers: deleteTeacher, students: deleteStudent, rooms: deleteRoom, days: deleteDay, subjects: deleteSubject };
       deleteMap[activeTab](id);
-      showToast(`${name} wurde gelöscht`, 'success');
+      logAction(`${label} gelöscht`, [`Eintrag: ${identifier}`], 'delete');
+      showToast(`${label} wurde gelöscht`, 'success');
       setExitingId(null);
     }, 800);
+  };
+
+  const validate = () => {
+    if (activeTab === 'teachers') {
+      if (!formData.lastName?.trim() || !formData.firstName?.trim() || !formData.shortName?.trim()) return 'Pflichtfelder fehlen.';
+      if (teachers.some(t => t.shortName.toLowerCase() === formData.shortName.toLowerCase() && t.id !== editingItem?.id)) return `Kürzel existiert bereits.`;
+    } else if (activeTab === 'students') {
+      if (!formData.lastName?.trim() || !formData.firstName?.trim()) return 'Name fehlt.';
+    } else if (activeTab === 'rooms') {
+      if (!formData.name?.trim()) return 'Raumname fehlt.';
+    } else if (activeTab === 'days') {
+      if (!formData.date || !formData.label?.trim()) return 'Datum/Label fehlt.';
+    }
+    return null;
   };
 
   return {

@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useHeader } from '../context/HeaderContext';
-import { Clock, Calendar, Database, ShieldCheck, Settings, ChevronsLeft, ChevronsRight, FileStack } from 'lucide-react';
+import { Clock, Calendar, Database, ShieldCheck, Settings, ChevronsLeft, ChevronsRight, FileStack, RefreshCw } from 'lucide-react';
 import { LinexioLogoIcon } from './LinexioLogoIcon';
+import { HistoryModal } from './HistoryModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,7 +14,9 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const { headerActions } = useHeader();
+  const { lastUpdate, lastActionLabel, historyLogs } = useApp();
   
   const navItems = [
     { id: 'monitor', label: 'Live-Monitor', icon: <Clock size={20} /> },
@@ -23,10 +27,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
     { id: 'settings', label: 'Einstellungen', icon: <Settings size={20} /> },
   ];
 
-  const lastUpdated = new Date().toLocaleString('de-DE', { 
-    day: '2-digit', month: '2-digit', year: 'numeric', 
-    hour: '2-digit', minute: '2-digit' 
-  });
+  const formatDateTime = (ts: number) => {
+    const d = new Date(ts);
+    const datePart = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    const timePart = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return `${datePart}., ${timePart} Uhr`;
+  };
 
   return (
     <div className="flex flex-col h-screen w-full dashboard-gradient select-none relative">
@@ -37,7 +43,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
         <div className="aurora-glow" style={{ top: '40%', right: '-30%', animationDelay: '-15s', opacity: 0.15 }}></div>
       </div>
 
-      {/* Header - h-14 mit vergrößertem Branding */}
+      {/* Header */}
       <header className="h-14 border-b border-slate-700/30 flex items-center justify-between px-4 bg-slate-900/40 backdrop-blur-md shrink-0 z-20 print:hidden">
         <div className="flex items-center gap-4">
           <div className="flex items-center justify-center text-slate-200">
@@ -46,13 +52,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
           <h1 className="font-bold text-xl tracking-tight text-slate-100">LinexioAbi</h1>
         </div>
         
-        {/* Header Actions Slot */}
         <div className="flex items-center gap-3">
           {headerActions}
         </div>
       </header>
 
-      {/* Main Layout Container - Flex hinzugefügt um Sidebar/Content nebeneinander zu halten */}
+      {/* Main Layout Container */}
       <div className="flex flex-1 overflow-hidden z-10 print:block">
         <nav 
           className={`bg-slate-900/10 border-r border-slate-700/20 flex flex-col p-2 select-none transition-all duration-500 ease-in-out shrink-0 print:hidden ${
@@ -84,12 +89,32 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
 
             <div className="flex-grow" />
 
+            {/* Letzte Änderung Info (Sidebar) - KLICKBAR */}
             <div className={`transition-all duration-500 ease-in-out overflow-hidden mb-2 ${
               isCollapsed ? 'max-h-0 opacity-0' : 'max-h-24 opacity-100'
             }`}>
-              <div className="p-3 bg-slate-800/20 rounded-xl">
-                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Version: 0.8.1</div>
-                <div className="text-[9px] text-slate-600 font-medium leading-tight text-left">zuletzt aktualisiert am: <br/> {lastUpdated}</div>
+              <button 
+                onClick={() => setShowHistory(true)}
+                className="w-full text-left px-3 py-2 bg-slate-800/20 hover:bg-slate-800/40 rounded-xl border border-slate-700/20 hover:border-cyan-500/30 transition-all space-y-1 group"
+              >
+                <div className="flex items-center gap-1.5 text-slate-500 group-hover:text-cyan-400 transition-colors">
+                  <RefreshCw size={8} className="animate-spin-slow" />
+                  <span className="text-[8px] font-bold uppercase tracking-wider">Letzte Änderung:</span>
+                </div>
+                <div className="text-[10px] font-black text-cyan-400/90 leading-tight uppercase truncate">
+                  {lastActionLabel || 'System bereit'}
+                </div>
+                <div className="text-[9px] text-slate-500 font-medium italic">
+                  {formatDateTime(lastUpdate)}
+                </div>
+              </button>
+            </div>
+
+            <div className={`transition-all duration-500 ease-in-out overflow-hidden mb-2 ${
+              isCollapsed ? 'max-h-0 opacity-0' : 'max-h-12 opacity-100'
+            }`}>
+              <div className="px-3 py-2 bg-slate-800/10 rounded-xl border border-slate-700/10">
+                <div className="text-[9px] text-slate-600 font-bold uppercase tracking-[0.2em]">Build v0.8.5</div>
               </div>
             </div>
           </div>
@@ -97,7 +122,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
           <div className="flex flex-col gap-1 border-t border-slate-800/50 pt-2 shrink-0 overflow-hidden">
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              onPointerUp={(e) => e.currentTarget.blur()}
               className={`flex items-center h-[44px] rounded-xl text-slate-500 hover:text-white hover:bg-slate-800/30 transition-all duration-300 overflow-hidden outline-none shrink-0 text-left`}
               title={isCollapsed ? "Ausfahren" : "Einklappen"}
             >
@@ -117,6 +141,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
           {children}
         </main>
       </div>
+
+      <HistoryModal 
+        isOpen={showHistory} 
+        onClose={() => setShowHistory(false)} 
+        logs={historyLogs} 
+      />
     </div>
   );
 };

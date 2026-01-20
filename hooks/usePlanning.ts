@@ -29,7 +29,10 @@ export const usePlanning = () => {
     }
   }, [days.length, activeDay]);
 
-  const backlogExams = useMemo(() => exams.filter(e => e.startTime === 0), [exams]);
+  // Veredelte Logik: Nur Prüfungen mit Fach UND Lehrer kommen in den Backlog (Sidebar)
+  const backlogExams = useMemo(() => 
+    exams.filter(e => e.startTime === 0 && e.subject && e.teacherId), 
+  [exams]);
   
   const plannedExamsForDay = useMemo(() => {
     return exams.filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === activeDay);
@@ -43,25 +46,7 @@ export const usePlanning = () => {
       result = result.filter(e => {
         const student = students.find(s => s.id === e.studentId);
         const teacher = teachers.find(t => t.id === e.teacherId);
-        const chair = e.chairId ? teachers.find(t => t.id === e.chairId) : null;
-        const protocol = e.protocolId ? teachers.find(t => t.id === e.protocolId) : null;
-        
-        const searchPool = [
-          student?.firstName,
-          student?.lastName,
-          teacher?.firstName,
-          teacher?.lastName,
-          teacher?.shortName,
-          chair?.firstName,
-          chair?.lastName,
-          chair?.shortName,
-          protocol?.firstName,
-          protocol?.lastName,
-          protocol?.shortName,
-          e.subject,
-          e.groupId
-        ].filter(Boolean).join(' ').toLowerCase();
-
+        const searchPool = [student?.firstName, student?.lastName, teacher?.lastName, teacher?.shortName, e.subject, e.groupId].filter(Boolean).join(' ').toLowerCase();
         const searchTerms = term.split(/\s+/);
         return searchTerms.every(t => searchPool.includes(t));
       });
@@ -78,7 +63,7 @@ export const usePlanning = () => {
         const tB = teachers.find(t => t.id === b.teacherId)?.shortName || '';
         return tA.localeCompare(tB);
       }
-      return a.subject.localeCompare(b.subject, 'de');
+      return (a.subject || '').localeCompare(b.subject || '', 'de');
     });
 
     return result;
@@ -106,17 +91,13 @@ export const usePlanning = () => {
     }
 
     const consistency = checkConsistency(updatedExam);
-    if (consistency.hasWarning) {
-      showToast(consistency.reason || 'Inkonsistenz festgestellt!', 'amber');
-    }
-    
+    if (consistency.hasWarning) showToast(consistency.reason || 'Inkonsistenz festgestellt!', 'amber');
     updateExam(updatedExam);
   }, [exams, activeDay, checkCollision, checkConsistency, updateExam, showToast]);
 
   const handleRemoveFromGrid = useCallback((examId: string) => {
     dragCounter.current = 0;
     setIsDraggingOverBacklog(false);
-
     if (!examId) return;
     const exam = exams.find(e => e.id === examId);
     if (!exam) return;
@@ -124,21 +105,11 @@ export const usePlanning = () => {
   }, [exams, updateExam]);
 
   return {
-    exams, supervisions,
-    days, rooms, teachers, students, subjects,
-    searchTerm, setSearchTerm,
-    sortOption, setSortOption,
-    activeDay, setActiveDay,
-    showModal, setShowModal,
-    showDeleteConfirm, setShowDeleteConfirm,
-    editingExam, setEditingExam,
-    hoveredSlot, setHoveredSlot,
-    isDraggingOverBacklog, setIsDraggingOverBacklog,
-    dragCounter,
-    plannedExamsForDay,
-    filteredAndSortedBacklog,
-    handleDropToSlot,
-    handleRemoveFromGrid,
+    exams, supervisions, days, rooms, teachers, students, subjects,
+    searchTerm, setSearchTerm, sortOption, setSortOption, activeDay, setActiveDay,
+    showModal, setShowModal, showDeleteConfirm, setShowDeleteConfirm, editingExam, setEditingExam,
+    hoveredSlot, setHoveredSlot, isDraggingOverBacklog, setIsDraggingOverBacklog, dragCounter,
+    plannedExamsForDay, filteredAndSortedBacklog, handleDropToSlot, handleRemoveFromGrid,
     addExams, updateExam, deleteExam, checkCollision, checkConsistency, showToast
   };
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Modal } from '../Modal';
 import { Room, Exam } from '../../types';
@@ -75,7 +76,7 @@ export const PrepBalancerModal: React.FC<PrepBalancerModalProps> = ({
               <Clock size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">Vorbereitung planen</h3>
+              <h3 className="text-lg font-bold text-white tracking-tight">Vorbereitungsräume planen</h3>
               <p className="text-xs text-amber-500/80 font-medium">Bulk-Zuweisung & Last-Simulation</p>
             </div>
           </div>
@@ -204,8 +205,7 @@ export const PrepBalancerModal: React.FC<PrepBalancerModalProps> = ({
           <button 
             onClick={handleApply}
             disabled={!isComplete}
-            className="btn-primary-aurora flex-[2] h-12 rounded-xl text-sm uppercase tracking-wider disabled:opacity-30"
-            style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)' }}
+            className="btn-warning-aurora flex-[2] h-12 rounded-xl text-sm uppercase tracking-wider disabled:opacity-30"
           >
             Zuweisung anwenden <ChevronRight size={18} />
           </button>

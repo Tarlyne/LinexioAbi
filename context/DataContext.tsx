@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { Teacher, Student, Room, ExamDay, Subject, AppState } from '../types';
 import { isEntityInUseInternal } from '../utils/engine';
@@ -28,6 +29,7 @@ interface DataContextType {
   deleteSubject: (id: string) => void;
   isEntityInUse: (type: any, id: string, exams: any[], supervisions: any[]) => boolean;
   setDataFromLoad: (data: AppState) => void;
+  clearStammdaten: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -45,6 +47,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRooms(data.rooms || []);
     setDays(data.days || []);
     setSubjects(data.subjects || []);
+  }, []);
+
+  const clearStammdaten = useCallback(() => {
+    setTeachers([]);
+    setStudents([]);
+    setRooms([]);
+    setDays([]);
   }, []);
 
   const addTeacher = useCallback((t: Teacher) => setTeachers(prev => [...prev, t]), []);
@@ -108,7 +117,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addRoom, updateRoom, deleteRoom, upsertRooms,
     addDay, updateDay, deleteDay,
     addSubject, updateSubject, deleteSubject,
-    isEntityInUse, setDataFromLoad
+    isEntityInUse, setDataFromLoad, clearStammdaten
   }), [
     teachers, students, rooms, days, subjects, 
     addTeacher, updateTeacher, deleteTeacher, upsertTeachers, 
@@ -116,7 +125,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addRoom, updateRoom, deleteRoom, upsertRooms, 
     addDay, updateDay, deleteDay, 
     addSubject, updateSubject, deleteSubject, 
-    isEntityInUse, setDataFromLoad
+    isEntityInUse, setDataFromLoad, clearStammdaten
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

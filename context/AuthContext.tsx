@@ -1,53 +1,52 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppSettings, AppState } from '../types';
 import * as db from '../store/db';
 
+/**
+ * Fix: Added masterPassword and changeMasterPassword to AuthContextType and AuthProvider implementation
+ * to satisfy requirements from AppContext and SettingsView.
+ */
 interface AuthContextType {
   isLocked: boolean;
-  masterPassword: string | null;
+  requiresSetup: boolean;
   settings: AppSettings;
+  masterPassword: string | null;
   lockCountdown: number | null;
   isLockWarningVisible: boolean;
   unlock: (password: string) => Promise<any | null>;
   lock: () => void;
   extendSession: () => void;
   setMasterPassword: (password: string) => Promise<void>;
-  changeMasterPassword: (oldPassword: string, newPassword: string, currentState: any) => Promise<boolean>;
+  changeMasterPassword: (oldPw: string, newPw: string, currentData: Partial<AppState>) => Promise<boolean>;
   updateSettings: (settings: Partial<AppSettings>) => void;
   persistEncrypted: (state: AppState, specificKey?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const defaultSettings: AppSettings = { autoLockMinutes: 10 };
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLocked, setIsLocked] = useState(true);
+  const [requiresSetup, setRequiresSetup] = useState(false);
+  const [settings, setSettings] = useState<AppSettings>({ autoLockMinutes: 10 });
   const [masterPassword, setMasterPasswordState] = useState<string | null>(null);
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [lockCountdown, setLockCountdown] = useState<number | null>(null);
   const [isLockWarningVisible, setIsLockWarningVisible] = useState(false);
   
-  const sessionPassword = useRef<string | null>(null);
+  const masterKey = useRef<CryptoKey | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
   useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const saved = await db.loadState();
-        if (saved) {
-          if ('masterPassword' in saved && saved.masterPassword === 'SET') setMasterPasswordState('SET');
-          if ('settings' in saved && saved.settings) setSettings({ ...defaultSettings, ...saved.settings });
-        }
-      } catch (e) {
-        // Encrypted but not monolith - will show unlock screen
-      }
+    const init = async () => {
+      const { hasAuth } = await db.getAuthStatus();
+      setRequiresSetup(!hasAuth);
     };
-    checkAuthStatus();
+    init();
   }, []);
 
   const lock = useCallback(() => {
-    sessionPassword.current = null;
+    masterKey.current = null;
+    setMasterPasswordState(null);
     setIsLockWarningVisible(false);
     setLockCountdown(null);
     setIsLocked(true);
@@ -56,93 +55,110 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const extendSession = useCallback(() => {
     lastActivityRef.current = Date.now();
     setIsLockWarningVisible(false);
-    setLockCountdown(null);
   }, []);
 
+  /**
+   * GLOBAL ACTIVITY DETECTION (Tablet-First Protection)
+   * Registriert globale Events, um den Inaktivitäts-Timer bei echter Nutzung zurückzusetzen.
+   */
   useEffect(() => {
-    if (isLocked) return;
-    const handleInteraction = () => {
+    if (isLocked || settings.autoLockMinutes <= 0) return;
+
+    const handleActivity = () => {
       const now = Date.now();
-      if (now - lastActivityRef.current > 1000) extendSession();
+      // Throttling: Wir aktualisieren den Ref nur, wenn das Warn-Modal offen ist (um es sofort zu schließen)
+      // ODER wenn seit der letzten Speicherung mehr als 5 Sekunden vergangen sind.
+      // Dies schont die Performance bei schnellen Klicks/Eingaben.
+      if (isLockWarningVisible || (now - lastActivityRef.current > 5000)) {
+        extendSession();
+      }
     };
-    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
-    events.forEach(event => window.addEventListener(event, handleInteraction, { passive: true }));
-    return () => events.forEach(event => window.removeEventListener(event, handleInteraction));
-  }, [isLocked, extendSession]);
+
+    // Events, die echte Benutzerabsicht signalisieren
+    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'wheel'];
+    activityEvents.forEach(e => window.addEventListener(e, handleActivity, { passive: true }));
+
+    return () => {
+      activityEvents.forEach(e => window.removeEventListener(e, handleActivity));
+    };
+  }, [isLocked, settings.autoLockMinutes, isLockWarningVisible, extendSession]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (isLocked || settings.autoLockMinutes <= 0) return;
       const idleMs = Date.now() - lastActivityRef.current;
       const thresholdMs = settings.autoLockMinutes * 60 * 1000;
-      const warningThresholdMs = thresholdMs - (60 * 1000);
-
-      if (idleMs >= thresholdMs) {
-        lock();
-      } else if (idleMs >= warningThresholdMs) {
+      if (idleMs >= thresholdMs) lock();
+      else if (idleMs >= thresholdMs - 60000) {
         setIsLockWarningVisible(true);
         setLockCountdown(Math.ceil((thresholdMs - idleMs) / 1000));
-      } else {
-        if (isLockWarningVisible) setIsLockWarningVisible(false);
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [isLocked, settings.autoLockMinutes, lock, isLockWarningVisible]);
+  }, [isLocked, settings.autoLockMinutes, lock]);
 
   const unlock = useCallback(async (password: string) => {
-    const decrypted = await db.loadState(password);
-    if (decrypted && !('isLocked' in decrypted)) {
-      sessionPassword.current = password;
-      const state = decrypted as AppState;
-      if (state.settings) setSettings({ ...defaultSettings, ...state.settings });
+    const key = await db.verifyAndGetKey(password);
+    if (key) {
+      masterKey.current = key;
+      setMasterPasswordState(password);
+      const data = await db.loadEncryptedState(key);
+      if (data.settings) setSettings(data.settings);
       setIsLocked(false);
       extendSession();
-      return state;
+      return data;
     }
     return null;
   }, [extendSession]);
 
   const setMasterPassword = useCallback(async (password: string) => {
-    sessionPassword.current = password;
-    setMasterPasswordState('SET');
+    const key = await db.setupAuth(password);
+    masterKey.current = key;
+    setMasterPasswordState(password);
+    setRequiresSetup(false);
     setIsLocked(false);
     extendSession();
   }, [extendSession]);
 
-  const changeMasterPassword = useCallback(async (oldPw: string, newPw: string, currentState: any) => {
-    try {
-      const verified = await db.loadState(oldPw);
-      if (!verified) return false;
-      sessionPassword.current = newPw;
-      await db.saveState(currentState, newPw);
-      return true;
-    } catch (e) {
-      return false;
-    }
+  // Fix: Implemented changeMasterPassword to allow password updates and data re-encryption
+  const changeMasterPassword = useCallback(async (oldPw: string, newPw: string, currentData: Partial<AppState>) => {
+    const key = await db.verifyAndGetKey(oldPw);
+    if (!key) return false;
+
+    // Load full state using OLD key to ensure we don't lose data that wasn't passed in currentData
+    const fullData = await db.loadEncryptedState(key);
+    
+    // Setup new auth (updates localforage auth metadata)
+    const newKey = await db.setupAuth(newPw);
+    masterKey.current = newKey;
+    setMasterPasswordState(newPw);
+
+    // Re-encrypt combined state with NEW key
+    const mergedState = { ...fullData, ...currentData } as AppState;
+    await db.saveEncryptedState(mergedState, newKey);
+    
+    return true;
   }, []);
 
-  const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
-  }, []);
-
-  /**
-   * Zentraler Persistenz-Hub: Nutzt das sessionPassword um Daten granular zu sichern.
-   */
   const persistEncrypted = useCallback(async (state: AppState, specificKey?: string) => {
-    if (isLocked) return;
-    await db.saveState(state, sessionPassword.current || undefined, specificKey);
+    if (isLocked || !masterKey.current) return;
+    await db.saveEncryptedState(state, masterKey.current, specificKey);
   }, [isLocked]);
 
-  const value = React.useMemo(() => ({
-    isLocked, masterPassword, settings, lockCountdown, isLockWarningVisible,
-    unlock, lock, extendSession, setMasterPassword, changeMasterPassword, updateSettings, persistEncrypted
-  }), [isLocked, masterPassword, settings, lockCountdown, isLockWarningVisible, unlock, lock, extendSession, setMasterPassword, changeMasterPassword, updateSettings, persistEncrypted]);
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ 
+      isLocked, requiresSetup, settings, masterPassword, lockCountdown, isLockWarningVisible,
+      unlock, lock, extendSession, setMasterPassword, changeMasterPassword,
+      updateSettings: (s) => setSettings(prev => ({...prev, ...s})), 
+      persistEncrypted 
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
+  const c = useContext(AuthContext);
+  if (!c) throw new Error('useAuth missing');
+  return c;
 };

@@ -5,7 +5,7 @@ import { useData } from '../context/DataContext';
 import { useUI } from '../context/UIContext';
 import { useHeader } from '../context/HeaderContext';
 import { useDnD } from '../context/DnDContext';
-import { Clock, Search, X, Printer, Loader2, ShieldAlert, GraduationCap, Download } from 'lucide-react';
+import { Clock, Search, X, Printer, Loader2, ShieldAlert, GraduationCap, Download, RotateCcw } from 'lucide-react';
 import { checkTeacherAvailability, getTeacherBlockedPeriods, getTeacherSubjectPeriods } from '../utils/engine';
 import { Supervision, Teacher } from '../types';
 import { Modal } from './Modal';
@@ -15,7 +15,7 @@ import { WorkloadIndicator } from './stats/WorkloadIndicator';
 import { SupervisionPrintView } from './SupervisionPrintView';
 
 export const StatsView: React.FC = () => {
-  const { exams, supervisions, addSupervision, removeSupervision, getTeacherStats } = useApp();
+  const { exams, supervisions, addSupervision, removeSupervision, getTeacherStats, undo, canUndo } = useApp();
   const { days, rooms, teachers, subjects } = useData();
   const { showToast } = useUI();
   const { startDrag, activeDrag, dropTarget } = useDnD();
@@ -25,10 +25,24 @@ export const StatsView: React.FC = () => {
   const [hoveredSlot, setHoveredSlot] = useState<{ stationId: string; slotIdx: number; subIdx: number } | null>(null);
   const [showExportPreview, setShowExportPreview] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [workloadInfo, setWorkloadInfo] = useState<{ time: string, count: number } | null>(null);
+  const [workloadInfo, setHoveredWorkloadInfo] = useState<{ time: string, count: number } | null>(null);
 
-  const SLOT_HEIGHT = 44;
+  const SLOT_MIN_HEIGHT = 44; // iPad Sicherheitshöhe
   const START_MIN_DAY = 450; 
+
+  // Keyboard Shortcut Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        if (canUndo) {
+          e.preventDefault();
+          undo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, canUndo]);
 
   // Spotlight Logic
   const isSpotlightActive = searchTerm.trim().length >= 2;
@@ -90,24 +104,49 @@ export const StatsView: React.FC = () => {
 
     const time = timeSlots[slotIdx];
     const startTimeMin = START_MIN_DAY + slotIdx * 30;
-    
-    const availability = checkTeacherAvailability(
-      teacherId, 
-      activeDayIdx, 
-      startTimeMin, 
-      60, 
-      exams, 
-      supervisions, 
-      existingSupId
+
+    const targetSup = supervisions.find(s => 
+      s.dayIdx === activeDayIdx && 
+      s.stationId === stationId && 
+      s.subSlotIdx === subIdx && 
+      s.startTime === time
     );
 
-    if (availability.isBusy) {
-      showToast(`${availability.reason}`, 'warning');
+    if (existingSupId && targetSup) {
+      if (existingSupId === targetSup.id) return;
+      const sourceSup = supervisions.find(s => s.id === existingSupId);
+      if (!sourceSup) return;
+      const teacherA = teacherId;
+      const teacherB = targetSup.teacherId;
+      const availA = checkTeacherAvailability(teacherA, activeDayIdx, startTimeMin, 60, exams, supervisions, existingSupId);
+      if (availA.isBusy) { showToast(`Tausch nicht möglich: ${availA.reason}`, 'warning'); return; }
+      const sourceSlotIdx = timeSlots.indexOf(sourceSup.startTime);
+      const sourceTimeMin = START_MIN_DAY + sourceSlotIdx * 30;
+      const availB = checkTeacherAvailability(teacherB, activeDayIdx, sourceTimeMin, 60, exams, supervisions, targetSup.id);
+      if (availB.isBusy) { showToast(`Tausch nicht möglich: ${availB.reason}`, 'warning'); return; }
+      removeSupervision(existingSupId);
+      removeSupervision(targetSup.id);
+      addSupervision({ ...sourceSup, id: `s-${Date.now()}-A`, teacherId: teacherB });
+      addSupervision({ ...targetSup, id: `s-${Date.now()}-B`, teacherId: teacherA });
+      showToast('Aufsichten getauscht', 'success');
       return;
     }
 
-    if (existingSupId) {
+    if (!existingSupId && targetSup) {
+      const avail = checkTeacherAvailability(teacherId, activeDayIdx, startTimeMin, 60, exams, supervisions, targetSup.id);
+      if (avail.isBusy) { showToast(avail.reason!, 'warning'); return; }
+      removeSupervision(targetSup.id);
+    }
+
+    if (existingSupId && !targetSup) {
+      const avail = checkTeacherAvailability(teacherId, activeDayIdx, startTimeMin, 60, exams, supervisions, existingSupId);
+      if (avail.isBusy) { showToast(avail.reason!, 'warning'); return; }
       removeSupervision(existingSupId);
+    }
+
+    if (!existingSupId && !targetSup) {
+      const avail = checkTeacherAvailability(teacherId, activeDayIdx, startTimeMin, 60, exams, supervisions);
+      if (avail.isBusy) { showToast(avail.reason!, 'warning'); return; }
     }
 
     const newSup: Supervision = {
@@ -120,7 +159,6 @@ export const StatsView: React.FC = () => {
       points: 1.0, 
       subSlotIdx: subIdx
     };
-
     addSupervision(newSup);
   }, [activeDayIdx, exams, supervisions, timeSlots, addSupervision, removeSupervision, showToast]);
 
@@ -146,10 +184,20 @@ export const StatsView: React.FC = () => {
   };
 
   useHeader(
-    <button onClick={() => setShowExportPreview(true)} className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg border-indigo-500/30 text-slate-200">
-      <Printer size={15} className="text-indigo-400" />
-      <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
-    </button>
+    <div className="flex items-center gap-2">
+      <button 
+        onClick={() => undo()} 
+        disabled={!canUndo}
+        className={`btn-secondary-glass w-9 h-9 p-0 rounded-xl shadow-lg border-indigo-500/30 transition-all ${canUndo ? 'text-indigo-400' : 'text-slate-600 opacity-30 cursor-not-allowed'}`}
+        title="Rückgängig (Cmd+Z)"
+      >
+        <RotateCcw size={15} />
+      </button>
+      <button onClick={() => setShowExportPreview(true)} className="btn-secondary-glass h-9 px-4 rounded-xl shadow-lg border-indigo-500/30 text-slate-200">
+        <Printer size={15} className="text-indigo-400" />
+        <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">Export PDF</span>
+      </button>
+    </div>
   );
 
   const isDraggingReal = activeDrag?.isDraggingStarted;
@@ -213,7 +261,6 @@ export const StatsView: React.FC = () => {
             {filteredTeachers.map(teacher => {
               const stats = getTeacherStats(teacher.id);
               const isDraggingThis = activeDrag?.id === teacher.id && !activeDraggingSupId && isDraggingReal;
-              const hasHighlight = isTeacherMatch(teacher);
               
               const ghostUI = (
                 <div className="w-56 p-3 flex items-center gap-3 bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
@@ -237,16 +284,13 @@ export const StatsView: React.FC = () => {
                     startDrag(teacher.id, 'teacher', e, { supId: null }, ghostUI);
                   }}
                   className={`draggable-item p-2.5 rounded-xl border flex items-center gap-3 transition-all duration-300 hover:border-cyan-500/50 bg-[#1e293b] border-slate-700/50 shadow-sm 
-                    ${isDraggingThis ? 'opacity-20 scale-95' : ''} 
-                    ${hasHighlight ? 'ring-1 ring-cyan-500 bg-cyan-500/10 border-cyan-500/50' : ''}`}
+                    ${isDraggingThis ? 'opacity-20 scale-95' : ''}`}
                 >
                   <div className="flex flex-col min-w-0 flex-1 pointer-events-none">
-                    <span className={`text-sm font-bold truncate leading-none ${hasHighlight ? 'text-cyan-300' : 'text-slate-200'}`}>{teacher.lastName}, {teacher.firstName}</span>
-                    <span className={`text-[10px] font-mono mt-1 ${hasHighlight ? 'text-cyan-400' : 'text-cyan-500'}`}>{teacher.shortName}</span>
+                    <span className="text-sm font-bold truncate leading-none text-slate-200">{teacher.lastName}, {teacher.firstName}</span>
+                    <span className="text-[10px] font-mono mt-1 text-cyan-500">{teacher.shortName}</span>
                   </div>
-                  <div className={`badge px-2 py-1 min-w-[32px] text-xs font-black shadow-inner border transition-all ${
-                    hasHighlight ? 'badge-cyan border-cyan-400 bg-cyan-500/20' : 'badge-cyan border-cyan-500/30 bg-cyan-500/10'
-                  } pointer-events-none`}>
+                  <div className="badge px-2 py-1 min-w-[32px] text-xs font-black shadow-inner border transition-all badge-cyan border-cyan-500/30 bg-cyan-500/10 pointer-events-none">
                     {Math.round(stats.points)}
                   </div>
                 </div>
@@ -271,31 +315,38 @@ export const StatsView: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-auto relative scroll-smooth no-scrollbar">
-            <div className="relative flex min-h-full">
-              <GridTimeColumn timeSlots={timeSlots} slotHeight={SLOT_HEIGHT} renderSlot={(time, idx) => {
-                const isFullHour = idx % 2 !== 0; 
-                return (
-                  <div className="w-full h-full flex items-start justify-center pt-1">
-                    <span className={`text-[11px] font-bold transition-all duration-300 ${isFullHour ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]' : 'text-slate-500 opacity-60'}`}>
-                      {time}
-                    </span>
-                  </div>
-                );
-              }} />
+            <div className="relative flex h-full min-h-full min-w-max">
+              <GridTimeColumn 
+                timeSlots={timeSlots} 
+                slotHeight={SLOT_MIN_HEIGHT} 
+                useFlexibleGrid={true}
+                renderSlot={(time, idx) => {
+                  const isFullHour = idx % 2 !== 0; 
+                  return (
+                    <div className="w-full h-full flex items-start justify-center pt-1">
+                      <span className={`text-[11px] font-bold transition-all duration-300 ${isFullHour ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]' : 'text-slate-500 opacity-60'}`}>
+                        {time}
+                      </span>
+                    </div>
+                  );
+                }} 
+              />
               
               <div className="flex-1 flex bg-slate-900/5 relative min-w-max">
                 {stations.map(station => (
                   <div key={station.id} className="flex-1 min-w-[120px] flex border-r border-slate-800/40 relative">
                     {Array.from({ length: station.requiredSupervisors || 1 }).map((_, subIdx) => (
-                      <div key={subIdx} className="flex-1 min-w-[60px] border-r last:border-r-0 border-slate-800/20 relative">
+                      <div 
+                        key={subIdx} 
+                        className="flex-1 min-w-[60px] border-r last:border-r-0 border-slate-800/20 relative grid"
+                        style={{ gridTemplateRows: `repeat(${timeSlots.length}, minmax(${SLOT_MIN_HEIGHT}px, 1fr))` }}
+                      >
                         {timeSlots.map((time, slotIdx) => {
                           const sup = supervisions.find(s => s.dayIdx === activeDayIdx && s.stationId === station.id && s.subSlotIdx === subIdx && s.startTime === time);
                           const teacher = sup ? teachers.find(t => t.id === sup.teacherId) : null;
                           const hasHighlight = isTeacherMatch(teacher);
-                          
                           const isHoveredTop = hoveredSlot?.stationId === station.id && hoveredSlot?.slotIdx === slotIdx && hoveredSlot?.subIdx === subIdx;
                           const cellMin = START_MIN_DAY + slotIdx * 30;
-                          
                           const isBlocked = activeDraggingTeacherId && dragSubjectBlocked.some(p => cellMin < p.end && (cellMin + 30) > p.start);
                           const isAmber = activeDraggingTeacherId && !isBlocked && dragSubjectAmber.some(p => cellMin < p.end && (cellMin + 30) > p.start);
                           const isZebra = slotIdx % 2 !== 0; 
@@ -314,17 +365,15 @@ export const StatsView: React.FC = () => {
                                   el.dataset.listenerAdded = 'true';
                                 }
                               }}
-                              style={{ height: SLOT_HEIGHT }} 
                               className={`w-full relative transition-all duration-300 border-b
                                 ${isBlocked ? 'bg-red-500/30' : isAmber ? 'bg-amber-500/20' : isZebra ? 'bg-slate-800/25' : 'bg-transparent'}
                                 ${isHoveredTop ? 'border-b-transparent' : 'border-b-slate-800/40'}
-                                ${isSpotlightActive && !hasHighlight && sup ? 'opacity-20' : 'opacity-100'}
                               `}
                             >
                               {isHoveredTop && (
                                 <div 
                                   className="absolute inset-x-0 top-0 z-30 pointer-events-none ring-1 ring-inset ring-cyan-500 bg-cyan-500/10 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.1)]"
-                                  style={{ height: SLOT_HEIGHT * 2 }}
+                                  style={{ height: '200%' }}
                                 />
                               )}
 
@@ -349,15 +398,15 @@ export const StatsView: React.FC = () => {
                                   }}
                                   className={`draggable-item absolute inset-x-1 top-1 rounded-xl transition-all duration-300 z-20 flex items-center justify-center shadow-2xl ${
                                     hasHighlight 
-                                      ? 'bg-cyan-500 border-cyan-400 ring-2 ring-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.6)] z-30' 
+                                      ? 'bg-cyan-500/20 border-cyan-400 ring-1 ring-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.3)] z-30' 
                                       : 'bg-[#1e293b] border border-slate-700/50 hover:border-cyan-500/50'
                                   } ${activeDraggingSupId === sup.id && isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'}`}
                                   style={{ 
-                                    height: (SLOT_HEIGHT * 2) - 8,
+                                    height: 'calc(200% - 8px)',
                                     pointerEvents: activeDrag && !isDraggingReal ? 'none' : 'auto'
                                   }}
                                 >
-                                  <span className={`text-[11px] font-black tracking-widest drop-shadow-md pointer-events-none ${hasHighlight ? 'text-white' : 'text-slate-200'}`}>
+                                  <span className={`text-[11px] font-black tracking-widest drop-shadow-md pointer-events-none ${hasHighlight ? 'text-cyan-300' : 'text-slate-200'}`}>
                                     {teacher?.shortName || '?'}
                                   </span>
                                 </div>
@@ -375,7 +424,7 @@ export const StatsView: React.FC = () => {
         </div>
       </div>
 
-      <WorkloadIndicator info={workloadInfo} onClose={() => setWorkloadInfo(null)} />
+      <WorkloadIndicator info={workloadInfo} onClose={() => setHoveredWorkloadInfo(null)} />
 
       <Modal isOpen={showExportPreview} onClose={() => setShowExportPreview(false)} maxWidth="max-w-[1200px]">
         <div className="flex flex-col gap-6 h-[85vh] overflow-hidden">

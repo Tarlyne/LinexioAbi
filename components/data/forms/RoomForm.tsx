@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ChevronDown, Shield } from 'lucide-react';
 
@@ -17,7 +18,7 @@ export const RoomForm: React.FC<RoomFormProps> = ({ formData, updateField }) => 
             type="text" 
             value={formData.name || ''} 
             onChange={e => updateField('name', e.target.value)} 
-            className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40 font-mono" 
+            className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-cyan-500/40" 
           />
         </div>
         <div className="space-y-2">

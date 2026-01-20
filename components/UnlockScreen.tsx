@@ -1,128 +1,110 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
-import { Lock, ChevronRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Lock, ChevronRight, ShieldCheck, AlertCircle, Eye, EyeOff, Info } from 'lucide-react';
 
 export const UnlockScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { unlock, setMasterPassword, masterPassword } = useAuth();
+  const [isShaking, setIsShaking] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  const { unlock, setMasterPassword, requiresSetup } = useAuth();
   const { loadDecryptedData } = useApp();
-
-  const isInitialSetup = !masterPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing) return;
     setError(null);
 
-    if (isInitialSetup) {
-      if (password.length < 4) {
-        setError('Das Passwort muss mindestens 4 Zeichen lang sein.');
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError('Die Passwörter stimmen nicht überein.');
-        return;
-      }
+    if (requiresSetup) {
+      if (password.length < 4) { setError('Mindestens 4 Zeichen.'); setIsShaking(true); setTimeout(() => setIsShaking(false), 500); return; }
+      if (password !== confirmPassword) { setError('Passwörter ungleich.'); setIsShaking(true); setTimeout(() => setIsShaking(false), 500); return; }
+      setIsProcessing(true);
       await setMasterPassword(password);
+      setIsProcessing(false);
     } else {
-      const decrypted = await unlock(password);
-      if (decrypted) {
-        // Kritische Synchronisation: Daten sofort in den AppContext laden
-        loadDecryptedData(decrypted);
+      setIsProcessing(true);
+      const data = await unlock(password);
+      if (data) {
+        loadDecryptedData(data);
       } else {
         setError('Ungültiges Passwort');
-        const el = document.getElementById('unlock-card');
-        el?.classList.add('translate-x-2');
-        setTimeout(() => el?.classList.remove('translate-x-2'), 500);
+        setIsShaking(true);
+        setTimeout(() => setIsShaking(false), 500);
       }
+      setIsProcessing(false);
     }
   };
 
   return (
     <div className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-[#0a0f1d]">
-      <div className="aurora-container">
-        <div className="aurora-glow" style={{ top: '10%', left: '10%' }}></div>
-        <div className="aurora-glow" style={{ bottom: '10%', right: '10%', animationDelay: '-5s', scale: '1.2' }}></div>
-      </div>
-
-      <div 
-        id="unlock-card"
-        className="relative z-10 glass-modal p-8 w-full max-w-md mx-4 transition-all duration-300"
-      >
+      <div className="aurora-container"><div className="aurora-glow"></div></div>
+      <div className={`relative z-10 glass-modal p-8 w-full max-w-md mx-4 ${isShaking ? 'animate-shake' : ''}`}>
         <div className="flex flex-col items-center gap-6">
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border shadow-lg transition-all duration-500 ${
-            isInitialSetup 
-            ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 shadow-amber-900/40' 
-            : 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 shadow-cyan-900/40'
-          }`}>
-            {isInitialSetup ? <ShieldCheck size={32} /> : <Lock size={32} />}
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+            {requiresSetup ? <ShieldCheck size={32} /> : <Lock size={32} />}
           </div>
-          
           <div className="text-center">
-            <h1 className="text-2xl font-bold tracking-tight text-white">LinexioAbi</h1>
-            <p className="text-slate-400 text-sm mt-1">
-              {isInitialSetup ? 'Sicherheits-Setup: Master-Passwort festlegen' : 'Identität bestätigen'}
-            </p>
+            <h1 className="text-2xl font-bold text-white">LinexioAbi</h1>
+            <p className="text-slate-400 text-sm mt-1">{requiresSetup ? 'Sicherheits-Setup' : 'Identität bestätigen'}</p>
           </div>
-
           <form onSubmit={handleSubmit} className="w-full space-y-4">
-            <div className="space-y-4">
-              <div className="relative">
-                <input
-                  autoFocus
-                  type="password"
-                  placeholder={isInitialSetup ? "Neues Passwort" : "Passwort eingeben"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 transition-all shadow-inner focus:ring-1 ${
-                    isInitialSetup ? 'focus:ring-amber-500/40' : 'focus:ring-cyan-500/40'
-                  }`}
-                />
-                {!isInitialSetup && (
-                  <button 
-                    type="submit"
-                    className="absolute right-2 top-1.5 bottom-1.5 w-10 btn-aurora-base btn-primary-aurora rounded-lg"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                )}
-              </div>
-
-              {isInitialSetup && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                  <input
-                    type="password"
-                    placeholder="Passwort bestätigen"
-                    value={confirmPassword}
-                    onChange={(e) => confirmPassword !== e.target.value && setConfirmPassword(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:ring-1 focus:ring-amber-500/40 transition-all shadow-inner"
+            <div className="relative">
+              <input 
+                autoFocus 
+                type={showPassword ? "text" : "password"} 
+                placeholder="Passwort" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 pr-12 text-white outline-none focus:ring-1 focus:ring-cyan-500/40 transition-all" 
+              />
+              <button 
+                type="button" 
+                tabIndex={-1}
+                onClick={() => setShowPassword(!showPassword)} 
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} className="text-slate-200" /> : <Eye size={18} className="text-slate-200" />}
+              </button>
+            </div>
+            {requiresSetup && (
+              <>
+                <div className="relative">
+                  <input 
+                    type={showConfirmPassword ? "text" : "password"} 
+                    placeholder="Passwort bestätigen" 
+                    value={confirmPassword} 
+                    onChange={e => setConfirmPassword(e.target.value)} 
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3.5 pr-12 text-white outline-none focus:ring-1 focus:ring-cyan-500/40 transition-all" 
                   />
                   <button 
-                    type="submit"
-                    disabled={!password || !confirmPassword}
-                    className="btn-aurora-base btn-warning-aurora w-full mt-4 h-12 rounded-xl text-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
+                    type="button" 
+                    tabIndex={-1}
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-white transition-colors"
                   >
-                    <span>Einrichten</span> <ChevronRight size={18} />
+                    {showConfirmPassword ? <EyeOff size={18} className="text-slate-200" /> : <Eye size={18} className="text-slate-200" />}
                   </button>
                 </div>
-              )}
-            </div>
-            
-            {error && (
-              <div className="flex items-center justify-center gap-2 text-red-400 animate-pulse">
-                <AlertCircle size={14} />
-                <p className="text-xs font-medium">{error}</p>
-              </div>
+                
+                <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-xl flex gap-3 animate-in fade-in duration-700 slide-in-from-top-1">
+                  <Info size={16} className="text-indigo-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <span className="text-indigo-300 font-bold">Wichtig:</span> Bitte merke dir dieses Passwort gut. Da alle Daten lokal verschlüsselt werden, haben wir keinen Zugriff darauf und es gibt keine "Passwort vergessen"-Funktion.
+                  </p>
+                </div>
+              </>
             )}
+            <button disabled={isProcessing} className="btn-aurora-base btn-primary-aurora w-full h-14 rounded-xl text-sm uppercase font-black shadow-lg">
+              {isProcessing ? 'Verarbeite...' : requiresSetup ? 'Einrichten' : 'Entsperren'} <ChevronRight size={20} />
+            </button>
+            {error && <div className="text-red-400 text-xs text-center font-bold flex items-center justify-center gap-2 pt-2"><AlertCircle size={14} /> {error}</div>}
           </form>
-
-          <div className="pt-4 border-t border-slate-700/30 w-full text-center">
-             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-               Secure Environment • V1.4
-             </p>
-          </div>
         </div>
       </div>
     </div>

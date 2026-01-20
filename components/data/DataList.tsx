@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Settings } from 'lucide-react';
 import { DataTab } from '../../hooks/useDataManagement';
@@ -44,7 +45,8 @@ export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exi
           {activeTab === 'days' 
             ? new Date(item.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
             : activeTab === 'subjects' ? item.name : (item.lastName || item.name)}
-          {activeTab === 'teachers' && item.isPartTime && <span className="text-amber-500 ml-1">*</span>}
+          {activeTab === 'teachers' && item.isPartTime && <span className="text-cyan-500 ml-1" title="Teilzeit">°</span>}
+          {activeTab === 'teachers' && item.isLeadership && <span className="text-amber-500 ml-1" title="Schulleitung">*</span>}
         </span>
       )
     },
@@ -148,7 +150,12 @@ export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exi
       </div>
       <div className="bg-slate-900/60 border-t border-slate-700/30 px-4 py-2 flex justify-between items-center shrink-0">
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{data.length} Einträge</span>
-        {activeTab === 'teachers' && <span className="text-[10px] font-bold text-amber-500/80 tracking-widest">* Teilzeit</span>}
+        {activeTab === 'teachers' && (
+          <div className="flex gap-4">
+             <span className="text-[10px] font-bold text-cyan-500/80 tracking-widest">° Teilzeit</span>
+             <span className="text-[10px] font-bold text-amber-500/80 tracking-widest">* Schulleitung</span>
+          </div>
+        )}
       </div>
     </div>
   );

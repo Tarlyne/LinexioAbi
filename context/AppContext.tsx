@@ -1,187 +1,273 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AppState, Exam, Supervision } from '../types';
+import { AppState, Exam, Supervision, HistoryLog, Teacher, Student, Room, Subject, ExamDay } from '../types';
 import * as db from '../store/db';
-import { checkExamCollision, checkExamConsistency, calculateTeacherPoints } from '../utils/engine';
 import { useAuth } from './AuthContext';
 import { useData } from './DataContext';
 import { useUI } from './UIContext';
+import { calculateTeacherPoints, checkExamCollision, checkExamConsistency } from '../utils/engine';
 
 interface AppContextType {
-  exams: Exam[];
-  supervisions: Supervision[];
-  collectedExamIds: string[];
-  isLoading: boolean;
+  exams: Exam[]; supervisions: Supervision[]; historyLogs: HistoryLog[]; collectedExamIds: string[]; isLoading: boolean;
+  canUndo: boolean;
+  lastUpdate: number;
+  lastActionLabel?: string;
+  undo: () => void;
   loadDecryptedData: (data: AppState) => void;
-  addExams: (exams: Exam[]) => void;
-  updateExam: (exam: Exam) => void;
-  deleteExam: (id: string) => void;
-  togglePresence: (id: string) => void;
-  completeExam: (id: string) => void;
-  toggleProtocolCollected: (examId: string) => void;
-  addSupervision: (s: Supervision) => void;
-  removeSupervision: (id: string) => void;
-  checkCollision: (exam: Exam) => { hasConflict: boolean, reason?: string };
-  checkConsistency: (exam: Exam) => { hasWarning: boolean, reason?: string };
-  getTeacherStats: (teacherId: string) => { points: number };
-  exportState: (password: string) => Promise<void>;
-  importState: (file: File, password: string) => Promise<boolean>;
-  resetForNewYear: () => void;
-  factoryReset: () => void;
-  getFullState: () => AppState;
+  logAction: (label: string, details?: string[], type?: HistoryLog['type']) => void;
+  addExams: (exams: Exam[]) => void; updateExam: (exam: Exam) => void; deleteExam: (id: string) => void;
+  togglePresence: (id: string) => void; completeExam: (id: string) => void; toggleProtocolCollected: (examId: string) => void;
+  addSupervision: (s: Supervision) => void; removeSupervision: (id: string) => void;
+  getTeacherStats: (id: string) => { points: number };
+  exportState: (p: string) => Promise<void>; importState: (f: File, p: string) => Promise<boolean>;
+  resetForNewYear: () => void; factoryReset: () => void; getFullState: () => AppState;
+  checkCollision: (exam: Exam) => { hasConflict: boolean; reason?: string };
+  checkConsistency: (exam: Exam) => { hasWarning: boolean; reason?: string };
+  syncDefaultExams: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isLocked, settings, masterPassword, persistEncrypted } = useAuth();
-  const { teachers, students, rooms, days, subjects, setDataFromLoad } = useData();
+  const { teachers, students, rooms, days, subjects, setDataFromLoad, clearStammdaten } = useData();
   const { showToast } = useUI();
   
   const [exams, setExams] = useState<Exam[]>([]);
   const [supervisions, setSupervisions] = useState<Supervision[]>([]);
+  const [historyLogs, setHistoryLogs] = useState<HistoryLog[]>([]);
   const [collectedExamIds, setCollectedExamIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
+  const [lastActionLabel, setLastActionLabel] = useState<string | undefined>('System bereit');
+  
+  // Undo-History
+  const [history, setHistory] = useState<{exams: Exam[], supervisions: Supervision[], lastActionLabel?: string}[]>([]);
 
   const loadDecryptedData = useCallback((saved: AppState) => {
-    if (saved) {
-      setExams(saved.exams || []);
-      setSupervisions(saved.supervisions || []);
-      setCollectedExamIds(saved.collectedExamIds || []);
-      setDataFromLoad(saved);
-    }
+    if (!saved) return;
+    setExams(saved.exams || []);
+    setSupervisions(saved.supervisions || []);
+    setHistoryLogs(saved.historyLogs || []);
+    setCollectedExamIds(saved.collectedExamIds || []);
+    setLastUpdate(saved.lastUpdate || Date.now());
+    setLastActionLabel(saved.lastActionLabel || 'Daten geladen');
+    setDataFromLoad(saved);
+    setHistory([]); 
   }, [setDataFromLoad]);
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        const saved = await db.loadState();
-        if (saved && 'teachers' in saved) {
-          loadDecryptedData(saved as AppState);
-        }
-      } catch (e) {
-        console.debug("Initialization skipped (encrypted)");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    init();
-  }, [loadDecryptedData]);
-
-  const validateStateInvariants = useCallback((state: AppState): boolean => {
-    try {
-      for (const exam of state.exams) {
-        const studentExists = state.students.some(s => s.id === exam.studentId);
-        const teacherExists = state.teachers.some(t => t.id === exam.teacherId);
-        if (!studentExists || !teacherExists) return false;
-      }
-      return true;
-    } catch (err) {
-      return false;
-    }
+    setIsLoading(false);
   }, []);
 
-  const getFullState = useCallback((): AppState => ({
-    teachers, students, rooms, days, subjects,
-    exams, supervisions, collectedExamIds,
-    isLocked, masterPassword, settings,
-    lastUpdate: Date.now()
-  }), [teachers, students, rooms, days, subjects, exams, supervisions, collectedExamIds, isLocked, masterPassword, settings]);
+  const notifyChange = useCallback((label: string) => {
+    setLastUpdate(Date.now());
+    setLastActionLabel(label);
+  }, []);
 
-  // Debounced Granular Save
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+  const logAction = useCallback((label: string, details?: string[], type: HistoryLog['type'] = 'update') => {
+    const newLog: HistoryLog = {
+      id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      timestamp: Date.now(),
+      label,
+      details,
+      type
+    };
+    setHistoryLogs(prev => [newLog, ...prev].slice(0, 15));
+    notifyChange(label);
+  }, [notifyChange]);
+
+  const saveSnapshot = useCallback(() => {
+    setHistory(prev => {
+      const newHistory = [{ exams: [...exams], supervisions: [...supervisions], lastActionLabel }, ...prev];
+      return newHistory.slice(0, 5);
+    });
+  }, [exams, supervisions, lastActionLabel]);
+
+  const syncDefaultExams = useCallback(() => {
+    const newDrafts: Exam[] = [];
+    students.forEach(student => {
+      const hasAnyExam = exams.some(e => e.studentId === student.id);
+      if (!hasAnyExam) {
+        newDrafts.push({
+          id: `e-draft-${student.id}-${Date.now()}`,
+          studentId: student.id,
+          teacherId: '',
+          subject: '',
+          status: 'backlog',
+          startTime: 0
+        });
+      }
+    });
+
+    if (newDrafts.length > 0) {
+      setExams(prev => [...prev, ...newDrafts]);
+      logAction('Auto-Sync: Prüfungen', [`${newDrafts.length} Entwürfe für Schüler ohne Zuweisung erstellt.`], 'system');
+    }
+  }, [students, exams, logAction]);
+
+  const undo = useCallback(() => {
+    if (history.length === 0) return;
+    const [lastState, ...remaining] = history;
+    setExams(lastState.exams);
+    setSupervisions(lastState.supervisions);
+    setLastActionLabel('Aktion rückgängig gemacht');
+    setLastUpdate(Date.now());
+    setHistory(remaining);
+    logAction('Rückgängig', ['Letzte Aktion wurde vom Benutzer widerrufen.'], 'system');
+    showToast('Aktion rückgängig gemacht', 'info');
+  }, [history, showToast, logAction]);
+
+  const getFullState = useCallback((): AppState => ({
+    teachers, students, rooms, days, subjects, exams, supervisions, collectedExamIds,
+    historyLogs, isLocked, masterPassword, settings, lastUpdate, lastActionLabel
+  }), [teachers, students, rooms, days, subjects, exams, supervisions, collectedExamIds, historyLogs, isLocked, masterPassword, settings, lastUpdate, lastActionLabel]);
+
+  const saveTimeoutRef = useRef<any>(null);
   useEffect(() => {
     if (!isLoading && !isLocked) {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      
       saveTimeoutRef.current = setTimeout(() => {
-        const state = getFullState();
-        if (validateStateInvariants(state)) {
-          persistEncrypted(state); // Nutzt nun die gesicherte Session-Schnittstelle
-        }
+        persistEncrypted(getFullState());
       }, 1000);
     }
-    return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
-  }, [isLoading, isLocked, getFullState, validateStateInvariants, persistEncrypted]);
+    return () => clearTimeout(saveTimeoutRef.current);
+  }, [isLoading, isLocked, getFullState, persistEncrypted]);
 
-  const addExams = useCallback((newList: Exam[]) => {
-    setExams(prev => [...prev, ...newList]);
-  }, []);
+  // Mutations
+  const addExams = (newList: Exam[]) => {
+    saveSnapshot();
+    setExams(p => [...p, ...newList]);
+    logAction(
+      newList.length > 1 ? `${newList.length} Prüfungen hinzugefügt` : 'Prüfung hinzugefügt',
+      newList.map(e => {
+        const s = students.find(st => st.id === e.studentId);
+        return `Neue Prüfung für: ${s?.lastName || 'Unbekannt'} (${e.subject || 'Nackte Prüfung'})`;
+      }),
+      'create'
+    );
+  };
+  
+  const updateExam = (exam: Exam) => {
+    saveSnapshot();
+    const old = exams.find(e => e.id === exam.id);
+    const student = students.find(s => s.id === exam.studentId);
+    
+    const details: string[] = [];
+    if (old) {
+      if (old.teacherId !== exam.teacherId) details.push(`Prüfer geändert: ${teachers.find(t=>t.id===old.teacherId)?.shortName || '?'} -> ${teachers.find(t=>t.id===exam.teacherId)?.shortName || '?'}`);
+      if (old.subject !== exam.subject) details.push(`Fach geändert: ${old.subject || '--'} -> ${exam.subject || '--'}`);
+      if (old.chairId !== exam.chairId) details.push(`Vorsitz geändert: ${teachers.find(t=>t.id===old.chairId)?.shortName || '?'} -> ${teachers.find(t=>t.id===exam.chairId)?.shortName || '?'}`);
+      if (old.protocolId !== exam.protocolId) details.push(`Protokollant geändert: ${teachers.find(t=>t.id===old.protocolId)?.shortName || '?'} -> ${teachers.find(t=>t.id===exam.protocolId)?.shortName || '?'}`);
+      if (old.startTime !== exam.startTime) details.push(`Zeit/Tag verschoben`);
+    }
 
-  const updateExam = useCallback((exam: Exam) => setExams(prev => prev.map(e => e.id === exam.id ? exam : e)), []);
-  const deleteExam = useCallback((id: string) => {
-    setExams(prev => prev.filter(e => e.id !== id));
-    setCollectedExamIds(prev => prev.filter(cid => cid !== id));
-  }, []);
+    setExams(p => p.map(e => e.id === exam.id ? exam : e));
+    logAction(`Prüfung aktualisiert (${student?.lastName})`, details, 'update');
+  };
+  
+  const deleteExam = (id: string) => {
+    saveSnapshot();
+    const target = exams.find(e => e.id === id);
+    const student = students.find(s => s.id === target?.studentId);
+    setExams(p => p.filter(e => e.id !== id));
+    logAction(`Prüfung gelöscht`, [`Prüfling: ${student?.lastName || '?'}, Fach: ${target?.subject || '?'}`], 'delete');
+  };
 
-  const togglePresence = useCallback((id: string) => setExams(prev => prev.map(e => e.id === id ? { ...e, isPresent: !e.isPresent } : e)), []);
-  const completeExam = useCallback((id: string) => setExams(prev => prev.map(e => e.id === id ? { ...e, status: 'completed' } : e)), []);
-  const toggleProtocolCollected = useCallback((examId: string) => {
-    setCollectedExamIds(prev => prev.includes(examId) ? prev.filter(id => id !== examId) : [...prev, examId]);
-  }, []);
+  const togglePresence = (id: string) => {
+    const target = exams.find(e => e.id === id);
+    const student = students.find(s => s.id === target?.studentId);
+    setExams(p => p.map(e => e.id === id ? { ...e, isPresent: !e.isPresent } : e));
+    logAction(`Anwesenheit: ${student?.lastName}`, [!target?.isPresent ? 'Als anwesend markiert' : 'Als abwesend markiert']);
+  };
 
-  const addSupervision = useCallback((s: Supervision) => setSupervisions(prev => [...prev, s]), []);
-  const removeSupervision = useCallback((id: string) => setSupervisions(prev => prev.filter(s => s.id !== id)), []);
+  const completeExam = (id: string) => {
+    const target = exams.find(e => e.id === id);
+    const student = students.find(s => s.id === target?.studentId);
+    setExams(p => p.map(e => e.id === id ? { ...e, status: 'completed' } : e));
+    logAction(`Abschluss: ${student?.lastName}`, [`Prüfung im Fach ${target?.subject} wurde beendet.`]);
+  };
+
+  const toggleProtocolCollected = (id: string) => {
+    const target = exams.find(e => e.id === id);
+    const isNowCollected = !collectedExamIds.includes(id);
+    setCollectedExamIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+    logAction(`Protokoll-Abholung`, [`Raum ${rooms.find(r=>r.id===target?.roomId)?.name || '?'}: ${isNowCollected ? 'Abgeholt' : 'Wieder ausstehend'}`]);
+  };
+
+  const addSupervision = (s: Supervision) => {
+    saveSnapshot();
+    const teacher = teachers.find(t => t.id === s.teacherId);
+    const station = rooms.find(r => r.id === s.stationId);
+    setSupervisions(p => [...p, s]);
+    logAction(`Aufsicht zugewiesen`, [`${teacher?.shortName} -> ${station?.name} um ${s.startTime}`], 'create');
+  };
+
+  const removeSupervision = (id: string) => {
+    saveSnapshot();
+    const target = supervisions.find(s => s.id === id);
+    const teacher = teachers.find(t => t.id === target?.teacherId);
+    setSupervisions(p => p.filter(s => s.id !== id));
+    logAction(`Aufsicht entfernt`, [`Einteilung für ${teacher?.shortName} gelöscht.`], 'delete');
+  };
+
+  const getTeacherStats = useCallback((id: string) => ({
+    points: calculateTeacherPoints(id, exams, supervisions)
+  }), [exams, supervisions]);
 
   const checkCollision = useCallback((exam: Exam) => checkExamCollision(exam, exams), [exams]);
   const checkConsistency = useCallback((exam: Exam) => checkExamConsistency(exam, exams), [exams]);
-  const getTeacherStats = useCallback((tId: string) => ({ points: calculateTeacherPoints(tId, exams, supervisions) }), [exams, supervisions]);
 
-  const exportState = useCallback(async (password: string) => {
+  const exportState = useCallback(async (p: string) => {
     try {
-      const blob = await db.encryptForFile(getFullState(), password);
-      const url = URL.createObjectURL(blob);
+      const blob = await db.encryptForFile(getFullState(), p);
       const link = document.createElement('a');
-      link.href = url;
+      link.href = URL.createObjectURL(blob);
       link.download = `LinexioAbi_Backup_${new Date().toISOString().slice(0,10)}.lxabi`;
       link.click();
-      URL.revokeObjectURL(url);
-      showToast('Daten verschlüsselt exportiert', 'success');
-    } catch (err) { showToast('Export fehlgeschlagen', 'error'); }
-  }, [getFullState, showToast]);
+      logAction('Export durchgeführt', ['Backup-Datei wurde erstellt.'], 'system');
+      showToast('Exportiert', 'success');
+    } catch (e) { showToast('Fehler', 'error'); }
+  }, [getFullState, showToast, logAction]);
 
-  const importState = useCallback(async (file: File, password: string) => {
+  const importState = useCallback(async (f: File, p: string) => {
     try {
-      const buffer = await file.arrayBuffer();
-      const decrypted = await db.decryptFromFile(buffer, password);
-      loadDecryptedData(decrypted);
-      showToast('Backup erfolgreich eingespielt', 'success');
+      const dec = await db.decryptFromFile(await f.arrayBuffer(), p);
+      loadDecryptedData(dec);
+      logAction('Import durchgeführt', ['Daten aus Backup-Datei wiederhergestellt.'], 'system');
+      showToast('Importiert', 'success');
       return true;
-    } catch (err) {
-      showToast('Import fehlgeschlagen', 'error');
-      return false;
-    }
-  }, [loadDecryptedData, showToast]);
-
-  const resetForNewYear = useCallback(() => {
-    const minimalState: AppState = {
-      subjects: subjects,
-      exams: [], supervisions: [], collectedExamIds: [],
-      teachers: [], students: [], rooms: [], days: [],
-      isLocked: false, masterPassword: masterPassword, settings: settings,
-      lastUpdate: Date.now()
-    };
-    loadDecryptedData(minimalState);
-    showToast('Datenbank bereinigt', 'success');
-  }, [subjects, loadDecryptedData, showToast, masterPassword, settings]);
-
-  const factoryReset = useCallback(async () => {
-    await db.clearDatabase();
-    window.location.reload();
-  }, []);
+    } catch (e) { showToast('Falsches Passwort', 'error'); return false; }
+  }, [loadDecryptedData, showToast, logAction]);
 
   const value = useMemo(() => ({
-    exams, supervisions, collectedExamIds, isLoading, loadDecryptedData,
+    exams, supervisions, historyLogs, collectedExamIds, isLoading, lastUpdate, lastActionLabel,
+    canUndo: history.length > 0,
+    undo,
+    loadDecryptedData,
+    logAction,
     addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected,
-    addSupervision, removeSupervision,
-    checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset, getFullState
-  }), [exams, supervisions, collectedExamIds, isLoading, loadDecryptedData, addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected, addSupervision, removeSupervision, checkCollision, checkConsistency, getTeacherStats, exportState, importState, resetForNewYear, factoryReset, getFullState]);
+    addSupervision, removeSupervision, getTeacherStats, exportState, importState, getFullState,
+    checkCollision, checkConsistency,
+    syncDefaultExams,
+    resetForNewYear: () => { 
+      clearStammdaten();
+      setExams([]); 
+      setSupervisions([]); 
+      setCollectedExamIds([]); 
+      setHistory([]);
+      setHistoryLogs([]);
+      logAction('System bereinigt', ['Alle Daten für ein neues Schuljahr zurückgesetzt.'], 'system');
+      showToast('System bereinigt', 'success'); 
+    },
+    factoryReset: async () => { await db.clearDatabase(); window.location.reload(); }
+  }), [exams, supervisions, historyLogs, collectedExamIds, isLoading, lastUpdate, lastActionLabel, history.length, undo, loadDecryptedData, logAction, showToast, getFullState, getTeacherStats, exportState, importState, clearStammdaten, checkCollision, checkConsistency, syncDefaultExams]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
 export const useApp = () => {
-  const context = useContext(AppContext);
-  if (!context) throw new Error('useApp must be used within AppProvider');
-  return context;
+  const c = useContext(AppContext);
+  if (!c) throw new Error('useApp missing');
+  return c;
 };

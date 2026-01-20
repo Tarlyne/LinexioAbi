@@ -27,7 +27,7 @@ export const PRINT_STYLES = `
     background-color: #f3f4f6 !important; 
     font-weight: bold; 
     font-size: 8pt; 
-    font-family: 'Inter', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     text-align: center;
     text-transform: none;
   }
@@ -64,7 +64,7 @@ export const PRINT_STYLES = `
     border-bottom: 1.5pt solid #000; 
     padding-bottom: 6px; 
     width: 100%;
-    font-family: 'Inter', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   .header-left { font-weight: 700; font-size: 15pt; margin: 0; color: black !important; }
   .header-cyan { color: #06b6d4 !important; }
@@ -95,7 +95,7 @@ export const PRINT_STYLES = `
   .supervision-print-container {
     width: 100%;
     height: 100%;
-    font-family: 'Inter', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: black !important;
     background: white;
   }
@@ -112,7 +112,7 @@ export const PRINT_STYLES = `
     font-size: 8pt;
     height: 24pt;
     color: black !important;
-    border-bottom: 1.5pt solid black !important; /* Dicke Trennlinie für alle Header-Zellen */
+    border-bottom: 1.5pt solid black !important; 
   }
   .supervision-table td {
     border: 0.5pt solid black;

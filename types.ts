@@ -1,10 +1,11 @@
+
 export type SupervisionStationType = 'Taxi' | 'Rechenzentrum' | 'Warteraum' | 'Vorbereitung' | 'Sonstiges';
 export type RoomType = 'Prüfungsraum' | 'Vorbereitungsraum' | 'Warteraum' | 'Aufsicht-Station';
 
 export interface ExamDay {
   id: string;
-  date: string; // Format: YYYY-MM-DD
-  label: string; // z.B. "1. Prüfungstag"
+  date: string;
+  label: string;
 }
 
 export interface Subject {
@@ -20,6 +21,7 @@ export interface Teacher {
   lastName: string;
   shortName: string;
   isPartTime: boolean;
+  isLeadership?: boolean; // Neu: Kennzeichnung für Schulleitung
   subjectIds?: string[];
   notes?: string;
   targetHours?: number; 
@@ -49,7 +51,7 @@ export interface Exam {
   protocolId?: string; 
   roomId?: string;    
   prepRoomId?: string;
-  subject: string;
+  subject: string; 
   groupId?: string;   
   status: 'backlog' | 'scheduled' | 'running' | 'completed' | 'cancelled';
   startTime: number;  
@@ -67,8 +69,16 @@ export interface Supervision {
   subSlotIdx: number; 
 }
 
+export interface HistoryLog {
+  id: string;
+  timestamp: number;
+  label: string;
+  details?: string[];
+  type: 'create' | 'update' | 'delete' | 'system';
+}
+
 export interface AppSettings {
-  autoLockMinutes: number; // 0 = Deaktiviert
+  autoLockMinutes: number;
 }
 
 export interface AppState {
@@ -79,48 +89,28 @@ export interface AppState {
   subjects: Subject[];
   exams: Exam[];
   supervisions: Supervision[];
+  historyLogs: HistoryLog[];
   collectedExamIds: string[]; 
   isLocked: boolean;
   masterPassword: string | null;
   settings: AppSettings;
   lastUpdate: number;
+  lastActionLabel?: string;
 }
 
-/**
- * Metadata stored in lx_meta to track encryption status
- */
-export interface DbMeta {
+export interface AuthMeta {
+  salt: string;
+  verifyIv: string;
+  verifyCipher: string;
   version: number;
-  isEncrypted: boolean;
-  lastUpdate: number;
-  salt?: string; // Base64
 }
 
-/**
- * Type for an encrypted unit in IndexedDB
- */
 export interface EncryptedUnit {
-  ciphertext: string; // Base64
-  iv: string; // Base64
+  ciphertext: string;
+  iv: string;
 }
 
-/**
- * Type for data stored in IndexedDB (Legacy compatibility)
- */
-export interface SerializedState {
-  ciphertext?: string;
-  iv?: string;
-  salt?: string;
-  isEncrypted: boolean;
-  lastUpdate: number;
-  masterPassword?: string | null;
-  settings?: AppSettings;
-}
-
-/**
- * Return type when database is locked and requires password
- */
 export interface LockedState {
   isLocked: true;
-  masterPassword: 'SET';
+  requiresSetup: boolean;
 }

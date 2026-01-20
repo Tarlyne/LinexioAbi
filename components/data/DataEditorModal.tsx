@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, Trash2, Save, AlertTriangle, GraduationCap, Users, DoorOpen, Calendar, BookOpen } from 'lucide-react';
 import { Modal } from '../Modal';
@@ -87,7 +88,7 @@ export const DataEditorModal: React.FC<DataEditorModalProps> = ({
                   <button 
                     type="button" 
                     onClick={() => setShowDeleteConfirm(true)} 
-                    className="btn-secondary-glass flex-1 h-12 rounded-xl text-sm border-red-500/20 text-red-400 flex items-center justify-center gap-2"
+                    className="flex-1 h-12 rounded-xl text-sm border border-red-500/30 text-red-400 flex items-center justify-center gap-2 hover:bg-red-500/10 transition-colors"
                   >
                     <Trash2 size={18} /> Löschen
                   </button>

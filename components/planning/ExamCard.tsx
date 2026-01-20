@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Exam, Student, Teacher, Room } from '../../types';
 import { Check, AlertCircle, AlertTriangle, User, Settings } from 'lucide-react';
@@ -34,9 +35,10 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   
   // Spotlight Logic
   const isSpotlightActive = searchTerm.trim().length >= 2;
+  const term = searchTerm.toLowerCase().trim();
+
   const isTeacherMatch = (t?: Teacher) => {
     if (!t || !isSpotlightActive) return false;
-    const term = searchTerm.toLowerCase().trim();
     return t.shortName.toLowerCase().includes(term) || 
            t.lastName.toLowerCase().includes(term);
   };
@@ -44,7 +46,10 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   const matchedTeacher = isTeacherMatch(teacher);
   const matchedChair = isTeacherMatch(chair);
   const matchedProtocol = isTeacherMatch(protocol);
-  const hasSpotlightMatch = matchedTeacher || matchedChair || matchedProtocol;
+  // NEU: Fach in die Spotlight-Logik einbeziehen
+  const matchedSubject = isSpotlightActive && exam.subject.toLowerCase().includes(term);
+  
+  const hasSpotlightMatch = matchedTeacher || matchedChair || matchedProtocol || matchedSubject;
 
   // Echter Drag-Status basierend auf Bewegungsschwelle aus DnDContext
   const isDraggingReal = activeDrag?.id === exam.id && activeDrag?.isDraggingStarted;
@@ -88,11 +93,12 @@ export const ExamCard: React.FC<ExamCardProps> = ({
           ? 'bg-red-900/60 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]' 
           : hasWarning
           ? 'bg-amber-900/40 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+          : isSpotlightActive && hasSpotlightMatch
+          ? 'bg-cyan-500/15 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]'
           : 'bg-[#1e293b] border-slate-700 hover:border-cyan-500/50'
         } 
-        ${isSpotlightActive && hasSpotlightMatch ? 'ring-2 ring-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.6)] z-[40]' : ''}
-        ${isSpotlightActive && !hasSpotlightMatch ? 'opacity-30' : 'opacity-100'}
-        ${isDraggingReal ? 'opacity-20 scale-95' : ''}`}
+        ${isSpotlightActive && hasSpotlightMatch ? 'ring-1 ring-cyan-400 z-[40]' : ''}
+        ${isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'}`}
     >
       <div className="flex-1 flex flex-col min-w-0 pointer-events-none">
         <div className="flex justify-between items-start mb-1">
@@ -128,7 +134,9 @@ export const ExamCard: React.FC<ExamCardProps> = ({
           </button>
         </div>
         
-        <div className="text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest truncate mb-2">
+        <div className={`text-[10px] font-bold uppercase tracking-widest truncate mb-2 transition-colors ${
+          matchedSubject ? 'text-cyan-400 font-black' : 'text-cyan-500/80'
+        }`}>
           {exam.subject}{isCombined ? '*' : ''} {exam.groupId && `(${exam.groupId})`}
           {prepRoom && (
             <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>
