@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { useData } from '../../context/DataContext';
@@ -149,10 +150,10 @@ export const ExamManagerModal: React.FC<ExamManagerModalProps> = ({ isOpen, onCl
                             <div className="flex items-center gap-1.5 min-w-0">
                               <BookOpen size={11} className={isNakedDraft ? 'text-red-400' : 'text-cyan-500'} />
                               <span className={`text-xs font-black uppercase truncate ${isNakedDraft ? 'text-red-400/70 italic' : 'text-slate-200'}`}>
-                                {exam.subject || 'Fach fehlt'}
+                                {exam.subject || 'Fach fehlt'} {exam.groupId && `(${exam.groupId})`}
                               </span>
                             </div>
-                            {teacher && <span className="text-[10px] font-bold text-slate-500 shrink-0">({teacher.shortName})</span>}
+                            {teacher && <span className="text-[10px] font-bold text-cyan-400 shrink-0">({teacher.shortName})</span>}
                           </div>
                           <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/60 mt-1">
                             <div className="flex items-center gap-1.5 min-w-0">

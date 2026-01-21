@@ -87,7 +87,8 @@ export const useDataManagement = () => {
       if (type === 'teachers') {
         const result = parseTeachersCSV(text, subjects);
         if (result.skippedSubjects.length > 0) {
-          showToast(`Import abgebrochen! Unbekannte Fächer: ${result.skippedSubjects.join(', ')}`, 'error');
+          // Geändert: Dritter Parameter null macht den Toast persistent bis zum manuellen Schließen (x)
+          showToast(`Import abgebrochen! Unbekannte Fächer: ${result.skippedSubjects.join(', ')}`, 'error', null);
           return;
         }
         upsertTeachers(result.teachers);

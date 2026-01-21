@@ -23,6 +23,19 @@
     box-sizing: border-box;
 }
 
+/* Dropdown-Optimierung: Abrundung für Select-Elemente und Popups */
+select {
+    border-radius: 0.75rem !important; /* rounded-xl */
+}
+
+/* Option-Styling für Browser, die dies unterstützen */
+select option {
+    background-color: #0f172a;
+    color: #f1f5f9;
+    padding: 10px;
+    border-radius: 0.5rem;
+}
+
 /* FIX: Kalender-Icon in Datumsfeldern handhaben */
 .custom-date-input::-webkit-calendar-picker-indicator {
     position: absolute;

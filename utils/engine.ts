@@ -9,11 +9,11 @@ export const SUPERVISION_BUFFER_MINUTES = TIME_CONFIG.SUPERVISION_BUFFER_MINUTES
 
 /**
  * Kern-Berechnung für das Deputat einer Lehrkraft.
- * Geändert: Nur geplante Prüfungen (startTime > 0) fließen in die Wertung ein.
+ * Geändert: Alle zugewiesenen Prüfungen (Grid + Backlog) fließen in die Wertung ein, 
+ * um eine frühzeitige Deputat-Kontrolle zu ermöglichen.
  */
 export const calculateTeacherPoints = (teacherId: string, exams: Exam[], supervisions: Supervision[]): number => {
   const examPoints = exams.filter(e => 
-    e.startTime > 0 && // Nur Prüfungen im Grid zählen
     (e.teacherId === teacherId || e.chairId === teacherId || e.protocolId === teacherId) && 
     e.status !== 'cancelled'
   ).length;

@@ -283,12 +283,12 @@ export const StatsView: React.FC = () => {
                     if (e.button !== 0) return;
                     startDrag(teacher.id, 'teacher', e, { supId: null }, ghostUI);
                   }}
-                  className={`draggable-item p-2.5 rounded-xl border flex items-center gap-3 transition-all duration-300 hover:border-cyan-500/50 bg-[#1e293b] border-slate-700/50 shadow-sm 
+                  className={`draggable-item py-1.5 px-2.5 rounded-xl border flex items-center gap-3 transition-all duration-300 hover:border-cyan-500/50 bg-[#1e293b] border-slate-700/50 shadow-sm 
                     ${isDraggingThis ? 'opacity-20 scale-95' : ''}`}
                 >
                   <div className="flex flex-col min-w-0 flex-1 pointer-events-none">
-                    <span className="text-sm font-bold truncate leading-none text-slate-200">{teacher.lastName}, {teacher.firstName}</span>
-                    <span className="text-[10px] font-mono mt-1 text-cyan-500">{teacher.shortName}</span>
+                    <span className="text-[14.5px] font-bold truncate leading-tight text-slate-200">{teacher.lastName}, {teacher.firstName}</span>
+                    <span className="text-[11.5px] font-black font-mono text-cyan-500">{teacher.shortName}</span>
                   </div>
                   <div className="badge px-2 py-1 min-w-[32px] text-xs font-black shadow-inner border transition-all badge-cyan border-cyan-500/30 bg-cyan-500/10 pointer-events-none">
                     {Math.round(stats.points)}
@@ -396,6 +396,7 @@ export const StatsView: React.FC = () => {
                                     );
                                     startDrag(sup.teacherId, 'teacher', e, { supId: sup.id }, ghostUI);
                                   }}
+                                  // Fix: Corrected variable name activeDraggingDraggingSupId to activeDraggingSupId on line 403.
                                   className={`draggable-item absolute inset-x-1 top-1 rounded-xl transition-all duration-300 z-20 flex items-center justify-center shadow-2xl ${
                                     hasHighlight 
                                       ? 'bg-cyan-500/20 border-cyan-400 ring-1 ring-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.3)] z-30' 

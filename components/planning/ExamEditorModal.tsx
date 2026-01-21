@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { 
   X, Trash2, Save, Settings, ChevronDown, Layers, 
@@ -105,12 +106,10 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
     return student ? `${student.lastName}, ${student.firstName}` : 'Prüfung';
   };
 
-  // Hilfsfunktion für das Rendering einer Lehrer-Karten-Struktur (keine Komponente, um Unmounting zu vermeiden)
+  // Hilfsfunktion für das Rendering einer Lehrer-Karten-Struktur
   const renderTeacherCard = (teacher: Teacher) => {
-    const isSelected = editingExam?.[activeRole] === teacher.id;
-    
-    // Prüfen, ob Lehrer in EINER der Rollen ist
     const assignedRole = (['teacherId', 'protocolId', 'chairId'] as RoleType[]).find(r => editingExam?.[r] === teacher.id);
+    const isSelected = activeRole === assignedRole;
     const isUsedInOtherRole = assignedRole && assignedRole !== activeRole;
     
     const stats = getTeacherStats(teacher.id);
@@ -122,7 +121,7 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
         type="button"
         disabled={isUsedInOtherRole}
         onClick={() => handleTeacherClick(teacher.id)}
-        className={`w-full text-left p-2 rounded-xl border transition-all duration-200 flex items-center gap-2 relative overflow-hidden group/card
+        className={`w-full text-left p-2.5 rounded-xl border transition-all duration-200 flex items-center justify-between gap-2.5 relative overflow-hidden group/card
           ${assignedRole 
             ? 'shadow-lg scale-[1.02] z-10' 
             : isUsedInOtherRole 
@@ -136,32 +135,15 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
           boxShadow: isSelected ? `0 0 15px ${cardColor}40` : 'none'
         } : {}}
       >
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
-          assignedRole ? 'bg-white/10 border-white/20' : 'bg-slate-800 border-slate-700'
-        }`}>
-          {teacher.isLeadership ? <ShieldCheck size={12} className={assignedRole ? 'text-white' : 'text-slate-400'} /> : <GraduationCap size={12} className={assignedRole ? 'text-white' : 'text-slate-400'} />}
-        </div>
+        <span className={`text-[13.5px] font-bold truncate leading-tight flex-1 ${assignedRole ? 'text-white' : 'text-slate-200'}`}>
+          {teacher.lastName}
+        </span>
         
-        <div className="flex flex-col min-w-0 flex-1">
-          <span className={`text-[10px] font-bold truncate leading-tight ${assignedRole ? 'text-white' : 'text-slate-200'}`}>
-            {teacher.lastName}
-          </span>
-          <span className={`text-[8px] font-mono uppercase tracking-wider ${assignedRole ? 'text-white/70' : 'text-slate-500'}`}>
-            {teacher.shortName}
-          </span>
-        </div>
-        
-        <div className={`text-[8px] font-black px-1 py-0.5 rounded border transition-all ${
+        <div className={`text-[10px] font-black px-1.5 py-0.5 rounded border transition-all shrink-0 ${
           assignedRole ? 'bg-white/10 border-white/10 text-white' : 'bg-slate-950/40 border-slate-800 text-slate-600'
         }`}>
           {Math.round(stats.points)}
         </div>
-
-        {isSelected && (
-          <div className="absolute right-1 top-1">
-            <Check size={8} className="text-white/60" />
-          </div>
-        )}
       </button>
     );
   };
@@ -184,14 +166,14 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
         </div>
 
         {!showDeleteConfirm ? (
-          <form onSubmit={(e) => onSave(e, applyToGroup)} className="flex-1 flex flex-col gap-8 min-h-0">
+          <form onSubmit={(e) => onSave(e, applyToGroup)} className="flex-1 flex flex-col min-h-0">
             
             {/* SECTION 1: CORE DATA (4 COLUMNS) */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 bg-slate-900/30 border border-slate-800 rounded-2xl shrink-0">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 bg-slate-900/30 border border-slate-800 rounded-2xl shrink-0 mb-6">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500 ml-1">Prüfling</label>
                 <div className="h-12 flex items-center px-4 bg-slate-800/40 border border-slate-700/50 rounded-xl">
-                  <span className="text-sm font-black text-cyan-400">
+                  <span className="text-[13.5px] font-bold text-cyan-400">
                     {student ? `${student.lastName}, ${student.firstName}` : 'Unbekannt'}
                   </span>
                 </div>
@@ -201,7 +183,7 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                 <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-500 ml-1">Prüfungsfach</label>
                 <div className="relative">
                   <select 
-                    className="w-full h-12 appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 text-sm font-black text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
+                    className="w-full h-12 appearance-none bg-[#0a0f1d] border border-slate-700/50 rounded-xl pl-4 pr-10 text-[13.5px] font-bold text-white focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
                     onChange={e => setEditingExam((prev: any) => ({...prev, subject: e.target.value}))} 
                     value={editingExam?.subject || ''}
                   >
@@ -220,7 +202,7 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                     maxLength={10} 
                     value={editingExam?.groupId || ''} 
                     onChange={e => setEditingExam((prev: any) => ({...prev, groupId: e.target.value.toUpperCase()}))} 
-                    className="w-full h-12 bg-[#0a0f1d] border border-slate-700/50 rounded-xl px-4 text-sm font-black text-indigo-400 focus:ring-1 focus:ring-indigo-500/40 placeholder:font-normal placeholder:text-slate-700" 
+                    className="w-full h-12 bg-[#0a0f1d] border border-slate-700/50 rounded-xl px-4 text-[13.5px] font-bold text-indigo-400 focus:ring-1 focus:ring-indigo-500/40 placeholder:font-normal placeholder:text-slate-700" 
                     placeholder="A" 
                   />
                   <Layers size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" />
@@ -236,7 +218,7 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                       <span className="text-[10px] font-black text-white uppercase truncate">{groupSiblings.length + 1}er Gruppe</span>
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer group px-2 py-1 bg-slate-900/40 border border-slate-700/50 rounded-lg shrink-0">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Alle?</span>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Daten übernehmen?</span>
                       <input type="checkbox" checked={applyToGroup} onChange={e => setApplyToGroup(e.target.checked)} className="sr-only" />
                       <div className={`w-8 h-5 rounded-full transition-all flex items-center px-1 border ${applyToGroup ? 'bg-cyan-600 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : 'bg-slate-800 border-slate-700'}`}>
                         <div className={`w-3 h-3 rounded-full bg-white transition-all duration-300 transform ${applyToGroup ? 'translate-x-3' : 'translate-x-0'}`} />
@@ -258,7 +240,7 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                   <div className="w-8 h-8 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-400 border border-indigo-500/20">
                     <Users size={16} />
                   </div>
-                  <h4 className="text-xs font-black text-white uppercase tracking-[0.2em]">Kommission wählen</h4>
+                  <h4 className="text-sm font-black text-white uppercase tracking-[0.2em]">Kommission wählen</h4>
                 </div>
 
                 <div className="flex items-center gap-6">
@@ -326,23 +308,19 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                       className="w-full bg-slate-950 border border-slate-800 h-9 pl-9 pr-4 rounded-xl text-xs text-slate-200 focus:ring-1 focus:ring-white/10"
                      />
                   </div>
-                  <div className="flex gap-6 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] pr-4">
-                     <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-cyan-500" /> Fachlehrer</div>
-                     <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-500" /> Schulleitung</div>
-                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 scroll-smooth no-scrollbar">
-                  <div className="grid grid-cols-[1fr_420px] gap-8 h-full">
+                  <div className="grid grid-cols-[1fr_420px] gap-8 min-h-full items-stretch">
                     {/* LEFT COLUMN: SPECIALISTS + OTHERS OPTIONAL */}
-                    <div className="space-y-6">
+                    <div className="space-y-6 flex flex-col">
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 mb-2 sticky top-0 bg-slate-950/0 backdrop-blur-sm pb-2 z-20">
                           <BookOpen size={14} className="text-cyan-500" />
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fachlehrkräfte</span>
                           <div className="h-px flex-1 bg-cyan-500/20 ml-2" />
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                           {filteredTeacherData.specialists.map(t => renderTeacherCard(t))}
                           {filteredTeacherData.specialists.length === 0 && <div className="col-span-full py-4 text-[10px] text-slate-600 italic">Keine Fachlehrer gefunden.</div>}
                         </div>
@@ -364,115 +342,103 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                       </div>
 
                       {showOthers && (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 mt-4">
                           <div className="flex items-center gap-2 mb-2 sticky top-0 bg-slate-950/0 backdrop-blur-sm pb-2 z-20">
                             <Users size={14} className="text-slate-500" />
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Alle anderen Lehrkräfte</span>
                             <div className="h-px flex-1 bg-slate-800 ml-2" />
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                             {filteredTeacherData.others.map(t => renderTeacherCard(t))}
                           </div>
                         </div>
                       )}
+                      <div className="flex-1" />
                     </div>
 
                     {/* RIGHT COLUMN: LEADERSHIP */}
-                    <div className="space-y-4 border-l border-slate-800/40 pl-8">
+                    <div className="space-y-4 border-l border-slate-800/40 pl-8 flex flex-col">
                       <div className="flex items-center gap-2 mb-2 sticky top-0 bg-slate-950/0 backdrop-blur-sm pb-2 z-20">
                         <ShieldCheck size={14} className="text-amber-500" />
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Schulleitung</span>
                         <div className="h-px flex-1 bg-amber-500/20 ml-2" />
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         {filteredTeacherData.leadership.map(t => renderTeacherCard(t))}
                       </div>
+                      <div className="flex-1" />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* SECTION 3: PREP ROOM (CARDS & CENTERED) */}
-            <div className="flex flex-col items-center justify-center shrink-0 w-full py-2">
-               <div className="w-full max-w-2xl bg-slate-900/30 border border-slate-800 rounded-3xl p-5 flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-3 w-full border-b border-slate-800/50 pb-3">
-                    <div className="w-9 h-9 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 text-amber-500">
-                      <MapPin size={18} />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-[11px] font-black text-white uppercase tracking-widest leading-none">Vorbereitungsraum wählen</h4>
-                      <p className="text-[9px] text-slate-500 font-medium mt-1 uppercase tracking-tight">Klicke einen Raum zum Zuweisen an</p>
-                    </div>
-                    {editingExam?.prepRoomId && (
-                      <button 
-                        type="button"
-                        onClick={() => setEditingExam((prev: any) => ({ ...prev, prepRoomId: undefined }))}
-                        className="text-[9px] font-black text-red-400 uppercase hover:text-red-300 transition-colors bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/20"
-                      >
-                        Abwählen
-                      </button>
-                    )}
+            {/* COMBINED FOOTER AREA: PREP ROOM & ACTIONS */}
+            <div className="mt-8 pt-6 border-t border-slate-700/30 flex items-center justify-between gap-8 shrink-0">
+              
+              {/* LEFT: COMPACT PREP ROOM SELECTION */}
+              <div className="flex-none w-fit flex items-center gap-5 bg-slate-900/30 border border-slate-800 rounded-2xl p-2.5">
+                <div className="flex items-center gap-3 shrink-0 ml-1.5">
+                  <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center border border-amber-500/20 text-amber-500">
+                    <MapPin size={16} />
                   </div>
-                  
-                  <div className="flex flex-wrap justify-center gap-3">
-                    {rooms
-                      .filter(r => r.type === 'Vorbereitungsraum')
-                      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-                      .map(room => {
-                        const isSelected = editingExam?.prepRoomId === room.id;
-                        return (
-                          <button
-                            key={room.id}
-                            type="button"
-                            onClick={() => setEditingExam((prev: any) => ({ ...prev, prepRoomId: room.id }))}
-                            className={`min-w-[140px] h-11 rounded-xl border flex items-center justify-center gap-3 transition-all duration-300 relative overflow-hidden group
-                              ${isSelected 
-                                ? 'bg-amber-600 border-amber-500 text-white shadow-lg scale-105' 
-                                : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200 hover:bg-slate-800/60'
-                              }
-                            `}
-                          >
-                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
-                              isSelected ? 'bg-white/20 border-white/30' : 'bg-slate-800 border-slate-700'
-                            }`}>
-                              <MapPin size={12} className={isSelected ? 'text-white' : 'text-slate-500'} />
-                            </div>
-                            <span className="text-[11px] font-black uppercase tracking-wider">{room.name}</span>
-                            {isSelected && (
-                              <div className="absolute top-1 right-1">
-                                 <Check size={10} className="text-white/80" />
-                              </div>
-                            )}
-                          </button>
-                        );
-                    })}
-                    {rooms.filter(r => r.type === 'Vorbereitungsraum').length === 0 && (
-                      <span className="text-[10px] text-slate-600 italic">Keine Vorbereitungsräume in der Datenbank.</span>
-                    )}
-                  </div>
-               </div>
-            </div>
+                  <span className="text-sm font-black text-white uppercase tracking-[0.2em] leading-none">Vorbereitungsraum:</span>
+                </div>
+                
+                <div className="w-px h-8 bg-slate-800 shrink-0" />
+                
+                <div className="flex flex-wrap gap-2.5">
+                  {rooms
+                    .filter(r => r.type === 'Vorbereitungsraum')
+                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+                    .map(room => {
+                      const isSelected = editingExam?.prepRoomId === room.id;
+                      return (
+                        <button
+                          key={room.id}
+                          type="button"
+                          onClick={() => setEditingExam((prev: any) => ({ 
+                            ...prev, 
+                            prepRoomId: isSelected ? undefined : room.id 
+                          }))}
+                          className={`min-w-[100px] h-9 rounded-xl border flex items-center justify-center gap-2.5 transition-all duration-200 relative overflow-hidden group
+                            ${isSelected 
+                              ? 'bg-amber-600 border-amber-500 text-white shadow-lg scale-105' 
+                              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200 hover:bg-slate-800/60'
+                            }
+                          `}
+                        >
+                          <MapPin size={12} className={isSelected ? 'text-white' : 'text-slate-600'} />
+                          <span className="text-[11px] font-black uppercase tracking-wider">{room.name}</span>
+                        </button>
+                      );
+                  })}
+                  {rooms.filter(r => r.type === 'Vorbereitungsraum').length === 0 && (
+                    <span className="text-[10px] text-slate-600 italic">Keine Vorbereitungsräume verfügbar.</span>
+                  )}
+                </div>
+              </div>
 
-            {/* FOOTER ACTIONS */}
-            <div className="pt-6 border-t border-slate-700/30 flex gap-4 shrink-0 mt-auto justify-end">
-              {editingExam?.id && (
+              {/* RIGHT: ACTION BUTTONS */}
+              <div className="flex items-center gap-3 shrink-0">
+                {editingExam?.id && (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowDeleteConfirm(true)} 
+                    className="px-5 h-14 flex items-center justify-center rounded-2xl border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-all active:scale-95 gap-2 text-sm font-bold"
+                  >
+                    <Trash2 size={20} /> 
+                    <span className="hidden sm:inline">Löschen</span>
+                  </button>
+                )}
                 <button 
-                  type="button" 
-                  onClick={() => setShowDeleteConfirm(true)} 
-                  className="px-6 h-14 flex items-center justify-center rounded-2xl border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-all active:scale-95 gap-2 text-sm font-bold"
+                  type="submit" 
+                  className="btn-primary-aurora px-8 h-14 rounded-2xl text-sm font-bold shadow-[0_10px_30px_-5px_rgba(8,145,178,0.4)]"
                 >
-                  <Trash2 size={20} /> 
-                  <span>Löschen</span>
+                  <Save size={20} /> 
+                  <span>Änderungen speichern</span>
                 </button>
-              )}
-              <button 
-                type="submit" 
-                className="btn-primary-aurora px-8 h-14 rounded-2xl text-sm uppercase tracking-widest font-black shadow-[0_10px_30px_-5px_rgba(8,145,178,0.4)]"
-              >
-                <Save size={20} /> 
-                <span>Änderungen speichern</span>
-              </button>
+              </div>
             </div>
           </form>
         ) : (
