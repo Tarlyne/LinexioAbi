@@ -270,7 +270,7 @@ export const StatsView: React.FC = () => {
                   <div className="flex flex-col min-w-0">
                     <span className="text-xs font-bold text-white truncate leading-none">{teacher.lastName}, {teacher.firstName}</span>
                     <div className="bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded mt-1 self-start">
-                      <span className="text-[10px] text-cyan-400 font-black font-mono leading-none">{teacher.shortName}</span>
+                      <span className="text-[10px] text-cyan-400 font-black font-mono Schl-wide leading-none">{teacher.shortName}</span>
                     </div>
                   </div>
                 </div>
@@ -305,9 +305,8 @@ export const StatsView: React.FC = () => {
             {stations.map(station => (
               <div key={station.id} className="flex-1 min-w-[120px] flex border-r border-slate-700/40 overflow-hidden">
                 {Array.from({ length: station.requiredSupervisors || 1 }).map((_, subIdx) => (
-                  <div key={subIdx} className="flex-1 min-w-[60px] flex flex-col items-center justify-center border-r last:border-r-0 border-slate-800/20 px-1">
-                    <span className="text-[10px] font-black text-slate-200 uppercase truncate w-full text-center">{station.name}</span>
-                    <span className="text-[7px] text-slate-500 font-bold uppercase">Nr: {subIdx + 1}</span>
+                  <div key={subIdx} className="flex-1 min-w-[60px] flex items-center justify-center border-r last:border-r-0 border-slate-800/20 px-1">
+                    <span className="text-[13px] font-black text-slate-200 uppercase truncate w-full text-center">{station.name}</span>
                   </div>
                 ))}
               </div>
@@ -396,11 +395,10 @@ export const StatsView: React.FC = () => {
                                     );
                                     startDrag(sup.teacherId, 'teacher', e, { supId: sup.id }, ghostUI);
                                   }}
-                                  // Fix: Corrected variable name activeDraggingDraggingSupId to activeDraggingSupId on line 403.
-                                  className={`draggable-item absolute inset-x-1 top-1 rounded-xl transition-all duration-300 z-20 flex items-center justify-center shadow-2xl ${
+                                  className={`draggable-item absolute inset-x-1 top-1 rounded-xl border transition-[background-color,border-color,box-shadow,transform,opacity] duration-300 z-20 flex items-center justify-center shadow-2xl ${
                                     hasHighlight 
-                                      ? 'bg-cyan-500/20 border-cyan-400 ring-1 ring-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.3)] z-30' 
-                                      : 'bg-[#1e293b] border border-slate-700/50 hover:border-cyan-500/50'
+                                      ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] z-30' 
+                                      : 'bg-[#1e293b] border-slate-700/50 hover:border-cyan-500/50'
                                   } ${activeDraggingSupId === sup.id && isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'}`}
                                   style={{ 
                                     height: 'calc(200% - 8px)',

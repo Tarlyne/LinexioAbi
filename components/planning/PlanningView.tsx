@@ -280,7 +280,13 @@ export const PlanningView: React.FC = () => {
                         />
                       ))}
                       {hoveredSlot?.roomId === room.id && (
-                        <div className="absolute left-1 right-1 pointer-events-none ring-2 ring-inset ring-cyan-500 bg-cyan-500/10 z-[25] rounded-lg" style={{ top: hoveredSlot.slotIdx * SLOT_HEIGHT, height: (SLOT_HEIGHT * 3) - 2 }} />
+                        <div 
+                          className="absolute left-1 right-1 pointer-events-none ring-2 ring-inset ring-cyan-500 bg-cyan-500/10 z-[25] rounded-lg transition-[height] duration-200" 
+                          style={{ 
+                            top: hoveredSlot.slotIdx * SLOT_HEIGHT, 
+                            height: (SLOT_HEIGHT * 3 * (activeDrag?.extraData?.groupCount || 1)) - 2 
+                          }} 
+                        />
                       )}
                       {plannedExamsForDay.filter(e => e.roomId === room.id).map(examAtSlot => (
                         <ExamCard key={examAtSlot.id} exam={examAtSlot} student={students.find(s => s.id === examAtSlot.studentId)} teacher={teachers.find(t => t.id === examAtSlot.teacherId)} chair={teachers.find(t => t.id === examAtSlot.chairId)} protocol={teachers.find(t => t.id === examAtSlot.protocolId)} prepRoom={rooms.find(r => r.id === examAtSlot.prepRoomId)} hasConflict={checkCollision(examAtSlot).hasConflict} onEdit={openEditModal} onRemove={handleRemoveFromGrid} slotHeight={SLOT_HEIGHT} searchTerm={searchTerm} />

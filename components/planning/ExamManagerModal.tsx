@@ -114,7 +114,7 @@ export const ExamManagerModal: React.FC<ExamManagerModalProps> = ({ isOpen, onCl
           <table className="w-full border-collapse text-left bg-slate-900/40 table-fixed">
             <thead className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md shadow-sm">
               <tr className="border-b border-slate-700/50">
-                <th className="w-64 px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-900/50 sticky left-0 z-30">Prüfling</th>
+                <th className="w-64 px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-900 sticky left-0 z-30">Prüfling</th>
                 {Array.from({ length: maxExamsCount }).map((_, i) => (
                   <th key={i} className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[240px]">
                     Prüfung {i + 1}
@@ -125,13 +125,13 @@ export const ExamManagerModal: React.FC<ExamManagerModalProps> = ({ isOpen, onCl
             </thead>
             <tbody>
               {filteredStudents.map(student => (
-                <tr key={student.id} className="hover:bg-cyan-500/10 transition-colors border-b border-slate-800/40 last:border-b-0 group">
-                  <td className="px-6 py-4 align-middle sticky left-0 bg-slate-900/80 group-hover:bg-cyan-900/60 z-10 backdrop-blur-sm transition-colors">
-                    <span className="text-sm font-bold text-slate-200">{student.lastName}, {student.firstName}</span>
+                <tr key={student.id} className="hover:bg-cyan-500/5 transition-colors border-b border-slate-800/40 last:border-b-0 group">
+                  <td className="relative px-6 py-4 align-middle sticky left-0 bg-slate-900 z-10 transition-colors after:absolute after:inset-0 after:bg-cyan-500/0 group-hover:after:bg-cyan-500/5 after:transition-colors after:pointer-events-none">
+                    <span className="relative z-20 text-sm font-bold text-slate-200">{student.lastName}, {student.firstName}</span>
                   </td>
                   {Array.from({ length: maxExamsCount }).map((_, idx) => {
                     const exam = student.exams[idx];
-                    if (!exam) return <td key={idx} className="px-6 py-4 group-hover:bg-cyan-500/5 transition-colors"></td>;
+                    if (!exam) return <td key={idx} className="px-6 py-4"></td>;
                     
                     const teacher = teachers.find(t => t.id === exam.teacherId);
                     const isNakedDraft = !exam.subject || !exam.teacherId;
@@ -142,7 +142,7 @@ export const ExamManagerModal: React.FC<ExamManagerModalProps> = ({ isOpen, onCl
                     const hasWarning = consistency.hasWarning;
 
                     return (
-                      <td key={idx} className="px-6 py-4 align-middle group-hover:bg-cyan-500/5 transition-colors">
+                      <td key={idx} className="px-6 py-4 align-middle">
                         <button onClick={() => onEditExam(exam)} className={`w-full text-left p-3 rounded-xl border transition-all hover:scale-[1.02] active:scale-95 shadow-sm space-y-1.5 ${
                           isNakedDraft ? 'bg-red-500/5 border-red-500/30 hover:border-red-500/50' : 'bg-slate-900/60 border-slate-800 hover:border-cyan-500/40'
                         }`}>
@@ -176,7 +176,7 @@ export const ExamManagerModal: React.FC<ExamManagerModalProps> = ({ isOpen, onCl
                       </td>
                     );
                   })}
-                  <td className="px-6 py-4 text-center align-middle group-hover:bg-cyan-500/5 transition-colors">
+                  <td className="px-6 py-4 text-center align-middle">
                      <button onClick={() => handleAddManualExam(student.id)} title="Zusätzliche Prüfung hinzufügen" className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-800 border border-slate-700 text-slate-500 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all active:scale-90">
                         <Plus size={16} />
                      </button>

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Portal } from '../components/Portal';
 
@@ -54,7 +55,6 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const dy = e.clientY - dragRef.current.startPos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      // Threshold (3px) to distinguish click from drag
       const threshold = 3;
       const hasMovedEnough = distance > threshold;
 
@@ -68,7 +68,6 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveDrag(nextState);
 
       if (nextState.isDraggingStarted) {
-        // ENHANCED DETECTION: Temporarily hide ghost if needed or ensure pointer-events: none is strictly applied
         const elementUnder = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
         const target = elementUnder?.closest('[data-drop-zone="true"]') as HTMLElement;
 
@@ -89,7 +88,6 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!dragRef.current) return;
       const currentDrag = dragRef.current;
       
-      // CRITICAL FIX: Recalculate target at pointerup location to ensure last-second drops work
       const elementUnder = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
       const finalTargetElement = elementUnder?.closest('[data-drop-zone="true"]') as HTMLElement;
       
@@ -138,6 +136,8 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 const DragGhost: React.FC<{ state: DragState }> = ({ state }) => {
+  const isGroup = state.type === 'exam' && state.extraData?.groupCount > 1;
+
   return (
     <Portal>
       <div 
@@ -146,20 +146,29 @@ const DragGhost: React.FC<{ state: DragState }> = ({ state }) => {
           left: state.currentPos.x,
           top: state.currentPos.y,
           transform: 'translate(-50%, -50%) scale(0.85)',
-          pointerEvents: 'none', // ENSURES UNDERLYING TARGETS ARE DETECTABLE
-          zIndex: 99999, // HIGHEST PRIORITY
+          pointerEvents: 'none', 
+          zIndex: 99999, 
           opacity: 0.9,
           transition: 'transform 0.1s ease-out'
         }}
       >
         {state.ghostContent ? (
-          <div className="shadow-2xl ring-2 ring-cyan-500 rounded-xl overflow-hidden bg-[#1e293b] pointer-events-none">
+          <div className="relative shadow-2xl ring-2 ring-cyan-500 rounded-xl overflow-hidden bg-[#1e293b] pointer-events-none">
             {state.ghostContent}
+            {isGroup && (
+              <div className="absolute top-0 right-0 p-1">
+                 <div className="bg-indigo-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-lg shadow-lg border border-indigo-400 animate-in zoom-in-50">
+                    BLÖCK-DROP: {state.extraData.groupCount}
+                 </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-slate-800 border-2 border-cyan-500 rounded-xl px-4 py-2 shadow-2xl flex items-center gap-2 pointer-events-none">
              <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-             <span className="text-xs font-bold text-white uppercase tracking-wider">Ziehe {state.type === 'exam' ? 'Prüfung' : 'Lehrer'}</span>
+             <span className="text-xs font-bold text-white uppercase tracking-wider">
+               {isGroup ? `${state.extraData.groupCount} Prüfungen ziehen` : `Ziehe ${state.type === 'exam' ? 'Prüfung' : 'Lehrer'}`}
+             </span>
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect } from 'react';
-import { Search, FileJson, PlusCircle, Check, AlertTriangle, User, Settings } from 'lucide-react';
+import { Search, FileJson, Layers, Check, AlertTriangle, User, Settings } from 'lucide-react';
 import { Exam, Student, Teacher, Room } from '../../types';
 import { PlanningSortOption } from '../../hooks/usePlanning';
 import { useDnD } from '../../context/DnDContext';
@@ -86,21 +86,51 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
           const isComplete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
           const isNakedDraft = !exam.subject || !exam.teacherId;
 
+          // Gruppen-Info für Badge & Ghost
+          const groupCount = exam.groupId ? exams.filter(e => 
+            e.groupId === exam.groupId && 
+            e.subject === exam.subject && 
+            e.teacherId === exam.teacherId
+          ).length : 1;
+
           const ghostUI = (
             <div className="w-56 p-3 flex flex-col gap-1.5 bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
-              <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400"><User size={14} /></div><span className="text-xs font-bold text-white truncate">{student?.lastName}, {student?.firstName}</span></div>
-              <div className="bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md inline-block self-start"><span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest leading-none">{exam.subject || 'DRAFT'}</span></div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                  <User size={14} />
+                </div>
+                <span className="text-xs font-bold text-white truncate">{student?.lastName}, {student?.firstName}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest leading-none">{exam.subject || 'DRAFT'}</span>
+                </div>
+                {groupCount > 1 && (
+                  <div className="flex items-center gap-1 text-indigo-400">
+                    <Layers size={10} />
+                    <span className="text-[9px] font-black">+{groupCount - 1}</span>
+                  </div>
+                )}
+              </div>
             </div>
           );
 
           return (
-            <div key={exam.id} onPointerDown={(e) => { if (e.button !== 0) return; startDrag(exam.id, 'exam', e, { fromBacklog: true }, ghostUI); }} className={`draggable-item p-3 border rounded-xl hover:border-cyan-500/40 transition-all group relative flex flex-col ${isDraggingReal ? 'opacity-20 scale-95 border-cyan-500' : 'opacity-100'} ${hasWarning ? 'bg-amber-900/20 border-amber-500/30' : isNakedDraft ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/40 border-slate-700/50'}`}>
+            <div 
+              key={exam.id} 
+              onPointerDown={(e) => { 
+                if (e.button !== 0) return; 
+                startDrag(exam.id, 'exam', e, { fromBacklog: true, groupCount }, ghostUI); 
+              }} 
+              className={`draggable-item p-3 border rounded-xl hover:border-cyan-500/40 transition-all group relative flex flex-col ${isDraggingReal ? 'opacity-20 scale-95 border-cyan-500' : 'opacity-100'} ${hasWarning ? 'bg-amber-900/20 border-amber-500/30' : isNakedDraft ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/40 border-slate-700/50'}`}
+            >
               <div className="flex justify-between items-start mb-1">
                 <div className="flex items-center gap-1.5 min-w-0 flex-1 pointer-events-none">
                   <span className={`text-sm font-bold truncate pr-1 transition-colors ${isNakedDraft ? 'text-red-400/80 italic' : 'text-slate-200 group-hover:text-white'}`}>
                     {student?.lastName}, {student?.firstName}
                   </span>
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex items-center gap-1">
+                     {groupCount > 1 && <Layers size={11} className="text-indigo-500" title={`${groupCount}er Block`} />}
                      {hasWarning ? <AlertTriangle size={12} className="text-amber-500" /> : isComplete ? <Check size={12} className="text-emerald-500" /> : <AlertTriangle size={12} className="text-red-500" />}
                   </div>
                 </div>
@@ -108,7 +138,7 @@ export const BacklogSidebar: React.FC<BacklogSidebarProps> = ({
               </div>
               
               <div className={`text-[10px] font-bold uppercase tracking-wider pointer-events-none truncate mb-2 ${isNakedDraft ? 'text-red-400/60' : 'text-cyan-400'}`}>
-                {exam.subject || 'NICHT ZUGEWIESEN'} {exam.groupId && `(${exam.groupId})`}
+                {exam.subject || 'NICHT ZUGEWIESEN'} {exam.groupId && <span className="text-indigo-400 ml-1">[{exam.groupId}]</span>}
                 {prepRoom && <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>}
               </div>
 
