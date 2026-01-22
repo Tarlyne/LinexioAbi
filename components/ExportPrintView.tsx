@@ -116,9 +116,11 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({ activeDayIdx, 
           </tbody>
         </table>
         
-        <div className="export-footer">
-          <div className="text-[7.5pt] text-slate-500 italic opacity-80">{footerStr}</div>
-        </div>
+        {!isPreview && (
+          <div className="export-footer">
+            <div className="text-[7.5pt] text-slate-500 italic opacity-80">{footerStr}</div>
+          </div>
+        )}
       </div>
     </div>
   );

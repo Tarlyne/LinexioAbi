@@ -7,9 +7,10 @@ import { PRINT_STYLES } from '../utils/printStyles';
 
 interface PrepRoomPrintViewProps {
   activeDayIdx: number;
+  isPreview?: boolean;
 }
 
-export const PrepRoomPrintView: React.FC<PrepRoomPrintViewProps> = ({ activeDayIdx }) => {
+export const PrepRoomPrintView: React.FC<PrepRoomPrintViewProps> = ({ activeDayIdx, isPreview = false }) => {
   const { exams } = useApp();
   const { days, rooms, teachers, students } = useData();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -21,6 +22,11 @@ export const PrepRoomPrintView: React.FC<PrepRoomPrintViewProps> = ({ activeDayI
     if (!activeDay) return '';
     return new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(activeDay.date));
   }, [activeDay]);
+
+  const footerStr = useMemo(() => {
+    const now = new Date();
+    return `Erstellt mit LinexioAbi am ${now.toLocaleDateString('de-DE')} um ${now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr.`;
+  }, []);
 
   useEffect(() => {
     const updateScale = () => {
@@ -77,9 +83,11 @@ export const PrepRoomPrintView: React.FC<PrepRoomPrintViewProps> = ({ activeDayI
               ))}
             </tbody>
           </table>
-          <div className="export-footer">
-            <div className="text-[7.5pt] text-slate-500 italic opacity-80">Erstellt mit LinexioAbi am {new Date().toLocaleDateString('de-DE')} um {new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr.</div>
-          </div>
+          {!isPreview && (
+            <div className="export-footer">
+              <div className="text-[7.5pt] text-slate-500 italic opacity-80">{footerStr}</div>
+            </div>
+          )}
         </div>
       ))}
     </div>

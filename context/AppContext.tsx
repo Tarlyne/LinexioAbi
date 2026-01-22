@@ -17,7 +17,9 @@ interface AppContextType {
   logAction: (label: string, details?: string[], type?: HistoryLog['type']) => void;
   addExams: (exams: Exam[]) => void; updateExam: (exam: Exam) => void; deleteExam: (id: string) => void;
   togglePresence: (id: string) => void; completeExam: (id: string) => void; toggleProtocolCollected: (examId: string) => void;
-  addSupervision: (s: Supervision) => void; removeSupervision: (id: string) => void;
+  addSupervision: (s: Supervision) => void; 
+  updateSupervision: (s: Supervision | Supervision[]) => void;
+  removeSupervision: (id: string) => void;
   getTeacherStats: (id: string) => { points: number };
   exportState: (p: string) => Promise<void>; importState: (f: File, p: string) => Promise<boolean>;
   resetForNewYear: () => void; factoryReset: () => void; getFullState: () => AppState;
@@ -203,6 +205,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction(`Aufsicht zugewiesen`, [`${teacher?.shortName} -> ${station?.name} um ${s.startTime}`], 'create');
   };
 
+  const updateSupervision = (s: Supervision | Supervision[]) => {
+    saveSnapshot();
+    const updates = Array.isArray(s) ? s : [s];
+    setSupervisions(p => p.map(curr => {
+      const match = updates.find(u => u.id === curr.id);
+      return match ? match : curr;
+    }));
+    logAction(`Aufsicht aktualisiert`, [`${updates.length} Eintrag/Einträge angepasst.`], 'update');
+  };
+
   const removeSupervision = (id: string) => {
     saveSnapshot();
     const target = supervisions.find(s => s.id === id);
@@ -247,7 +259,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadDecryptedData,
     logAction,
     addExams, updateExam, deleteExam, togglePresence, completeExam, toggleProtocolCollected,
-    addSupervision, removeSupervision, getTeacherStats, exportState, importState, getFullState,
+    addSupervision, updateSupervision, removeSupervision, getTeacherStats, exportState, importState, getFullState,
     checkCollision, checkConsistency,
     syncDefaultExams,
     resetForNewYear: () => { 
@@ -261,7 +273,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('System bereinigt', 'success'); 
     },
     factoryReset: async () => { await db.clearDatabase(); window.location.reload(); }
-  }), [exams, supervisions, historyLogs, collectedExamIds, isLoading, lastUpdate, lastActionLabel, history.length, undo, loadDecryptedData, logAction, showToast, getFullState, getTeacherStats, exportState, importState, clearStammdaten, checkCollision, checkConsistency, syncDefaultExams]);
+  }), [exams, supervisions, historyLogs, collectedExamIds, isLoading, lastUpdate, lastActionLabel, history.length, undo, loadDecryptedData, logAction, showToast, getFullState, getTeacherStats, exportState, importState, clearStammdaten, checkCollision, checkConsistency, syncDefaultExams, updateSupervision]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

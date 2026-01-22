@@ -15,7 +15,7 @@ import { WorkloadIndicator } from './stats/WorkloadIndicator';
 import { SupervisionPrintView } from './SupervisionPrintView';
 
 export const StatsView: React.FC = () => {
-  const { exams, supervisions, addSupervision, removeSupervision, getTeacherStats, undo, canUndo } = useApp();
+  const { exams, supervisions, addSupervision, updateSupervision, removeSupervision, getTeacherStats, undo, canUndo } = useApp();
   const { days, rooms, teachers, subjects } = useData();
   const { showToast } = useUI();
   const { startDrag, activeDrag, dropTarget } = useDnD();
@@ -27,10 +27,9 @@ export const StatsView: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [workloadInfo, setHoveredWorkloadInfo] = useState<{ time: string, count: number } | null>(null);
 
-  const SLOT_MIN_HEIGHT = 44; // iPad Sicherheitshöhe
+  const SLOT_MIN_HEIGHT = 44; 
   const START_MIN_DAY = 450; 
 
-  // Keyboard Shortcut Handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
@@ -44,7 +43,6 @@ export const StatsView: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, canUndo]);
 
-  // Spotlight Logic
   const isSpotlightActive = searchTerm.trim().length >= 2;
   const isTeacherMatch = (t?: Teacher) => {
     if (!t || !isSpotlightActive) return false;
@@ -112,55 +110,83 @@ export const StatsView: React.FC = () => {
       s.startTime === time
     );
 
+    // LOGIK: TAUSCH (Lehrer A auf Lehrer B ziehen)
     if (existingSupId && targetSup) {
       if (existingSupId === targetSup.id) return;
+      
       const sourceSup = supervisions.find(s => s.id === existingSupId);
       if (!sourceSup) return;
-      const teacherA = teacherId;
+
+      const teacherA = sourceSup.teacherId;
       const teacherB = targetSup.teacherId;
+
+      // Verfügbarkeit prüfen: Passt A an den Ort von B? (Ignoriere beide beim Check)
       const availA = checkTeacherAvailability(teacherA, activeDayIdx, startTimeMin, 60, exams, supervisions, existingSupId);
-      if (availA.isBusy) { showToast(`Tausch nicht möglich: ${availA.reason}`, 'warning'); return; }
+      // Achtung: Wenn wir tauschen, muss auch B an den Ort von A passen
       const sourceSlotIdx = timeSlots.indexOf(sourceSup.startTime);
       const sourceTimeMin = START_MIN_DAY + sourceSlotIdx * 30;
       const availB = checkTeacherAvailability(teacherB, activeDayIdx, sourceTimeMin, 60, exams, supervisions, targetSup.id);
-      if (availB.isBusy) { showToast(`Tausch nicht möglich: ${availB.reason}`, 'warning'); return; }
-      removeSupervision(existingSupId);
-      removeSupervision(targetSup.id);
-      addSupervision({ ...sourceSup, id: `s-${Date.now()}-A`, teacherId: teacherB });
-      addSupervision({ ...targetSup, id: `s-${Date.now()}-B`, teacherId: teacherA });
+
+      if (availA.isBusy) { showToast(`Tausch blockiert (A): ${availA.reason}`, 'warning'); return; }
+      if (availB.isBusy) { showToast(`Tausch blockiert (B): ${availB.reason}`, 'warning'); return; }
+
+      // TAUSCH: Behalte IDs bei, tausche Koordinaten für den Gleit-Effekt
+      updateSupervision([
+        { 
+          ...sourceSup, 
+          startTime: targetSup.startTime, 
+          stationId: targetSup.stationId, 
+          subSlotIdx: targetSup.subSlotIdx 
+        },
+        { 
+          ...targetSup, 
+          startTime: sourceSup.startTime, 
+          stationId: sourceSup.stationId, 
+          subSlotIdx: sourceSup.subSlotIdx 
+        }
+      ]);
+      
       showToast('Aufsichten getauscht', 'success');
       return;
     }
 
+    // LOGIK: ERSETZEN (Lehrer aus Liste auf besetzten Slot ziehen)
     if (!existingSupId && targetSup) {
       const avail = checkTeacherAvailability(teacherId, activeDayIdx, startTimeMin, 60, exams, supervisions, targetSup.id);
       if (avail.isBusy) { showToast(avail.reason!, 'warning'); return; }
-      removeSupervision(targetSup.id);
+      updateSupervision({ ...targetSup, teacherId });
+      showToast('Lehrkraft ersetzt', 'success');
+      return;
     }
 
+    // LOGIK: VERSCHIEBEN (Lehrer auf leeren Slot ziehen)
     if (existingSupId && !targetSup) {
+      const sourceSup = supervisions.find(s => s.id === existingSupId);
+      if (!sourceSup) return;
       const avail = checkTeacherAvailability(teacherId, activeDayIdx, startTimeMin, 60, exams, supervisions, existingSupId);
       if (avail.isBusy) { showToast(avail.reason!, 'warning'); return; }
-      removeSupervision(existingSupId);
+      
+      updateSupervision({ ...sourceSup, startTime: time, stationId, subSlotIdx: subIdx });
+      return;
     }
 
+    // LOGIK: NEUANLAGE (Lehrer aus Liste auf leeren Slot ziehen)
     if (!existingSupId && !targetSup) {
       const avail = checkTeacherAvailability(teacherId, activeDayIdx, startTimeMin, 60, exams, supervisions);
       if (avail.isBusy) { showToast(avail.reason!, 'warning'); return; }
+      const newSup: Supervision = {
+        id: `s-${Date.now()}`,
+        stationId,
+        teacherId: teacherId,
+        dayIdx: activeDayIdx,
+        startTime: time,
+        durationMinutes: 60,
+        points: 1.0, 
+        subSlotIdx: subIdx
+      };
+      addSupervision(newSup);
     }
-
-    const newSup: Supervision = {
-      id: `s-${Date.now()}`,
-      stationId,
-      teacherId: teacherId,
-      dayIdx: activeDayIdx,
-      startTime: time,
-      durationMinutes: 60,
-      points: 1.0, 
-      subSlotIdx: subIdx
-    };
-    addSupervision(newSup);
-  }, [activeDayIdx, exams, supervisions, timeSlots, addSupervision, removeSupervision, showToast]);
+  }, [activeDayIdx, exams, supervisions, timeSlots, addSupervision, updateSupervision, showToast]);
 
   const handleDropRef = useRef(handleDrop);
   const removeSupervisionRef = useRef(removeSupervision);
@@ -337,47 +363,74 @@ export const StatsView: React.FC = () => {
                     {Array.from({ length: station.requiredSupervisors || 1 }).map((_, subIdx) => (
                       <div 
                         key={subIdx} 
-                        className="flex-1 min-w-[60px] border-r last:border-r-0 border-slate-800/20 relative grid"
-                        style={{ gridTemplateRows: `repeat(${timeSlots.length}, minmax(${SLOT_MIN_HEIGHT}px, 1fr))` }}
+                        className="flex-1 min-w-[60px] border-r last:border-r-0 border-slate-800/20 relative"
                       >
-                        {timeSlots.map((time, slotIdx) => {
-                          const sup = supervisions.find(s => s.dayIdx === activeDayIdx && s.stationId === station.id && s.subSlotIdx === subIdx && s.startTime === time);
-                          const teacher = sup ? teachers.find(t => t.id === sup.teacherId) : null;
-                          const hasHighlight = isTeacherMatch(teacher);
-                          const isHoveredTop = hoveredSlot?.stationId === station.id && hoveredSlot?.slotIdx === slotIdx && hoveredSlot?.subIdx === subIdx;
-                          const cellMin = START_MIN_DAY + slotIdx * 30;
-                          const isBlocked = activeDraggingTeacherId && dragSubjectBlocked.some(p => cellMin < p.end && (cellMin + 30) > p.start);
-                          const isAmber = activeDraggingTeacherId && !isBlocked && dragSubjectAmber.some(p => cellMin < p.end && (cellMin + 30) > p.start);
-                          const isZebra = slotIdx % 2 !== 0; 
+                        {/* Raster Drop-Zonen & Markierungen */}
+                        <div 
+                          className="grid h-full w-full"
+                          style={{ gridTemplateRows: `repeat(${timeSlots.length}, minmax(${SLOT_MIN_HEIGHT}px, 1fr))` }}
+                        >
+                          {timeSlots.map((time, slotIdx) => {
+                            const isHoveredTop = hoveredSlot?.stationId === station.id && hoveredSlot?.slotIdx === slotIdx && hoveredSlot?.subIdx === subIdx;
+                            const cellMin = START_MIN_DAY + slotIdx * 30;
+                            const isBlocked = activeDraggingTeacherId && dragSubjectBlocked.some(p => cellMin < p.end && (cellMin + 30) > p.start);
+                            const isAmber = activeDraggingTeacherId && !isBlocked && dragSubjectAmber.some(p => cellMin < p.end && (cellMin + 30) > p.start);
+                            const isZebra = slotIdx % 2 !== 0; 
 
-                          return (
-                            <div 
-                              key={slotIdx} 
-                              data-drop-zone="true"
-                              data-drop-info={JSON.stringify({ type: 'supervision-slot', stationId: station.id, subIdx, slotIdx, onDrop: true })}
-                              ref={(el) => {
-                                if (el && !el.dataset.listenerAdded) {
-                                  el.addEventListener('linexio-drop', ((e: CustomEvent) => {
-                                    const { dragId, extraData, dropInfo } = e.detail;
-                                    handleDropRef.current(dragId, dropInfo.stationId, dropInfo.subIdx, dropInfo.slotIdx, extraData?.supId);
-                                  }) as EventListener);
-                                  el.dataset.listenerAdded = 'true';
-                                }
-                              }}
-                              className={`w-full relative transition-all duration-300 border-b
-                                ${isBlocked ? 'bg-red-500/30' : isAmber ? 'bg-amber-500/20' : isZebra ? 'bg-slate-800/25' : 'bg-transparent'}
-                                ${isHoveredTop ? 'border-b-transparent' : 'border-b-slate-800/40'}
-                              `}
-                            >
-                              {isHoveredTop && (
-                                <div 
-                                  className="absolute inset-x-0 top-0 z-30 pointer-events-none ring-1 ring-inset ring-cyan-500 bg-cyan-500/10 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.1)]"
-                                  style={{ height: '200%' }}
-                                />
-                              )}
+                            return (
+                              <div 
+                                key={slotIdx} 
+                                data-drop-zone="true"
+                                data-drop-info={JSON.stringify({ type: 'supervision-slot', stationId: station.id, subIdx, slotIdx, onDrop: true })}
+                                ref={(el) => {
+                                  if (el && !el.dataset.listenerAdded) {
+                                    el.addEventListener('linexio-drop', ((e: CustomEvent) => {
+                                      const { dragId, extraData, dropInfo } = e.detail;
+                                      handleDropRef.current(dragId, dropInfo.stationId, dropInfo.subIdx, dropInfo.slotIdx, extraData?.supId);
+                                    }) as EventListener);
+                                    el.dataset.listenerAdded = 'true';
+                                  }
+                                }}
+                                className={`w-full relative transition-all duration-300 border-b
+                                  ${isBlocked ? 'bg-red-500/30' : isAmber ? 'bg-amber-500/20' : isZebra ? 'bg-slate-800/25' : 'bg-transparent'}
+                                  ${isHoveredTop ? 'border-b-transparent' : 'border-b-slate-800/40'}
+                                `}
+                              >
+                                {isHoveredTop && (
+                                  <div 
+                                    className="absolute inset-x-0 top-0 z-30 pointer-events-none ring-1 ring-inset ring-cyan-500 bg-cyan-500/10 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.1)]"
+                                    style={{ height: '200%' }}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
 
-                              {sup && (
+                        {/* Absolute Layer für Sanftes Gleiten der Aufsichts-Cards */}
+                        <div className="absolute inset-0 pointer-events-none z-20">
+                          {supervisions
+                            .filter(s => s.dayIdx === activeDayIdx && s.stationId === station.id && s.subSlotIdx === subIdx)
+                            .map(sup => {
+                              const teacher = teachers.find(t => t.id === sup.teacherId);
+                              const hasHighlight = isTeacherMatch(teacher);
+                              const slotIdx = timeSlots.indexOf(sup.startTime);
+                              const isDraggingThis = activeDraggingSupId === sup.id && isDraggingReal;
+
+                              return (
                                 <div 
+                                  key={sup.id}
+                                  data-drop-zone="true"
+                                  data-drop-info={JSON.stringify({ type: 'supervision-slot', stationId: station.id, subIdx, slotIdx, onDrop: true })}
+                                  ref={(el) => {
+                                    if (el && !el.dataset.listenerAdded) {
+                                      el.addEventListener('linexio-drop', ((e: CustomEvent) => {
+                                        const { dragId, extraData, dropInfo } = e.detail;
+                                        handleDropRef.current(dragId, dropInfo.stationId, dropInfo.subIdx, dropInfo.slotIdx, extraData?.supId);
+                                      }) as EventListener);
+                                      el.dataset.listenerAdded = 'true';
+                                    }
+                                  }}
                                   onPointerDown={(e) => {
                                     if (e.button !== 0) return;
                                     const ghostUI = (
@@ -395,13 +448,16 @@ export const StatsView: React.FC = () => {
                                     );
                                     startDrag(sup.teacherId, 'teacher', e, { supId: sup.id }, ghostUI);
                                   }}
-                                  className={`draggable-item absolute inset-x-1 top-1 rounded-xl border transition-[background-color,border-color,box-shadow,transform,opacity] duration-300 z-20 flex items-center justify-center shadow-2xl ${
-                                    hasHighlight 
+                                  className={`draggable-item absolute inset-x-1 rounded-xl border flex items-center justify-center shadow-2xl pointer-events-auto transition-all duration-300
+                                    ${hasHighlight 
                                       ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] z-30' 
                                       : 'bg-[#1e293b] border-slate-700/50 hover:border-cyan-500/50'
-                                  } ${activeDraggingSupId === sup.id && isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'}`}
+                                    } ${isDraggingThis ? 'opacity-20 scale-95' : 'opacity-100'}`}
                                   style={{ 
-                                    height: 'calc(200% - 8px)',
+                                    top: slotIdx * SLOT_MIN_HEIGHT + 4,
+                                    height: (SLOT_MIN_HEIGHT * 2) - 8,
+                                    transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, transform 0.2s',
+                                    zIndex: isDraggingThis ? 100 : 20,
                                     pointerEvents: activeDrag && !isDraggingReal ? 'none' : 'auto'
                                   }}
                                 >
@@ -409,10 +465,10 @@ export const StatsView: React.FC = () => {
                                     {teacher?.shortName || '?'}
                                   </span>
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                              );
+                            })
+                          }
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -453,7 +509,7 @@ export const StatsView: React.FC = () => {
           </div>
           <div className="flex-1 overflow-auto bg-slate-950/40 rounded-2xl p-6 border border-slate-700/30 shadow-inner no-scrollbar">
             <div className="mx-auto bg-white rounded-sm shadow-2xl">
-              <SupervisionPrintView activeDayIdx={activeDayIdx} />
+              <SupervisionPrintView activeDayIdx={activeDayIdx} isPreview={true} />
             </div>
           </div>
         </div>

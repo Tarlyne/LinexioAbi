@@ -6,9 +6,10 @@ import { PRINT_STYLES } from '../utils/printStyles';
 
 interface SupervisionPrintViewProps {
   activeDayIdx: number;
+  isPreview?: boolean;
 }
 
-export const SupervisionPrintView: React.FC<SupervisionPrintViewProps> = ({ activeDayIdx }) => {
+export const SupervisionPrintView: React.FC<SupervisionPrintViewProps> = ({ activeDayIdx, isPreview = false }) => {
   const { supervisions } = useApp();
   const { days, rooms, teachers } = useData();
 
@@ -18,6 +19,11 @@ export const SupervisionPrintView: React.FC<SupervisionPrintViewProps> = ({ acti
     if (!activeDay) return '';
     return new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(activeDay.date));
   }, [activeDay]);
+
+  const footerStr = useMemo(() => {
+    const now = new Date();
+    return `Erstellt mit LinexioAbi am ${now.toLocaleDateString('de-DE')} um ${now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr.`;
+  }, []);
 
   const timeSlots = useMemo(() => {
     const slots = [];
@@ -78,9 +84,11 @@ export const SupervisionPrintView: React.FC<SupervisionPrintViewProps> = ({ acti
         </tbody>
       </table>
 
-      <div className="export-footer mt-4">
-        <div className="text-[7.5pt] text-slate-500 italic opacity-80">Erstellt mit LinexioAbi am {new Date().toLocaleDateString('de-DE')} um {new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr.</div>
-      </div>
+      {!isPreview && (
+        <div className="export-footer mt-4">
+          <div className="text-[7.5pt] text-slate-500 italic opacity-80">{footerStr}</div>
+        </div>
+      )}
     </div>
   );
 };

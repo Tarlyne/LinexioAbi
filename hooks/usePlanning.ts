@@ -77,7 +77,7 @@ export const usePlanning = () => {
     const draggedExam = exams.find(e => e.id === examId);
     if (!draggedExam) return;
 
-    // 1. Tausch/Ersetzungs-Ziel finden
+    // Ziel-Prüfung am Drop-Ort finden
     const targetExam = exams.find(e => {
       if (e.id === examId || e.startTime === 0 || e.roomId !== roomId) return false;
       const eDay = Math.floor((e.startTime - 1) / 1000);
@@ -86,52 +86,68 @@ export const usePlanning = () => {
       return slotIdx >= eSlot && slotIdx < eSlot + 3;
     });
 
-    // MAGNETISCHE GRUPPEN-LOGIK
-    // Bedingung: Aus Backlog ziehen, GroupID vorhanden, Ziel-Slot ist FREI (kein targetExam)
-    if (draggedExam.startTime === 0 && draggedExam.groupId && !targetExam) {
-      const groupSiblings = backlogExams.filter(e => 
+    const isGroupMove = !!draggedExam.groupId;
+    const isSiblingSwap = targetExam && isGroupMove && 
+                         targetExam.groupId === draggedExam.groupId && 
+                         targetExam.subject === draggedExam.subject &&
+                         targetExam.teacherId === draggedExam.teacherId;
+
+    // MAGNETISCHE GRUPPEN-LOGIK (Erweitert für Grid-zu-Grid)
+    // Wenn es eine Gruppe ist UND kein Sibling-Tausch gewollt ist
+    if (isGroupMove && !isSiblingSwap) {
+      // Alle Mitglieder der Gruppe finden, die sich am selben Tag im selben Raum befinden (oder im Backlog sind)
+      const groupSiblings = exams.filter(e => 
         e.id !== examId && 
         e.groupId === draggedExam.groupId && 
         e.subject === draggedExam.subject && 
-        e.teacherId === draggedExam.teacherId
+        e.teacherId === draggedExam.teacherId &&
+        (e.startTime === 0 || (Math.floor((e.startTime - 1) / 1000) === activeDay && e.roomId === draggedExam.roomId))
       );
 
       if (groupSiblings.length > 0) {
-        const fullGroup = [draggedExam, ...groupSiblings];
+        const fullGroup = [draggedExam, ...groupSiblings].sort((a, b) => a.startTime - b.startTime);
+        
+        // Offset berechnen: Wo landet das erste Element der Gruppe relativ zum Drop?
+        // Wenn aus Backlog: draggedExam ist Anker. Wenn aus Grid: Anker ist das erste Element der Gruppe.
+        const firstMember = fullGroup[0];
+        const dragStartSlot = (draggedExam.startTime - 1) % 1000;
+        const relativeOffset = draggedExam.startTime === 0 ? 0 : (dragStartSlot - ((firstMember.startTime - 1) % 1000));
+        
+        const groupStartSlot = slotIdx - relativeOffset;
         const totalSlotsNeeded = fullGroup.length * 3;
 
-        // 1. Prüfen ob Block ins Grid passt
-        if (slotIdx + totalSlotsNeeded > timeSlotsLength) {
-          showToast('Nicht ausreichend Zeit für diesen Prüfungsblock am Ende des Tages.', 'error');
+        // 1. Validierung: Passt der Block in das Zeitraster?
+        if (groupStartSlot < 0 || groupStartSlot + totalSlotsNeeded > timeSlotsLength) {
+          showToast('Der Block passt in dieser Position nicht ins Zeitraster.', 'error');
           return;
         }
 
-        // 2. Prüfen ob der GESAMTE Bereich für alle Mitglieder frei von ANDEREN Prüfungen ist
-        const isRangeFree = !exams.some(e => {
+        // 2. Validierung: Ist der Zielbereich frei von ANDEREN Prüfungen?
+        const otherExams = exams.filter(e => !fullGroup.some(g => g.id === e.id));
+        const isRangeFree = !otherExams.some(e => {
           if (e.startTime === 0 || e.roomId !== roomId) return false;
           const eDay = Math.floor((e.startTime - 1) / 1000);
           if (eDay !== activeDay) return false;
           const eSlot = (e.startTime - 1) % 1000;
-          return (eSlot < slotIdx + totalSlotsNeeded && eSlot + 3 > slotIdx);
+          return (eSlot < groupStartSlot + totalSlotsNeeded && eSlot + 3 > groupStartSlot);
         });
 
         if (!isRangeFree) {
-          showToast('Der Bereich ist durch andere Prüfungen blockiert.', 'warning');
+          showToast('Bereich durch andere Prüfungen blockiert.', 'warning');
           return;
         }
 
-        // 3. Kollisions-Check für die gesamte Kette
+        // 3. Kollisions-Check & Update-Vorbereitung
         let allValid = true;
         const updates: Exam[] = [];
-        const otherExams = exams.filter(e => !fullGroup.some(g => g.id === e.id));
 
         for (let i = 0; i < fullGroup.length; i++) {
-          const start = (activeDay * 1000) + slotIdx + (i * 3) + 1;
+          const start = (activeDay * 1000) + groupStartSlot + (i * 3) + 1;
           const upd: Exam = { ...fullGroup[i], startTime: start, roomId, status: 'scheduled' };
           const col = engineCheckCollision(upd, otherExams);
           if (col.hasConflict) {
             const s = students.find(st => st.id === fullGroup[i].studentId);
-            showToast(`Block-Drop abgebrochen: ${s?.lastName} hat Kollision (${col.reason})`, 'warning');
+            showToast(`Block-Verschiebung abgebrochen: ${s?.lastName} kollidiert (${col.reason})`, 'warning');
             allValid = false;
             break;
           }
@@ -140,11 +156,9 @@ export const usePlanning = () => {
 
         if (allValid) {
           updates.forEach(u => updateExam(u));
-          showToast(`${fullGroup.length}er Block "${draggedExam.groupId}" erfolgreich geplant`, 'success');
-          return; // Workflow beendet
-        } else {
-          return; // Bei Kollision in der Kette: Nichts tun (Ganz oder gar nicht)
-        }
+          showToast(`Prüfungsblock "${draggedExam.groupId}" verschoben`, 'success');
+          return;
+        } else return;
       }
     }
 
@@ -158,7 +172,7 @@ export const usePlanning = () => {
     
     if (targetExam) {
       if (draggedExam.startTime > 0) {
-        // FALL 1: TAUSCH (Grid <-> Grid)
+        // FALL 1: TAUSCH (Grid <-> Grid) - Entweder Sibling-Swap oder Einzel-Tausch
         const oldStartTime = draggedExam.startTime;
         const oldRoomId = draggedExam.roomId;
         const updatedDragged: Exam = { ...draggedExam, startTime: newStartTime, roomId, status: 'scheduled' };
@@ -172,7 +186,7 @@ export const usePlanning = () => {
         }
         updateExam(updatedDragged);
         updateExam(updatedTarget);
-        showToast('Prüfungen erfolgreich getauscht', 'success');
+        showToast(isSiblingSwap ? 'Reihenfolge innerhalb der Gruppe geändert' : 'Prüfungen erfolgreich getauscht', 'success');
       } else {
         // FALL 2: ERSETZEN (Backlog -> Grid)
         const updatedDragged: Exam = { ...draggedExam, startTime: newStartTime, roomId, status: 'scheduled' };
@@ -200,7 +214,7 @@ export const usePlanning = () => {
       if (consistency.hasWarning) showToast(consistency.reason || 'Inkonsistenz festgestellt!', 'amber');
       updateExam(updatedExam);
     }
-  }, [exams, activeDay, checkCollision, checkConsistency, updateExam, showToast, students, backlogExams]);
+  }, [exams, activeDay, checkCollision, checkConsistency, updateExam, showToast, students]);
 
   const handleRemoveFromGrid = useCallback((examId: string) => {
     dragCounter.current = 0;

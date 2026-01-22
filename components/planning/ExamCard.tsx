@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Exam, Student, Teacher, Room } from '../../types';
-import { Check, AlertCircle, AlertTriangle, User, Settings } from 'lucide-react';
+import { Check, AlertCircle, AlertTriangle, User, Settings, Layers } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useData } from '../../context/DataContext';
 import { useDnD } from '../../context/DnDContext';
@@ -24,11 +24,12 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   exam, student, teacher, chair, protocol, prepRoom,
   hasConflict, onEdit, onRemove, slotHeight, searchTerm = ''
 }) => {
-  const { subjects } = useData();
-  const { checkConsistency } = useApp();
+  const { subjects, teachers } = useData();
+  const { checkConsistency, exams } = useApp();
   const { startDrag, activeDrag } = useDnD();
   
   const slotIdx = (exam.startTime - 1) % 1000;
+  const activeDay = Math.floor((exam.startTime - 1) / 1000);
   const isComplete = !!(exam.teacherId && exam.chairId && exam.protocolId && exam.prepRoomId);
   const consistency = checkConsistency(exam);
   const hasWarning = consistency.hasWarning;
@@ -46,7 +47,6 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   const matchedTeacher = isTeacherMatch(teacher);
   const matchedChair = isTeacherMatch(chair);
   const matchedProtocol = isTeacherMatch(protocol);
-  // NEU: Fach in die Spotlight-Logik einbeziehen
   const matchedSubject = isSpotlightActive && exam.subject.toLowerCase().includes(term);
   
   const hasSpotlightMatch = matchedTeacher || matchedChair || matchedProtocol || matchedSubject;
@@ -60,6 +60,16 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   const subjectData = subjects.find(s => s.name === exam.subject);
   const isCombined = subjectData?.isCombined;
 
+  // Gruppen-Info für Badge & Ghost
+  const groupCount = exam.groupId ? exams.filter(e => 
+    e.groupId === exam.groupId && 
+    e.subject === exam.subject && 
+    e.teacherId === exam.teacherId &&
+    e.startTime > 0 &&
+    Math.floor((e.startTime - 1) / 1000) === activeDay &&
+    e.roomId === exam.roomId
+  ).length : 1;
+
   const ghostUI = (
     <div className="w-56 p-3 flex flex-col gap-1.5 bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
       <div className="flex items-center gap-2">
@@ -68,8 +78,16 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         </div>
         <span className="text-xs font-bold text-white truncate">{student?.lastName}, {student?.firstName}</span>
       </div>
-      <div className="bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md inline-block self-start">
-        <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest leading-none">{exam.subject}</span>
+      <div className="flex items-center justify-between">
+        <div className="bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md">
+          <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest leading-none">{exam.subject}</span>
+        </div>
+        {groupCount > 1 && (
+          <div className="flex items-center gap-1 text-indigo-400">
+            <Layers size={10} />
+            <span className="text-[9px] font-black">+{groupCount - 1}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -78,7 +96,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
     <div 
       onPointerDown={(e) => {
         if (e.button !== 0) return;
-        startDrag(exam.id, 'exam', e, { currentSlot: exam.startTime }, ghostUI);
+        startDrag(exam.id, 'exam', e, { currentSlot: exam.startTime, groupCount }, ghostUI);
       }}
       style={{ 
         position: 'absolute',
@@ -110,6 +128,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
             </span>
             
             <div className="flex items-center justify-center shrink-0">
+              {groupCount > 1 && <Layers size={11} className="text-indigo-400 mr-0.5" />}
               {hasConflict ? (
                 <AlertCircle size={13} className="text-white animate-pulse" />
               ) : hasWarning ? (
@@ -143,7 +162,6 @@ export const ExamCard: React.FC<ExamCardProps> = ({
           )}
         </div>
         
-        {/* Kommission im 3-Spalten Grid (Prüfer - Prot - Vorsitz) - Zentrierte Badges */}
         <div className="mt-auto grid grid-cols-3 gap-1 border-t border-slate-800/60 pt-1.5 overflow-hidden">
           <div className="flex flex-col items-center gap-0.5 min-w-0">
             <span className="text-[7px] text-slate-300 font-bold uppercase leading-none">Prüfer</span>

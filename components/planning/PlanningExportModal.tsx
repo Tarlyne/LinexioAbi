@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Modal } from '../Modal';
 import { 
@@ -155,7 +156,7 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
               {exportType === 'exam' ? (
                 <ExportPrintView activeDayIdx={activeDayIdx} isPreview={true} />
               ) : (
-                <PrepRoomPrintView activeDayIdx={activeDayIdx} />
+                <PrepRoomPrintView activeDayIdx={activeDayIdx} isPreview={true} />
               )}
             </div>
           </div>
