@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>LinexioAbi</title>
+
+    <!-- PWA & iOS Branding -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LinexioAbi">
+    <meta name="theme-color" content="#0a0f1d">
+
+    <!-- Windows Desktop / Start-Kachel Branding -->
+    <meta name="msapplication-TileImage" content="/icon-512.png">
+    <meta name="msapplication-TileColor" content="#0a0f1d">
+
+    <!-- Manifest Link - Absolute Pfade für GitHub Pages Sub-Directories -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="shortcut icon" href="/favicon.svg">
+
+    <!-- Apple Touch Icons (Spezifisch für iPad/iPhone) -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon.png">
+
+    <!-- Safari Mask Icon -->
+    <link rel="mask-icon" href="/favicon.svg" color="#06b6d4">
+
+    <!-- Critical Splash Styles (Inline) -->
+    <style>
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            background-color: #0a0f1d;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: white;
+        }
+
+        .splash-logo-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin-bottom: 24px;
+        }
+
+        .splash-logo-container svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .splash-loader {
+            width: 160px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .splash-loader-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 30%;
+            background: #06b6d4;
+            box-shadow: 0 0 15px #06b6d4;
+            animation: splash-loading 1.5s infinite ease-in-out;
+        }
+
+        @keyframes splash-loading {
+            0% {
+                left: -30%;
+            }
+
+            100% {
+                left: 100%;
+            }
+        }
+    </style>
+
+    <!-- Tailwind CDN für Editor-Vorschau (wird beim Produktions-Build automatisch entfernt) -->
+    <link rel="stylesheet" href="/index.css">
+</head>
+
+<body>
+    <div id="splash-screen">
+        <div class="splash-logo-container">
+            <svg viewBox="0 0 270.93333 270.93333" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="splashGradient" x1="117.68" y1="121.68" x2="166.11" y2="121.68"
+                        gradientUnits="userSpaceOnUse">
+                        <stop offset="0.158" stop-color="#22d3ee" />
+                        <stop offset="0.570" stop-color="#f59e0b" />
+                    </linearGradient>
+                </defs>
+                <path stroke="#22d3ee" stroke-width="4.1"
+                    d="m 62.584546,45.554174 0.328916,166.313296 141.764338,0.65737 -38.81249,-38.12716 h -64.79717 l 0.32891,-90.71636 z" />
+                <path stroke="#22d3ee" stroke-width="4.1" d="M 165.53639,212.52484 62.255627,109.31859" />
+                <text x="114.93772" y="147.99986"
+                    style="font-size: 74px; font-family: 'Comic Sans MS', cursive; stroke: url(#splashGradient); stroke-width: 4;">
+                    <tspan x="114.93772" y="147.99986">A</tspan>
+                </text>
+            </svg>
+        </div>
+        <div class="splash-loader">
+            <div class="splash-loader-bar"></div>
+        </div>
+        <div
+            style="margin-top: 20px; font-size: 10px; color: rgba(255,255,255,0.3); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;">
+            Initializing Core Systems
+        </div>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>
