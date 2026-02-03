@@ -163,22 +163,22 @@ export const ExamManagerModal: React.FC<ExamManagerModalProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto my-6 no-scrollbar rounded-2xl border border-slate-800/50 bg-slate-900/20 shadow-inner">
+        <div className="flex-1 overflow-auto my-6 no-scrollbar rounded-2xl bg-slate-900/20 shadow-inner">
           <table className="w-full border-collapse text-left bg-slate-900/40 table-fixed">
-            <thead className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md shadow-sm">
-              <tr className="border-b border-slate-700/50">
-                <th className="w-64 px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-900 sticky left-0 z-30">
+            <thead className="sticky top-0 z-20 bg-slate-800/90 border-b border-slate-700/40">
+              <tr>
+                <th className="w-64 px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest sticky left-0 z-30 bg-[#1e293b]">
                   Prüfling
                 </th>
                 {Array.from({ length: maxExamsCount }).map((_, i) => (
                   <th
                     key={i}
-                    className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[240px]"
+                    className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[240px] bg-[#1e293b]"
                   >
                     Prüfung {i + 1}
                   </th>
                 ))}
-                <th className="w-20 px-6 py-4 text-center"></th>
+                <th className="w-20 px-6 py-4 text-center bg-[#1e293b]"></th>
               </tr>
             </thead>
             <tbody>
@@ -213,11 +213,10 @@ export const ExamManagerModal: React.FC<ExamManagerModalProps> = ({
                       <td key={idx} className="px-6 py-4 align-middle">
                         <button
                           onClick={() => onEditExam(exam)}
-                          className={`w-full text-left p-3 rounded-xl border transition-all hover:scale-[1.02] active:scale-95 shadow-sm space-y-1.5 ${
-                            isNakedDraft
-                              ? 'bg-red-500/5 border-red-500/30 hover:border-red-500/50'
-                              : 'bg-slate-900/60 border-slate-800 hover:border-cyan-500/40'
-                          }`}
+                          className={`w-full text-left p-3 rounded-xl border transition-all hover:scale-[1.02] active:scale-95 shadow-sm space-y-1.5 ${isNakedDraft
+                            ? 'bg-red-500/5 border-red-500/30 hover:border-red-500/50'
+                            : 'bg-slate-900/60 border-slate-800 hover:border-cyan-500/40'
+                            }`}
                         >
                           <div className="flex items-center justify-between gap-2 overflow-hidden">
                             <div className="flex items-center gap-1.5 min-w-0">

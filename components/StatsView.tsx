@@ -27,6 +27,110 @@ import { GridTimeColumn } from './common/GridTimeColumn';
 import { WorkloadIndicator } from './stats/WorkloadIndicator';
 import { SupervisionPrintView } from './SupervisionPrintView';
 
+interface SupervisionCardProps {
+  sup: Supervision;
+  teacher?: Teacher;
+  isTeacherMatch: (t?: Teacher) => boolean;
+  activeDraggingSupId: string | null;
+  isDraggingReal: boolean;
+  startDrag: any;
+  handleDrop: any;
+  timeSlots: string[];
+  SLOT_MIN_HEIGHT: number;
+}
+
+const SupervisionCard = React.memo<SupervisionCardProps>(({
+  sup,
+  teacher,
+  isTeacherMatch,
+  activeDraggingSupId,
+  isDraggingReal,
+  startDrag,
+  handleDrop,
+  timeSlots,
+  SLOT_MIN_HEIGHT
+}) => {
+  const hasHighlight = isTeacherMatch(teacher);
+  const slotIdx = timeSlots.indexOf(sup.startTime);
+  const isDraggingThis = activeDraggingSupId === sup.id && isDraggingReal;
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Robuster Event-Listener für Drop (Swap)
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    const onDropHandler = (e: CustomEvent) => {
+      e.stopPropagation(); // VERHINDERT DOPPEL-DROP
+      const { dragId, dropInfo, extraData } = e.detail;
+      // Benutze handleDrop prop direkt, React sorgt für Re-Subscription falls es sich ändert
+      // ODER wir könnten hier auch ein Ref nutzen, aber handleDrop ist im Dependency-Array
+      handleDrop(
+        dragId,
+        dropInfo.stationId,
+        dropInfo.subIdx,
+        dropInfo.slotIdx,
+        extraData?.supId
+      );
+    };
+
+    el.addEventListener('linexio-drop', onDropHandler as EventListener);
+    return () => el.removeEventListener('linexio-drop', onDropHandler as EventListener);
+  }, [handleDrop]);
+
+  const ghostUI = (
+    <div className="w-fit max-w-[240px] px-4 py-2.5 flex items-center bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
+      <span className="text-sm font-bold text-white truncate leading-none">
+        {teacher?.lastName}, {teacher?.firstName}
+      </span>
+    </div>
+  );
+
+  return (
+    <div
+      key={sup.id}
+      data-drop-zone="true"
+      data-drop-info={JSON.stringify({
+        type: 'supervision-slot',
+        stationId: sup.stationId,
+        subIdx: sup.subSlotIdx,
+        slotIdx,
+        onDrop: true,
+      })}
+      ref={cardRef}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        startDrag(
+          sup.teacherId,
+          'teacher',
+          e,
+          { supId: sup.id },
+          ghostUI
+        );
+      }}
+      className={`draggable-item absolute inset-x-1 rounded-xl border flex items-center justify-center shadow-2xl pointer-events-auto transition-all duration-300
+        ${hasHighlight
+          ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] z-30'
+          : 'bg-[#1e293b] border-slate-700/50 hover:border-cyan-500/50'
+        } ${isDraggingThis ? 'opacity-20 scale-95' : 'opacity-100'}`}
+      style={{
+        top: slotIdx * SLOT_MIN_HEIGHT + 4,
+        height: SLOT_MIN_HEIGHT * 2 - 8,
+        transition:
+          'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, transform 0.2s',
+        zIndex: isDraggingThis ? 100 : 20,
+        pointerEvents: activeDraggingSupId && !isDraggingReal ? 'none' : 'auto',
+      }}
+    >
+      <span
+        className={`text-[11px] font-black tracking-widest drop-shadow-md pointer-events-none text-center ${hasHighlight ? 'text-cyan-300' : 'text-slate-200'}`}
+      >
+        {teacher?.shortName || '?'}
+      </span>
+    </div>
+  );
+});
+
 export const StatsView: React.FC = () => {
   const {
     exams,
@@ -285,13 +389,10 @@ export const StatsView: React.FC = () => {
 
   const handleDropRef = useRef(handleDrop);
   const removeSupervisionRef = useRef(removeSupervision);
-  useEffect(() => {
-    handleDropRef.current = handleDrop;
-  }, [handleDrop]);
-  useEffect(() => {
-    removeSupervisionRef.current = removeSupervision;
-  }, [removeSupervision]);
 
+  // Synchronize refs with latest callbacks on every render
+  handleDropRef.current = handleDrop;
+  removeSupervisionRef.current = removeSupervision;
   const handleExport = async () => {
     setIsExporting(true);
     const dayLabel = days[activeDayIdx]?.label || 'Aufsichtsplan';
@@ -312,7 +413,7 @@ export const StatsView: React.FC = () => {
     }
   };
 
-  useHeader(
+  const headerContent = useMemo(() => (
     <div className="flex items-center gap-2">
       <button
         onClick={() => undo()}
@@ -332,7 +433,9 @@ export const StatsView: React.FC = () => {
         </span>
       </button>
     </div>
-  );
+  ), [undo, canUndo, setShowExportPreview]);
+
+  useHeader(headerContent);
 
   const isDraggingReal = activeDrag?.isDraggingStarted;
   const activeDraggingTeacherId =
@@ -435,20 +538,10 @@ export const StatsView: React.FC = () => {
                 activeDrag?.id === teacher.id && !activeDraggingSupId && isDraggingReal;
 
               const ghostUI = (
-                <div className="w-56 p-3 flex items-center gap-3 bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
-                  <div className="w-9 h-9 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
-                    <GraduationCap size={18} />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-bold text-white truncate leading-none">
-                      {teacher.lastName}, {teacher.firstName}
-                    </span>
-                    <div className="bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded mt-1 self-start">
-                      <span className="text-[10px] text-cyan-400 font-black font-mono Schl-wide leading-none">
-                        {teacher.shortName}
-                      </span>
-                    </div>
-                  </div>
+                <div className="w-fit max-w-[240px] px-4 py-2.5 flex items-center bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
+                  <span className="text-sm font-bold text-white truncate leading-none">
+                    {teacher.lastName}, {teacher.firstName}
+                  </span>
                 </div>
               );
 
@@ -465,6 +558,16 @@ export const StatsView: React.FC = () => {
                   <div className="flex flex-col min-w-0 flex-1 pointer-events-none">
                     <span className="text-[14.5px] font-bold truncate leading-tight text-slate-200">
                       {teacher.lastName}, {teacher.firstName}
+                      {teacher.isPartTime && (
+                        <span className="text-cyan-500 ml-1" title="Teilzeit">
+                          °
+                        </span>
+                      )}
+                      {teacher.isLeadership && (
+                        <span className="text-amber-500 ml-1" title="Schulleitung">
+                          *
+                        </span>
+                      )}
                     </span>
                     <span className="text-[11.5px] font-black font-mono text-cyan-500">
                       {teacher.shortName}
@@ -477,150 +580,110 @@ export const StatsView: React.FC = () => {
               );
             })}
           </div>
+          <div className="bg-slate-900/60 border-t border-slate-700/30 px-4 py-2 flex justify-between items-center shrink-0">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              {filteredTeachers.length} Lehrkräfte
+            </span>
+            <div className="flex gap-4">
+              <span className="text-[10px] font-bold text-cyan-500/80 tracking-widest">
+                ° Teilzeit
+              </span>
+              <span className="text-[10px] font-bold text-amber-500/80 tracking-widest">
+                * Leitung
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 glass-nocturne border-slate-700/30 overflow-hidden flex flex-col min-w-0 relative">
-          <div className="sticky top-0 z-40 flex bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/60 h-[44px] min-w-max w-full">
-            <div className="w-20 shrink-0 border-r border-slate-700/60 flex items-center justify-center bg-slate-900 sticky left-0 z-50">
-              <Clock size={16} className="text-slate-500" />
-            </div>
-            {stations.map((station) => (
-              <div
-                key={station.id}
-                className="flex-1 min-w-[120px] flex border-r border-slate-700/40 overflow-hidden"
-              >
-                {Array.from({ length: station.requiredSupervisors || 1 }).map((_, subIdx) => (
-                  <div
-                    key={subIdx}
-                    className="flex-1 min-w-[60px] flex items-center justify-center border-r last:border-r-0 border-slate-800/20 px-1"
-                  >
-                    <span className="text-[13px] font-black text-slate-200 uppercase truncate w-full text-center">
-                      {station.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-
           <div className="flex-1 overflow-auto relative scroll-smooth no-scrollbar">
-            <div className="relative flex h-full min-h-full min-w-max">
-              <GridTimeColumn
-                timeSlots={timeSlots}
-                slotHeight={SLOT_MIN_HEIGHT}
-                useFlexibleGrid={false}
-                renderSlot={(time, idx) => {
-                  const isFullHour = idx % 2 !== 0;
-                  return (
-                    <div className="w-full h-full flex items-start justify-center pt-1">
-                      <span
-                        className={`text-[11px] font-bold transition-all duration-300 ${isFullHour ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]' : 'text-slate-500 opacity-60'}`}
-                      >
-                        {time}
-                      </span>
-                    </div>
-                  );
-                }}
-              />
-
-              <div className="flex-1 flex bg-slate-900/5 relative min-w-max">
-                {stations.map((station) => (
-                  <div
-                    key={station.id}
-                    className="flex-1 min-w-[120px] flex border-r border-slate-800/40 relative"
-                  >
-                    {Array.from({ length: station.requiredSupervisors || 1 }).map((_, subIdx) => (
-                      <div
-                        key={subIdx}
-                        className="flex-1 min-w-[60px] border-r last:border-r-0 border-slate-800/20 relative"
-                      >
-                        {/* Raster Drop-Zonen & Markierungen */}
+            <div className="flex flex-col min-w-max w-full min-h-full">
+              {/* Sticky Header Row */}
+              <div className="sticky top-0 z-50 flex bg-[#0f172a] border-b border-slate-700/60 h-[44px] min-w-max w-full shadow-xl">
+                <div className="w-20 shrink-0 border-r border-slate-700/60 flex items-center justify-center bg-[#0f172a] sticky left-0 z-[60] shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
+                  <Clock size={16} className="text-slate-500" />
+                </div>
+                {/* Synchronisierter Wrapper für Header-Spalten passend zum Body */}
+                <div className="flex-1 flex min-w-max w-full">
+                  {stations.map((station) => (
+                    <div
+                      key={station.id}
+                      className="flex-1 min-w-max flex border-r last:border-r-0 border-slate-700/40 h-full"
+                    >
+                      {Array.from({ length: station.requiredSupervisors || 1 }).map((_, subIdx) => (
                         <div
-                          className="grid h-full w-full"
-                          style={{
-                            gridTemplateRows: `repeat(${timeSlots.length}, ${SLOT_MIN_HEIGHT}px)`,
-                          }}
+                          key={subIdx}
+                          className="flex-1 min-w-[80px] flex items-center justify-center border-r last:border-r-0 border-slate-700/10 px-1 hover:bg-slate-800/20 transition-colors"
                         >
-                          {timeSlots.map((time, slotIdx) => {
-                            const isHoveredTop =
-                              hoveredSlot?.stationId === station.id &&
-                              hoveredSlot?.slotIdx === slotIdx &&
-                              hoveredSlot?.subIdx === subIdx;
-                            const cellMin = START_MIN_DAY + slotIdx * 30;
-                            const isBlocked =
-                              activeDraggingTeacherId &&
-                              dragSubjectBlocked.some(
-                                (p) => cellMin < p.end && cellMin + 30 > p.start
-                              );
-                            const isAmber =
-                              activeDraggingTeacherId &&
-                              !isBlocked &&
-                              dragSubjectAmber.some(
-                                (p) => cellMin < p.end && cellMin + 30 > p.start
-                              );
-                            const isZebra = slotIdx % 2 !== 0;
-
-                            return (
-                              <div
-                                key={slotIdx}
-                                data-drop-zone="true"
-                                data-drop-info={JSON.stringify({
-                                  type: 'supervision-slot',
-                                  stationId: station.id,
-                                  subIdx,
-                                  slotIdx,
-                                  onDrop: true,
-                                })}
-                                ref={(el) => {
-                                  if (el && !el.dataset.listenerAdded) {
-                                    el.addEventListener('linexio-drop', ((e: CustomEvent) => {
-                                      const { dragId, extraData, dropInfo } = e.detail;
-                                      handleDropRef.current(
-                                        dragId,
-                                        dropInfo.stationId,
-                                        dropInfo.subIdx,
-                                        dropInfo.slotIdx,
-                                        extraData?.supId
-                                      );
-                                    }) as EventListener);
-                                    el.dataset.listenerAdded = 'true';
-                                  }
-                                }}
-                                className={`w-full relative transition-all duration-300 border-b
-                                  ${isBlocked ? 'bg-red-500/30' : isAmber ? 'bg-amber-500/20' : isZebra ? 'bg-slate-800/25' : 'bg-transparent'}
-                                  ${isHoveredTop ? 'border-b-transparent' : 'border-b-slate-800/40'}
-                                `}
-                              >
-                                {isHoveredTop && (
-                                  <div
-                                    className="absolute inset-x-0 top-0 z-30 pointer-events-none ring-1 ring-inset ring-cyan-500 bg-cyan-500/10 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.1)]"
-                                    style={{ height: '200%' }}
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
+                          <span className="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em] truncate w-full text-center">
+                            {station.name}
+                          </span>
                         </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                        {/* Absolute Layer für Sanftes Gleiten der Aufsichts-Cards */}
-                        <div className="absolute inset-0 pointer-events-none z-20">
-                          {supervisions
-                            .filter(
-                              (s) =>
-                                s.dayIdx === activeDayIdx &&
-                                s.stationId === station.id &&
-                                s.subSlotIdx === subIdx
-                            )
-                            .map((sup) => {
-                              const teacher = teachers.find((t) => t.id === sup.teacherId);
-                              const hasHighlight = isTeacherMatch(teacher);
-                              const slotIdx = timeSlots.indexOf(sup.startTime);
-                              const isDraggingThis =
-                                activeDraggingSupId === sup.id && isDraggingReal;
+              <div className="relative flex min-h-full">
+                <GridTimeColumn
+                  timeSlots={timeSlots}
+                  slotHeight={SLOT_MIN_HEIGHT}
+                  useFlexibleGrid={false}
+                  renderSlot={(time, idx) => {
+                    const isFullHour = idx % 2 !== 0;
+                    return (
+                      <div className="w-full h-full flex items-start justify-center pt-1">
+                        <span
+                          className={`text-[11px] font-bold transition-all duration-300 ${isFullHour ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]' : 'text-slate-500 opacity-60'}`}
+                        >
+                          {time}
+                        </span>
+                      </div>
+                    );
+                  }}
+                />
+
+                <div className="flex-1 flex bg-slate-900/5 relative min-w-max w-full">
+                  {stations.map((station) => (
+                    <div
+                      key={station.id}
+                      className="flex-1 min-w-max flex border-r last:border-r-0 border-slate-700/40 relative"
+                    >
+                      {Array.from({ length: station.requiredSupervisors || 1 }).map((_, subIdx) => (
+                        <div
+                          key={subIdx}
+                          className="flex-1 min-w-[80px] border-r last:border-r-0 border-slate-700/10 relative"
+                        >
+                          {/* Raster Drop-Zonen & Markierungen */}
+                          <div
+                            className="grid h-full w-full"
+                            style={{
+                              gridTemplateRows: `repeat(${timeSlots.length}, ${SLOT_MIN_HEIGHT}px)`,
+                            }}
+                          >
+                            {timeSlots.map((time, slotIdx) => {
+                              const isHoveredTop =
+                                hoveredSlot?.stationId === station.id &&
+                                hoveredSlot?.slotIdx === slotIdx &&
+                                hoveredSlot?.subIdx === subIdx;
+                              const cellMin = START_MIN_DAY + slotIdx * 30;
+                              const isBlocked =
+                                activeDraggingTeacherId &&
+                                dragSubjectBlocked.some(
+                                  (p) => cellMin < p.end && cellMin + 30 > p.start
+                                );
+                              const isAmber =
+                                activeDraggingTeacherId &&
+                                !isBlocked &&
+                                dragSubjectAmber.some(
+                                  (p) => cellMin < p.end && cellMin + 30 > p.start
+                                );
+                              const isZebra = slotIdx % 2 !== 0;
 
                               return (
                                 <div
-                                  key={sup.id}
+                                  key={slotIdx}
                                   data-drop-zone="true"
                                   data-drop-info={JSON.stringify({
                                     type: 'supervision-slot',
@@ -632,6 +695,7 @@ export const StatsView: React.FC = () => {
                                   ref={(el) => {
                                     if (el && !el.dataset.listenerAdded) {
                                       el.addEventListener('linexio-drop', ((e: CustomEvent) => {
+                                        e.stopPropagation(); // STOPP PROPAGATION
                                         const { dragId, extraData, dropInfo } = e.detail;
                                         handleDropRef.current(
                                           dragId,
@@ -644,60 +708,51 @@ export const StatsView: React.FC = () => {
                                       el.dataset.listenerAdded = 'true';
                                     }
                                   }}
-                                  onPointerDown={(e) => {
-                                    if (e.button !== 0) return;
-                                    const ghostUI = (
-                                      <div className="w-56 p-3 flex items-center gap-3 bg-[#1e293b] border border-cyan-500 rounded-xl shadow-2xl">
-                                        <div className="w-9 h-9 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
-                                          <GraduationCap size={18} />
-                                        </div>
-                                        <div className="flex flex-col min-w-0">
-                                          <span className="text-xs font-bold text-white truncate leading-none">
-                                            {teacher?.lastName}, {teacher?.firstName}
-                                          </span>
-                                          <div className="bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded mt-1 self-start">
-                                            <span className="text-[10px] text-cyan-400 font-black font-mono leading-none">
-                                              {teacher?.shortName}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                    startDrag(
-                                      sup.teacherId,
-                                      'teacher',
-                                      e,
-                                      { supId: sup.id },
-                                      ghostUI
-                                    );
-                                  }}
-                                  className={`draggable-item absolute inset-x-1 rounded-xl border flex items-center justify-center shadow-2xl pointer-events-auto transition-all duration-300
-                                    ${hasHighlight
-                                      ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] z-30'
-                                      : 'bg-[#1e293b] border-slate-700/50 hover:border-cyan-500/50'
-                                    } ${isDraggingThis ? 'opacity-20 scale-95' : 'opacity-100'}`}
-                                  style={{
-                                    top: slotIdx * SLOT_MIN_HEIGHT + 4,
-                                    height: SLOT_MIN_HEIGHT * 2 - 8,
-                                    transition:
-                                      'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, transform 0.2s',
-                                    zIndex: isDraggingThis ? 100 : 20,
-                                    pointerEvents: activeDrag && !isDraggingReal ? 'none' : 'auto',
-                                  }}
+                                  className={`w-full relative transition-all duration-300 border-b
+                                    ${isBlocked ? 'bg-red-500/30' : isAmber ? 'bg-amber-500/20' : isZebra ? 'bg-slate-800/25' : 'bg-transparent'}
+                                    ${isHoveredTop ? 'border-b-transparent' : 'border-b-slate-800/40'}
+                                  `}
                                 >
-                                  <span
-                                    className={`text-[11px] font-black tracking-widest drop-shadow-md pointer-events-none ${hasHighlight ? 'text-cyan-300' : 'text-slate-200'}`}
-                                  >
-                                    {teacher?.shortName || '?'}
-                                  </span>
+                                  {isHoveredTop && (
+                                    <div
+                                      className="absolute inset-x-0 top-0 z-30 pointer-events-none ring-1 ring-inset ring-cyan-500 bg-cyan-500/10 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.1)]"
+                                      style={{ height: '200%' }}
+                                    />
+                                  )}
                                 </div>
                               );
                             })}
+                          </div>
+
+                          {/* Absolute Layer für Sanftes Gleiten der Aufsichts-Cards */}
+                          <div className="absolute inset-0 pointer-events-none z-20">
+                            {supervisions
+                              .filter(
+                                (s) =>
+                                  s.dayIdx === activeDayIdx &&
+                                  s.stationId === station.id &&
+                                  s.subSlotIdx === subIdx
+                              )
+                              .map((sup) => (
+                                <SupervisionCard
+                                  key={sup.id}
+                                  sup={sup}
+                                  teacher={teachers.find((t) => t.id === sup.teacherId)}
+                                  isTeacherMatch={isTeacherMatch}
+                                  activeDraggingSupId={activeDraggingSupId}
+                                  isDraggingReal={isDraggingReal}
+                                  startDrag={startDrag}
+                                  handleDrop={handleDrop}
+                                  timeSlots={timeSlots}
+                                  SLOT_MIN_HEIGHT={SLOT_MIN_HEIGHT}
+                                />
+                              ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

@@ -247,7 +247,7 @@ export const PlanningView: React.FC = () => {
     return () => window.removeEventListener('mousedown', handleClick);
   }, [isActionsOpen]);
 
-  useHeader(
+  const headerActionsContent = useMemo(() => (
     <div className="flex items-center gap-2">
       <button
         onClick={() => undo()}
@@ -343,7 +343,9 @@ export const PlanningView: React.FC = () => {
         />
       </div>
     </div>
-  );
+  ), [undo, canUndo, isActionsOpen, setIsActionsOpen, setShowExamManager, setShowPrepBalancer]);
+
+  useHeader(headerActionsContent);
 
   const planningRoomsList = useMemo(() => rooms.filter((r) => r.type === 'Prüfungsraum'), [rooms]);
 

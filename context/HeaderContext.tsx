@@ -34,7 +34,7 @@ export const useHeader = (actions?: React.ReactNode) => {
       context.setHeaderActions(actions);
       return () => context.setHeaderActions(null);
     }
-  }, [actions, context]);
+  }, [actions]); // context removed from deps as it is stable within the provider
 
   return context;
 };

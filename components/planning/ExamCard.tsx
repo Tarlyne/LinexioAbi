@@ -19,7 +19,7 @@ interface ExamCardProps {
   searchTerm?: string;
 }
 
-export const ExamCard: React.FC<ExamCardProps> = ({
+export const ExamCard = React.memo<ExamCardProps>(({
   exam,
   student,
   teacher,
@@ -70,14 +70,14 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   // Gruppen-Info für Badge & Ghost
   const groupCount = exam.groupId
     ? exams.filter(
-        (e) =>
-          e.groupId === exam.groupId &&
-          e.subject === exam.subject &&
-          e.teacherId === exam.teacherId &&
-          e.startTime > 0 &&
-          Math.floor((e.startTime - 1) / 1000) === activeDay &&
-          e.roomId === exam.roomId
-      ).length
+      (e) =>
+        e.groupId === exam.groupId &&
+        e.subject === exam.subject &&
+        e.teacherId === exam.teacherId &&
+        e.startTime > 0 &&
+        Math.floor((e.startTime - 1) / 1000) === activeDay &&
+        e.roomId === exam.roomId
+    ).length
     : 1;
 
   const ghostUI = (
@@ -121,25 +121,23 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         pointerEvents: isAnyOtherDragging ? 'none' : 'auto',
       }}
       className={`draggable-item rounded-xl p-3 shadow-2xl border transition-all duration-300 z-[35] overflow-hidden flex flex-col group exam-card-shadow
-        ${
-          hasConflict
-            ? 'bg-red-900/60 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]'
-            : hasWarning
-              ? 'bg-amber-900/40 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
-              : isSpotlightActive && hasSpotlightMatch
-                ? 'bg-cyan-500/15 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]'
-                : 'bg-[#1e293b] border-slate-700 hover:border-cyan-500/50'
+        ${hasConflict
+          ? 'bg-red-900/60 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]'
+          : hasWarning
+            ? 'bg-amber-900/40 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+            : isSpotlightActive && hasSpotlightMatch
+              ? 'bg-cyan-500/15 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]'
+              : 'bg-[#1e293b] border-slate-700 hover:border-cyan-500/50'
         } 
         ${isSpotlightActive && hasSpotlightMatch ? 'ring-1 ring-cyan-400 z-[40]' : ''}
         ${isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'}`}
     >
-      <div className="flex-1 flex flex-col min-w-0 pointer-events-none">
+      <div className="flex-1 flex flex-col min-w-0 pointer-events-none mb-1">
         <div className="flex justify-between items-start mb-1">
           <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-1">
             <span
-              className={`text-[12px] font-bold truncate leading-tight transition-colors ${
-                isSpotlightActive && hasSpotlightMatch ? 'text-cyan-300' : 'text-white'
-              }`}
+              className={`text-[12px] font-bold truncate leading-tight transition-colors ${isSpotlightActive && hasSpotlightMatch ? 'text-cyan-300' : 'text-white'
+                }`}
             >
               {student?.lastName}, {student?.firstName}
             </span>
@@ -171,9 +169,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         </div>
 
         <div
-          className={`text-[10px] font-bold uppercase tracking-widest truncate mb-2 transition-colors ${
-            matchedSubject ? 'text-cyan-400 font-black' : 'text-cyan-500/80'
-          }`}
+          className={`text-[10px] font-bold uppercase tracking-widest truncate mb-2 transition-colors ${matchedSubject ? 'text-cyan-400 font-black' : 'text-cyan-500/80'
+            }`}
         >
           {exam.subject}
           {isCombined ? '*' : ''} {exam.groupId && `(${exam.groupId})`}
@@ -187,11 +184,10 @@ export const ExamCard: React.FC<ExamCardProps> = ({
             </span>
             <div className="w-full flex justify-center mt-0.5">
               <div
-                className={`flex items-center justify-center h-5 border px-2 rounded min-w-[34px] text-center transition-all ${
-                  matchedTeacher
-                    ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]'
-                    : 'bg-cyan-500/10 border-cyan-500/20'
-                }`}
+                className={`flex items-center justify-center h-5 border px-2 rounded min-w-[34px] text-center transition-all ${matchedTeacher
+                  ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]'
+                  : 'bg-cyan-500/10 border-cyan-500/20'
+                  }`}
               >
                 <span
                   className={`text-[9px] font-bold font-mono leading-none ${matchedTeacher ? 'text-white' : 'text-cyan-300'}`}
@@ -208,22 +204,20 @@ export const ExamCard: React.FC<ExamCardProps> = ({
             </span>
             <div className="w-full flex justify-center mt-0.5">
               <div
-                className={`flex items-center justify-center h-5 border px-2 rounded min-w-[34px] text-center transition-all ${
-                  protocol
-                    ? matchedProtocol
-                      ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]'
-                      : 'bg-indigo-500/10 border-indigo-500/20'
-                    : 'border-transparent'
-                }`}
+                className={`flex items-center justify-center h-5 border px-2 rounded min-w-[34px] text-center transition-all ${protocol
+                  ? matchedProtocol
+                    ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]'
+                    : 'bg-indigo-500/10 border-indigo-500/20'
+                  : 'border-transparent'
+                  }`}
               >
                 <span
-                  className={`text-[9px] font-bold font-mono leading-none ${
-                    protocol
-                      ? matchedProtocol
-                        ? 'text-white'
-                        : 'text-indigo-300'
-                      : 'text-transparent'
-                  }`}
+                  className={`text-[9px] font-bold font-mono leading-none ${protocol
+                    ? matchedProtocol
+                      ? 'text-white'
+                      : 'text-indigo-300'
+                    : 'text-transparent'
+                    }`}
                 >
                   {protocol?.shortName || '--'}
                 </span>
@@ -237,18 +231,16 @@ export const ExamCard: React.FC<ExamCardProps> = ({
             </span>
             <div className="w-full flex justify-center mt-0.5">
               <div
-                className={`flex items-center justify-center h-5 border px-2 rounded min-w-[34px] text-center transition-all ${
-                  chair
-                    ? matchedChair
-                      ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]'
-                      : 'bg-amber-500/10 border-amber-500/20'
-                    : 'border-transparent'
-                }`}
+                className={`flex items-center justify-center h-5 border px-2 rounded min-w-[34px] text-center transition-all ${chair
+                  ? matchedChair
+                    ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)]'
+                    : 'bg-amber-500/10 border-amber-500/20'
+                  : 'border-transparent'
+                  }`}
               >
                 <span
-                  className={`text-[9px] font-bold font-mono leading-none ${
-                    chair ? (matchedChair ? 'text-white' : 'text-amber-300') : 'text-transparent'
-                  }`}
+                  className={`text-[9px] font-bold font-mono leading-none ${chair ? (matchedChair ? 'text-white' : 'text-amber-300') : 'text-transparent'
+                    }`}
                 >
                   {chair?.shortName || '--'}
                 </span>
@@ -259,4 +251,4 @@ export const ExamCard: React.FC<ExamCardProps> = ({
       </div>
     </div>
   );
-};
+});

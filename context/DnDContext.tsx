@@ -69,7 +69,8 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const dy = e.clientY - dragRef.current.startPos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      const threshold = 3;
+      const isTouch = e.pointerType === 'touch';
+      const threshold = isTouch ? 20 : 3;
       const hasMovedEnough = distance > threshold;
 
       const nextState = {

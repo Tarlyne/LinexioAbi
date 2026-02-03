@@ -112,7 +112,7 @@ export const formatCountdown = (now: Date, target: Date | null, examStart: Date)
   const s = Math.floor((target.getTime() - now.getTime()) / 1000);
   if (s <= 0) return '';
 
-  if (s > 120) {
+  if (s > 60) {
     return `${Math.ceil(s / 60)} Min.`;
   }
   const m = Math.floor(s / 60);

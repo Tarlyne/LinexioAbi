@@ -28,13 +28,42 @@ export const useLive = () => {
   const { days, students, rooms } = useData();
   const [now, setNow] = useState(new Date());
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const todayStr = useMemo(() => now.toISOString().split('T')[0], [now]);
   const currentDayIdx = useMemo(() => days.findIndex((d) => d.date === todayStr), [days, todayStr]);
+
+  useEffect(() => {
+    const updateTime = () => {
+      const currentTime = new Date();
+      setNow(currentTime);
+
+      // Check if we need high-precision (1s) updates
+      // High-res is needed if any exam is within 2 minutes of a transition
+      // or if any countdown is currently showing seconds (< 2 mins)
+      let needsHighRes = false;
+
+      if (currentDayIdx !== -1) {
+        for (const exam of exams) {
+          if (exam.startTime <= 0 || Math.floor((exam.startTime - 1) / 1000) !== currentDayIdx || exam.status === 'completed') continue;
+
+          const times = getExamTimes(exam.startTime, currentTime);
+          const diffToStart = (times.examStart.getTime() - currentTime.getTime()) / 1000;
+
+          // If we are within 3 minutes of the exam start, we might be in a critical phase (Taxi, Prep)
+          // or showing a second-based countdown.
+          if (diffToStart > -1800 && diffToStart < 180) {
+            needsHighRes = true;
+            break;
+          }
+        }
+      }
+
+      const nextInterval = needsHighRes ? 1000 : 10000;
+      timerRef.current = setTimeout(updateTime, nextInterval);
+    };
+
+    const timerRef = { current: setTimeout(updateTime, 1000) };
+    return () => clearTimeout(timerRef.current);
+  }, [exams, currentDayIdx]);
 
   const liveExams = useMemo((): LiveExamData[] => {
     if (currentDayIdx === -1) return [];

@@ -57,10 +57,10 @@ export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exi
         <span className="font-bold text-slate-200">
           {activeTab === 'days'
             ? new Date(item.date).toLocaleDateString('de-DE', {
-                weekday: 'short',
-                day: '2-digit',
-                month: '2-digit',
-              })
+              weekday: 'short',
+              day: '2-digit',
+              month: '2-digit',
+            })
             : activeTab === 'subjects'
               ? item.name
               : item.lastName || item.name}
@@ -157,11 +157,11 @@ export const DataList: React.FC<DataListProps> = ({ activeTab, data, onEdit, exi
   });
 
   return (
-    <div className="flex-1 glass-nocturne border border-slate-700/30 overflow-hidden flex flex-col">
+    <div className="flex-1 glass-nocturne overflow-hidden flex flex-col">
       <div className="flex-1 overflow-auto">
         <table className="w-full text-left border-collapse table-fixed">
-          <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-md z-10 shadow-sm">
-            <tr className="border-b border-slate-700/50">
+          <thead className="sticky top-0 bg-[#1e293b] z-10 border-b border-slate-700/40">
+            <tr>
               {columns.map((col) => (
                 <th
                   key={col.header}
