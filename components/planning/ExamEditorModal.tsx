@@ -160,21 +160,20 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
         disabled={isUsedInOtherRole}
         onClick={() => handleTeacherClick(teacher.id)}
         className={`w-full text-left p-2.5 rounded-xl border transition-all duration-200 flex items-center justify-between gap-2.5 relative overflow-hidden group/card
-          ${
-            assignedRole
-              ? 'shadow-lg scale-[1.02] z-10'
-              : isUsedInOtherRole
-                ? 'opacity-20 cursor-not-allowed border-slate-800'
-                : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60'
+          ${assignedRole
+            ? 'shadow-lg scale-[1.02] z-10'
+            : isUsedInOtherRole
+              ? 'opacity-20 cursor-not-allowed border-slate-800'
+              : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60'
           }
         `}
         style={
           assignedRole
             ? {
-                borderColor: cardColor,
-                backgroundColor: `${cardColor}26`, // 15% opacity
-                boxShadow: isSelected ? `0 0 15px ${cardColor}40` : 'none',
-              }
+              borderColor: cardColor,
+              backgroundColor: `${cardColor}26`, // 15% opacity
+              boxShadow: isSelected ? `0 0 15px ${cardColor}40` : 'none',
+            }
             : {}
         }
       >
@@ -185,11 +184,10 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
         </span>
 
         <div
-          className={`text-[10px] font-black px-1.5 py-0.5 rounded border transition-all shrink-0 ${
-            assignedRole
+          className={`text-[10px] font-black px-1.5 py-0.5 rounded border transition-all shrink-0 ${assignedRole
               ? 'bg-white/10 border-white/10 text-white'
               : 'bg-slate-950/40 border-slate-800 text-slate-600'
-          }`}
+            }`}
         >
           {Math.round(stats.points)}
         </div>
@@ -329,6 +327,38 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                     </span>
                   </div>
                 )}
+
+                {/* Sicherungsprüfung Toggle */}
+                <label className="flex items-center gap-3 cursor-pointer group px-4 py-3 bg-amber-500/5 border border-amber-500/20 rounded-xl hover:bg-amber-500/10 transition-all mt-3">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <ShieldCheck size={16} className="text-amber-500 shrink-0" />
+                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">
+                      Sicherungsprüfung
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={editingExam?.isBackupExam || false}
+                    onChange={(e) =>
+                      setEditingExam((prev: any) => ({
+                        ...prev,
+                        isBackupExam: e.target.checked,
+                      }))
+                    }
+                    className="sr-only"
+                  />
+                  <div
+                    className={`w-10 h-6 rounded-full transition-all flex items-center px-1 border ${editingExam?.isBackupExam
+                        ? 'bg-amber-600 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                        : 'bg-slate-800 border-slate-700'
+                      }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${editingExam?.isBackupExam ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                    />
+                  </div>
+                </label>
               </div>
             </div>
 
@@ -359,9 +389,8 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                         return (
                           <div
                             key={role.id}
-                            className={`px-2 py-1 rounded-md border text-[10px] font-black transition-all duration-300 flex items-center justify-center min-w-[36px] h-7 ${
-                              teacher ? 'bg-white/5 border-solid' : 'border-dashed opacity-60'
-                            }`}
+                            className={`px-2 py-1 rounded-md border text-[10px] font-black transition-all duration-300 flex items-center justify-center min-w-[36px] h-7 ${teacher ? 'bg-white/5 border-solid' : 'border-dashed opacity-60'
+                              }`}
                             style={{ borderColor: roleColor, color: roleColor }}
                           >
                             {teacher?.shortName || placeholder}
@@ -440,11 +469,10 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setShowOthers(!showOthers)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${
-                            showOthers
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${showOthers
                               ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
                               : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
-                          }`}
+                            }`}
                         >
                           {showOthers ? <EyeOff size={14} /> : <Eye size={14} />}
                           {showOthers ? 'Fachfremde ausblenden' : 'Fachfremde einblenden'}
@@ -519,10 +547,9 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                             }))
                           }
                           className={`min-w-[100px] h-9 rounded-xl border flex items-center justify-center gap-2.5 transition-all duration-200 relative overflow-hidden group
-                            ${
-                              isSelected
-                                ? 'bg-amber-600 border-amber-500 text-white shadow-lg scale-105'
-                                : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200 hover:bg-slate-800/60'
+                            ${isSelected
+                              ? 'bg-amber-600 border-amber-500 text-white shadow-lg scale-105'
+                              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200 hover:bg-slate-800/60'
                             }
                           `}
                         >

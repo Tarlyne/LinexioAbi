@@ -29,7 +29,7 @@ export const SupervisionPrintView: React.FC<SupervisionPrintViewProps> = ({
 
   const footerStr = useMemo(() => {
     const now = new Date();
-    return `Erstellt mit LinexioAbi am ${now.toLocaleDateString('de-DE')} um ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr.`;
+    return `Erstellt mit LinexioAbi am ${now.toLocaleDateString('de-DE')}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
   }, []);
 
   const timeSlots = useMemo(() => {
@@ -121,11 +121,9 @@ export const SupervisionPrintView: React.FC<SupervisionPrintViewProps> = ({
         </tbody>
       </table>
 
-      {!isPreview && (
-        <div className="export-footer mt-4">
-          <div className="text-[7.5pt] text-slate-500 italic opacity-80">{footerStr}</div>
-        </div>
-      )}
+      <div className="export-footer mt-4">
+        <div className="text-[7.5pt] text-slate-500 italic opacity-80">{footerStr}</div>
+      </div>
     </div>
   );
 };

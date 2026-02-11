@@ -20,6 +20,7 @@ import {
   getTeacherBlockedPeriods,
   getTeacherSubjectPeriods,
 } from '../utils/engine';
+import { timeToMin, examSlotToMin } from '../utils/TimeService';
 import { Supervision, Teacher } from '../types';
 import { Modal } from './Modal';
 import { PdfExportService } from '../services/PdfExportService';
@@ -632,8 +633,45 @@ export const StatsView: React.FC = () => {
                   useFlexibleGrid={false}
                   renderSlot={(time, idx) => {
                     const isFullHour = idx % 2 !== 0;
+
+                    // Workload-Berechnung für den Slot
+                    const startMin = timeToMin(time);
+                    const endMin = startMin + 30;
+
+                    const count = exams.reduce((acc, exam) => {
+                      if (exam.status === 'cancelled') return acc;
+                      const day = Math.floor((exam.startTime - 1) / 1000);
+                      if (day !== activeDayIdx) return acc;
+
+                      const eStart = examSlotToMin(exam.startTime);
+                      // Standard-Dauer 30 Min gemäß Engine
+                      const eEnd = eStart + 30;
+
+                      // Overlap Check
+                      if (eStart < endMin && eEnd > startMin) {
+                        return acc + 1;
+                      }
+                      return acc;
+                    }, 0);
+
+                    // Farblogik gemäß User-Request
+                    let barColor = 'bg-slate-700/50';
+                    if (count >= 6) barColor = 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]';
+                    else if (count >= 4) barColor = 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)]';
+                    else if (count >= 2) barColor = 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]';
+                    else if (count > 0) barColor = 'bg-slate-600';
+
                     return (
-                      <div className="w-full h-full flex items-start justify-center pt-1">
+                      <div
+                        className="w-full h-full flex items-start justify-center pt-1 relative group cursor-pointer hover:bg-white/5 transition-colors"
+                        onClick={() => count > 0 && setHoveredWorkloadInfo({ time, count })}
+                      >
+                        {count > 0 && (
+                          <div
+                            className={`absolute left-0 top-0 bottom-0 w-2 transition-all duration-500 ${barColor}`}
+                            style={{ clipPath: 'polygon(0 0, 100% 25%, 100% 75%, 0 100%)' }}
+                          />
+                        )}
                         <span
                           className={`text-[11px] font-bold transition-all duration-300 ${isFullHour ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]' : 'text-slate-500 opacity-60'}`}
                         >

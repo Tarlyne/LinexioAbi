@@ -407,7 +407,7 @@ export const PlanningView: React.FC = () => {
           }}
           checkConsistency={checkConsistency}
         />
-        <div className="flex-1 glass-nocturne border-slate-700/30 overflow-hidden flex flex-col min-w-0">
+        <div className="flex-1 glass-nocturne overflow-hidden flex flex-col min-w-0 !border-l-0 !border-t-0">
           {planningRoomsList.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-3 italic text-sm">
               <MapPin size={40} className="opacity-10 mb-2" />

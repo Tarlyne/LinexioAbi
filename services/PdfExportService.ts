@@ -25,7 +25,7 @@ export const PdfExportService = {
 
   _drawFooter(pdf: jsPDF) {
     const now = new Date();
-    const footerText = `Erstellt mit LinexioAbi am ${now.toLocaleDateString('de-DE')} um ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr.`;
+    const footerText = `Erstellt mit LinexioAbi am ${now.toLocaleDateString('de-DE')}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
 
     pdf.setFontSize(PDF_CONFIG.footerFontSize);
     pdf.setTextColor(120);

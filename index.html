@@ -14,6 +14,9 @@
     <meta name="apple-mobile-web-app-title" content="LinexioAbi">
     <meta name="theme-color" content="#0a0f1d">
 
+    <!-- iOS Splash Screen Optimization: Nutzt background_color aus manifest.json -->
+    <!-- Kein apple-touch-startup-image nötig - iOS zeigt automatisch background_color (#0a0f1d) -->
+
     <!-- Windows Desktop / Start-Kachel Branding -->
     <meta name="msapplication-TileImage" content="/icon-512.png">
     <meta name="msapplication-TileColor" content="#0a0f1d">
@@ -34,8 +37,16 @@
     <!-- Safari Mask Icon -->
     <link rel="mask-icon" href="/favicon.svg" color="#06b6d4">
 
-    <!-- Critical Splash Styles (Inline) -->
+    <!-- Critical Splash Styles (Inline) - Optimiert für iOS PWA -->
     <style>
+        /* Verhindert weißen Blitz beim iOS-Start */
+        html,
+        body {
+            background-color: #0a0f1d;
+            margin: 0;
+            padding: 0;
+        }
+
         #splash-screen {
             position: fixed;
             inset: 0;
@@ -47,6 +58,7 @@
             z-index: 99999;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: white;
+            will-change: opacity;
         }
 
         .splash-logo-container {
@@ -54,6 +66,8 @@
             width: 120px;
             height: 120px;
             margin-bottom: 24px;
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
         }
 
         .splash-logo-container svg {

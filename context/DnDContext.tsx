@@ -70,13 +70,39 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const distance = Math.sqrt(dx * dx + dy * dy);
 
       const isTouch = e.pointerType === 'touch';
-      const threshold = isTouch ? 20 : 3;
-      const hasMovedEnough = distance > threshold;
+
+      // RICHTUNGS-ERKENNUNG FÜR TOUCH:
+      // Statt nur Pixel zu zählen, prüfen wir die Intention.
+      // - Startet nur bei Mindestdistanz (8px Touch, 3px Maus)
+      // - Bei Touch: Nur wenn Bewegung deutlich horizontal ist
+      const minDistance = isTouch ? 8 : 3;
+      const hasMovedEnough = distance > minDistance;
+
+      let shouldStartDrag = dragRef.current.isDraggingStarted;
+
+      if (!shouldStartDrag && hasMovedEnough) {
+        if (isTouch) {
+          const absX = Math.abs(dx);
+          const absY = Math.abs(dy);
+
+          // Wenn vertikale Bewegung dominiert -> Scroll-Intention!
+          // Wir ignorieren das Event für D&D und lassen den Browser scrollen
+          // (dank touch-action: pan-y)
+          if (absY * 1.5 > absX) {
+            return;
+          }
+          // Wenn horizontal dominiert -> Drag-Intention!
+          shouldStartDrag = true;
+        } else {
+          // Maus: Einfacher Threshold reicht
+          shouldStartDrag = true;
+        }
+      }
 
       const nextState = {
         ...dragRef.current,
         currentPos: { x: e.clientX, y: e.clientY },
-        isDraggingStarted: dragRef.current.isDraggingStarted || hasMovedEnough,
+        isDraggingStarted: shouldStartDrag,
       };
 
       dragRef.current = nextState;

@@ -84,7 +84,7 @@ input::-webkit-credentials-auto-fill-button {
 }
 
 .draggable-item {
-    touch-action: none !important;
+    touch-action: pan-y !important;
     -webkit-user-select: none !important;
     user-select: none !important;
     cursor: grab;

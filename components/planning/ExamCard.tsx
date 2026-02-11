@@ -120,7 +120,7 @@ export const ExamCard = React.memo<ExamCardProps>(({
         right: 4,
         pointerEvents: isAnyOtherDragging ? 'none' : 'auto',
       }}
-      className={`draggable-item rounded-xl p-3 shadow-2xl border transition-all duration-300 z-[35] overflow-hidden flex flex-col group exam-card-shadow
+      className={`draggable-item rounded-xl p-3 shadow-2xl border transition-all duration-300 z-[35] overflow-hidden flex flex-col group exam-card-shadow relative
         ${hasConflict
           ? 'bg-red-900/60 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]'
           : hasWarning
@@ -132,6 +132,9 @@ export const ExamCard = React.memo<ExamCardProps>(({
         ${isSpotlightActive && hasSpotlightMatch ? 'ring-1 ring-cyan-400 z-[40]' : ''}
         ${isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'}`}
     >
+      {exam.isBackupExam && (
+        <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 opacity-60 rounded-l-xl"></div>
+      )}
       <div className="flex-1 flex flex-col min-w-0 pointer-events-none mb-1">
         <div className="flex justify-between items-start mb-1">
           <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-1">

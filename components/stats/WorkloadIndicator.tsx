@@ -14,15 +14,20 @@ export const WorkloadIndicator: React.FC<WorkloadIndicatorProps> = ({ info, onCl
   if (!info) return null;
 
   const getWorkloadColor = (count: number) => {
-    if (count <= 2) return 'bg-slate-700/40';
-    if (count <= 4) return 'bg-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.4)]';
-    return 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]';
+    if (count <= 1) return 'bg-slate-700/40';
+    if (count <= 3) return 'bg-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.4)]';
+    if (count <= 5) return 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]';
+    return 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)]';
   };
 
   const getWorkloadGlowStyle = (count: number) => {
+    let borderColor = 'rgba(6, 182, 212, 0.4)'; // Cyan
+    if (count > 5) borderColor = 'rgba(239, 68, 68, 0.4)'; // Red
+    else if (count >= 4) borderColor = 'rgba(245, 158, 11, 0.4)'; // Amber
+
     return {
       boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.9), 0 0 80px 4px rgba(6, 182, 212, 0.35)',
-      borderColor: count >= 5 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(6, 182, 212, 0.4)',
+      borderColor,
     };
   };
 
@@ -36,7 +41,7 @@ export const WorkloadIndicator: React.FC<WorkloadIndicatorProps> = ({ info, onCl
         style={getWorkloadGlowStyle(info.count)}
       >
         <div className="flex flex-col items-center justify-center border-r border-slate-700/50 pr-5 shrink-0">
-          <Clock size={16} className={info.count >= 5 ? 'text-amber-500' : 'text-cyan-500'} />
+          <Clock size={16} className={info.count > 5 ? 'text-red-500' : info.count >= 4 ? 'text-amber-500' : 'text-cyan-500'} />
           <span className="text-sm font-black text-white uppercase tracking-widest mt-1">
             {info.time}
           </span>
@@ -55,7 +60,7 @@ export const WorkloadIndicator: React.FC<WorkloadIndicatorProps> = ({ info, onCl
               {info.count === 1 ? 'Aktive Prüfung' : 'Zeitgleiche Prüfungen'}
             </span>
             <p className="text-[10px] text-slate-500 font-medium mt-1 leading-tight">
-              {info.count >= 5
+              {info.count >= 4
                 ? 'Achtung: Erhöhtes Aufkommen in diesem Zeitraum.'
                 : 'Reguläre Auslastung in diesem Zeitfenster.'}
             </p>

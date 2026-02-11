@@ -60,6 +60,7 @@ export interface Exam {
   status: 'backlog' | 'scheduled' | 'running' | 'completed' | 'cancelled';
   startTime: number;
   isPresent?: boolean;
+  isBackupExam?: boolean; // Kennzeichnet eine Sicherungsprüfung
 }
 
 export interface Supervision {

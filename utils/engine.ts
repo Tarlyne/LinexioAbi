@@ -173,14 +173,33 @@ export const checkExamCollision = (
     if (dayIndex !== oDay) continue;
 
     const oSlot = (other.startTime - 1) % 1000;
+
+    // 1. Check: Schüler-Kollision am SELBEN TAG (unabhängig von Uhrzeit)
+    // Regel: Ein Schüler darf maximal EINE reguläre Prüfung pro Tag haben.
+    if (exam.studentId === other.studentId) {
+      const isRegular1 = !exam.isBackupExam;
+      const isRegular2 = !other.isBackupExam;
+
+      if (isRegular1 && isRegular2) {
+        return {
+          hasConflict: true,
+          reason: 'Schüler hat mehrere reguläre Prüfungen am selben Tag.',
+        };
+      }
+    }
+
+    // 2. Check: Zeitliche Überschneidung (Raum, Lehrer, Schüler allgemein)
     if (
       slotIndex < oSlot + TIME_CONFIG.EXAM_DURATION_SLOTS &&
       slotIndex + TIME_CONFIG.EXAM_DURATION_SLOTS > oSlot
     ) {
       if (exam.roomId === other.roomId)
         return { hasConflict: true, reason: 'Raumbelegung kollidiert.' };
-      if (exam.studentId === other.studentId)
-        return { hasConflict: true, reason: 'Schüler-Kollision.' };
+
+      // Schüler kann nicht gleichzeitig an zwei Orten sein (auch bei Sicherungsprüfung!)
+      if (exam.studentId === other.studentId) {
+        return { hasConflict: true, reason: 'Zeitliche Überschneidung für Schüler.' };
+      }
 
       const otherT = [other.teacherId, other.chairId, other.protocolId].filter(Boolean) as string[];
       for (const t of otherT) {

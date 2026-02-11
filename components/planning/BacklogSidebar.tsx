@@ -84,8 +84,11 @@ const BacklogExamCard = React.memo<BacklogExamCardProps>(({
         if (e.button !== 0) return;
         startDrag(exam.id, 'exam', e, { fromBacklog: true, groupCount }, ghostUI);
       }}
-      className={`draggable-item p-3 border rounded-xl hover:border-cyan-500/40 transition-all group relative flex flex-col ${isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'} ${hasWarning ? 'bg-amber-900/20 border-amber-500/30' : isNakedDraft ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/40 border-slate-700/50'}`}
+      className={`draggable-item p-3 border rounded-xl hover:border-cyan-500/40 transition-all group relative flex flex-col overflow-hidden ${isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'} ${hasWarning ? 'bg-amber-900/20 border-amber-500/30' : isNakedDraft ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/40 border-slate-700/50'}`}
     >
+      {exam.isBackupExam && (
+        <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 opacity-60 rounded-l-xl"></div>
+      )}
       <div className="flex justify-between items-start mb-1">
         <div className="flex items-center gap-1.5 min-w-0 flex-1 pointer-events-none">
           <span
