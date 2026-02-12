@@ -34,6 +34,7 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeDrag, setActiveDrag] = useState<DragState | null>(null);
   const [dropTarget, setDropTarget] = useState<{ element: HTMLElement; info: any } | null>(null);
   const dragRef = useRef<DragState | null>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   const startDrag = useCallback(
     (
@@ -43,6 +44,14 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       extraData?: any,
       ghostContent?: React.ReactNode
     ) => {
+      // Bestehenden Timer löschen (Sicherheit)
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+
+      const isTouch = event.pointerType === 'touch';
+
       const newState: DragState = {
         id,
         type,
@@ -50,11 +59,26 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentPos: { x: event.clientX, y: event.clientY },
         extraData,
         ghostContent,
-        isDraggingStarted: false,
+        isDraggingStarted: !isTouch, // Maus: Sofort start, Touch: Warten
       };
 
       dragRef.current = newState;
       setActiveDrag(newState);
+
+      if (isTouch) {
+        // Long-Press Timer starten (300ms)
+        longPressTimer.current = setTimeout(() => {
+          if (dragRef.current && dragRef.current.id === id) {
+            // Drag aktivieren
+            const startedState = { ...dragRef.current, isDraggingStarted: true };
+            dragRef.current = startedState;
+            setActiveDrag(startedState);
+
+            // Haptisches Feedback (optional)
+            if (navigator.vibrate) navigator.vibrate(50);
+          }
+        }, 300);
+      }
     },
     []
   );
@@ -69,63 +93,53 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const dy = e.clientY - dragRef.current.startPos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      const isTouch = e.pointerType === 'touch';
-
-      // RICHTUNGS-ERKENNUNG FÜR TOUCH:
-      // Statt nur Pixel zu zählen, prüfen wir die Intention.
-      // - Startet nur bei Mindestdistanz (8px Touch, 3px Maus)
-      // - Bei Touch: Nur wenn Bewegung deutlich horizontal ist
-      const minDistance = isTouch ? 8 : 3;
-      const hasMovedEnough = distance > minDistance;
-
-      let shouldStartDrag = dragRef.current.isDraggingStarted;
-
-      if (!shouldStartDrag && hasMovedEnough) {
-        if (isTouch) {
-          const absX = Math.abs(dx);
-          const absY = Math.abs(dy);
-
-          // Wenn vertikale Bewegung dominiert -> Scroll-Intention!
-          // Wir ignorieren das Event für D&D und lassen den Browser scrollen
-          // (dank touch-action: pan-y)
-          if (absY * 1.5 > absX) {
-            return;
+      // --- LOGIK FÜR TOUCH (Long-Press) ---
+      // Wenn Drag noch nicht gestartet ist (Wartezeit läuft):
+      if (!dragRef.current.isDraggingStarted) {
+        // Wenn Bewegung > 8px während Wartezeit -> ABBRUCH (User will scrollen)
+        if (distance > 8) {
+          if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
           }
-          // Wenn horizontal dominiert -> Drag-Intention!
-          shouldStartDrag = true;
-        } else {
-          // Maus: Einfacher Threshold reicht
-          shouldStartDrag = true;
+          dragRef.current = null;
+          setActiveDrag(null);
         }
+        return;
       }
 
+      // --- LOGIK FÜR AKTIVEN DRAG ---
       const nextState = {
         ...dragRef.current,
         currentPos: { x: e.clientX, y: e.clientY },
-        isDraggingStarted: shouldStartDrag,
+        // isDraggingStarted bleibt true
       };
 
       dragRef.current = nextState;
       setActiveDrag(nextState);
 
-      if (nextState.isDraggingStarted) {
-        const elementUnder = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
-        const target = elementUnder?.closest('[data-drop-zone="true"]') as HTMLElement;
+      const elementUnder = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
+      const target = elementUnder?.closest('[data-drop-zone="true"]') as HTMLElement;
 
-        if (target) {
-          try {
-            const info = JSON.parse(target.getAttribute('data-drop-info') || '{}');
-            setDropTarget({ element: target, info });
-          } catch (err) {
-            setDropTarget(null);
-          }
-        } else {
+      if (target) {
+        try {
+          const info = JSON.parse(target.getAttribute('data-drop-info') || '{}');
+          setDropTarget({ element: target, info });
+        } catch (err) {
           setDropTarget(null);
         }
+      } else {
+        setDropTarget(null);
       }
     };
 
     const handlePointerUp = (e: PointerEvent) => {
+      // Timer immer löschen beim Loslassen
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+
       if (!dragRef.current) return;
       const currentDrag = dragRef.current;
 
@@ -162,6 +176,7 @@ export const DnDProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('pointercancel', handlePointerUp);
 
     return () => {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current); // Cleanup
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp, { capture: true });
       window.removeEventListener('pointercancel', handlePointerUp);

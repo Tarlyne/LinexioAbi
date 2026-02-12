@@ -17,6 +17,7 @@ import { PdfExportService } from '../../services/PdfExportService';
 import { runPreflightCheck } from '../../utils/validationEngine';
 import { ExportPrintView } from '../ExportPrintView';
 import { PrepRoomPrintView } from '../PrepRoomPrintView';
+import { BeisitzerPrintView } from './BeisitzerPrintView';
 import { useUI } from '../../context/UIContext';
 import { AppState } from '../../types';
 
@@ -34,7 +35,7 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
   appState,
 }) => {
   const { showToast } = useUI();
-  const [exportType, setExportType] = useState<'exam' | 'prep'>('exam');
+  const [exportType, setExportType] = useState<'exam' | 'prep' | 'beisitzer'>('exam');
   const [isExporting, setIsExporting] = useState(false);
 
   const preflightIssues = useMemo(() => {
@@ -56,14 +57,17 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
   const handleExport = async () => {
     setIsExporting(true);
     const dayLabel = appState.days[activeDayIdx]?.label || 'Prüfungsplan';
-    const prefix = exportType === 'exam' ? 'Pruefungsplan' : 'Vorbereitungsplan';
+    const prefixes = { exam: 'Pruefungsplan', prep: 'Vorbereitungsplan', beisitzer: 'Beisitzerliste' };
+    const prefix = prefixes[exportType];
     const filename = `${prefix}_${dayLabel.replace(/\s/g, '_')}`;
 
     try {
       if (exportType === 'exam') {
         await PdfExportService.generateAndDownload(appState, activeDayIdx, filename);
-      } else {
+      } else if (exportType === 'prep') {
         await PdfExportService.generatePrepRoomPdf(appState, activeDayIdx, filename);
+      } else {
+        await PdfExportService.generateBeisitzerPdf(appState, activeDayIdx, filename);
       }
       showToast('PDF erfolgreich generiert.', 'success');
     } catch (err) {
@@ -81,21 +85,21 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
             <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
               {exportType === 'exam' ? <FileText size={20} /> : <FileCheck size={20} />}
             </div>
-            <div>
+            <div className="w-[420px] shrink-0">
               <h3 className="text-lg font-bold text-white tracking-tight">Export-Vorschau</h3>
-              <p className="text-xs text-cyan-500/80 font-medium">
-                {exportType === 'exam' ? 'Prüfungsplan' : 'Vorbereitungsplan'} für{' '}
+              <p className="text-xs text-cyan-500/80 font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+                {exportType === 'exam' ? 'Prüfungsplan' : exportType === 'prep' ? 'Vorbereitungsplan' : 'Beisitzerliste'} für{' '}
                 {formattedDayInfo}
               </p>
             </div>
           </div>
 
-          <div className="segmented-control-wrapper w-64 h-9">
+          <div className="segmented-control-wrapper w-[320px] h-9">
             <div
               className="segmented-control-slider"
               style={{
-                width: 'calc((100% - 6px) / 2)',
-                transform: `translateX(calc(${exportType === 'exam' ? 0 : 1} * 100%))`,
+                width: 'calc((100% - 6px) / 3)',
+                transform: `translateX(calc(${exportType === 'exam' ? 0 : exportType === 'prep' ? 1 : 2} * 100%))`,
               }}
             />
             <button
@@ -109,6 +113,12 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
               className={`segmented-control-item ${exportType === 'prep' ? 'text-white' : 'text-slate-500'}`}
             >
               Vorbereitung
+            </button>
+            <button
+              onClick={() => setExportType('beisitzer')}
+              className={`segmented-control-item ${exportType === 'beisitzer' ? 'text-white' : 'text-slate-500'}`}
+            >
+              Beisitzer
             </button>
           </div>
 
@@ -155,13 +165,12 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
                   preflightIssues.map((issue) => (
                     <div
                       key={issue.id}
-                      className={`p-3 rounded-xl border flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-2 duration-300 ${
-                        issue.severity === 'error'
-                          ? 'bg-red-500/5 border-red-500/20'
-                          : issue.severity === 'warning'
-                            ? 'bg-amber-500/5 border-amber-500/20'
-                            : 'bg-cyan-500/5 border-cyan-500/20'
-                      }`}
+                      className={`p-3 rounded-xl border flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-2 duration-300 ${issue.severity === 'error'
+                        ? 'bg-red-500/5 border-red-500/20'
+                        : issue.severity === 'warning'
+                          ? 'bg-amber-500/5 border-amber-500/20'
+                          : 'bg-cyan-500/5 border-cyan-500/20'
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         {issue.severity === 'error' ? (
@@ -172,13 +181,12 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
                           <Info size={14} className="text-cyan-400" />
                         )}
                         <span
-                          className={`text-[10px] font-bold uppercase tracking-tight ${
-                            issue.severity === 'error'
-                              ? 'text-red-400'
-                              : issue.severity === 'warning'
-                                ? 'text-amber-400'
-                                : 'text-cyan-300'
-                          }`}
+                          className={`text-[10px] font-bold uppercase tracking-tight ${issue.severity === 'error'
+                            ? 'text-red-400'
+                            : issue.severity === 'warning'
+                              ? 'text-amber-400'
+                              : 'text-cyan-300'
+                            }`}
                         >
                           {issue.message}
                         </span>
@@ -198,8 +206,10 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
             <div className="mx-auto origin-top transition-transform duration-300">
               {exportType === 'exam' ? (
                 <ExportPrintView activeDayIdx={activeDayIdx} isPreview={true} />
-              ) : (
+              ) : exportType === 'prep' ? (
                 <PrepRoomPrintView activeDayIdx={activeDayIdx} isPreview={true} />
+              ) : (
+                <BeisitzerPrintView activeDayIdx={activeDayIdx} isPreview={true} />
               )}
             </div>
           </div>

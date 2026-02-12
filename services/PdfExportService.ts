@@ -514,4 +514,226 @@ export const PdfExportService = {
     this._drawFooter(pdf);
     pdf.save(`${filename}.pdf`);
   },
+
+  async generateBeisitzerPdf(
+    state: AppState,
+    activeDayIdx: number,
+    filename: string
+  ): Promise<void> {
+    const activeDay = state.days[activeDayIdx];
+    if (!activeDay) return;
+
+    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const contentWidth = PDF_CONFIG.pageWidth - 2 * PDF_CONFIG.marginX;
+    const currentYear = new Date(activeDay.date).getFullYear();
+
+    const dateStrFull = new Intl.DateTimeFormat('de-DE', {
+      weekday: 'long',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(new Date(activeDay.date));
+    const [dayName, dateDigits] = dateStrFull.split(', ');
+
+    // 1. Gruppierungslogik (Gleich wie in BeisitzerPrintView)
+    const dayExams = state.exams.filter(
+      (e) =>
+        e.startTime > 0 &&
+        Math.floor((e.startTime - 1) / 1000) === activeDayIdx &&
+        e.status !== 'cancelled' &&
+        !e.isBackupExam
+    );
+
+    const blocks: { subject: string; roomName: string; teacherShort: string; exams: Exam[] }[] = [];
+    state.rooms
+      .filter((r) => r.type === 'Prüfungsraum')
+      .forEach((room) => {
+        const roomExams = dayExams
+          .filter((e) => e.roomId === room.id)
+          .sort((a, b) => a.startTime - b.startTime);
+
+        let currentBlockExams: Exam[] = [];
+        roomExams.forEach((exam, idx) => {
+          const prev = roomExams[idx - 1];
+          const isNew =
+            !prev ||
+            prev.subject !== exam.subject ||
+            exam.startTime - prev.startTime > (60 / 20) * 1; // 3 slots threshold
+
+          if (isNew && currentBlockExams.length > 0) {
+            const first = currentBlockExams[0];
+            blocks.push({
+              subject: first.subject,
+              roomName: room.name,
+              teacherShort: state.teachers.find((t) => t.id === first.teacherId)?.shortName || '?',
+              exams: [...currentBlockExams],
+            });
+            currentBlockExams = [];
+          }
+          currentBlockExams.push(exam);
+        });
+        if (currentBlockExams.length > 0) {
+          const first = currentBlockExams[0];
+          blocks.push({
+            subject: first.subject,
+            roomName: room.name,
+            teacherShort: state.teachers.find((t) => t.id === first.teacherId)?.shortName || '?',
+            exams: currentBlockExams,
+          });
+        }
+      });
+
+    blocks.sort((a, b) => a.exams[0].startTime - b.exams[0].startTime);
+
+    blocks.forEach((block, bIdx) => {
+      const isFirstOnPage = bIdx % 2 === 0;
+      if (bIdx > 0 && isFirstOnPage) pdf.addPage();
+
+      // topY mit mehr Abstand nach Trennung
+      const topY = isFirstOnPage ? PDF_CONFIG.marginY : PDF_CONFIG.pageHeight / 2 + 12;
+
+      // Header
+      pdf.setFontSize(PDF_CONFIG.headerFontSize);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0);
+      pdf.text(`Abiturprüfungen ${currentYear}`, PDF_CONFIG.marginX, topY);
+
+      // Datum rechts mit Cyan-Tag
+      pdf.setFontSize(11);
+      const dateTextWidth = pdf.getTextWidth(`, ${dateDigits}`);
+      pdf.setTextColor(PDF_CONFIG.cyanRGB[0], PDF_CONFIG.cyanRGB[1], PDF_CONFIG.cyanRGB[2]);
+      pdf.text(dayName, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX - dateTextWidth - 1, topY, {
+        align: 'right',
+      });
+      pdf.setTextColor(0);
+      pdf.text(`, ${dateDigits}`, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, topY, {
+        align: 'right',
+      });
+
+      // Trennlinie
+      pdf.setLineWidth(0.5);
+      pdf.line(PDF_CONFIG.marginX, topY + 2, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, topY + 2);
+
+      // Fach
+      pdf.setFontSize(22);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(block.subject.toUpperCase(), PDF_CONFIG.marginX, topY + 14);
+
+      // Layout: Linke Spalte (Info + Tabelle) | Rechte Spalte (Beisitzer)
+      const contentBaseY = topY + 22;
+
+      // --- LINKE SPALTE ---
+      const colWidth = 70;
+
+      // Info-Box (In Spalte integriert) mit abgerundeten Ecken, ohne Rand
+      pdf.setFillColor(243, 244, 246);
+      pdf.roundedRect(PDF_CONFIG.marginX, contentBaseY, colWidth, 14, 3, 3, 'F');
+
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(100); // Slate-500 equivalent for label
+      pdf.text('RAUM:', PDF_CONFIG.marginX + 3, contentBaseY + 5);
+      pdf.setTextColor(0);
+      pdf.text(block.roomName, PDF_CONFIG.marginX + 15, contentBaseY + 5);
+
+      // Prüfer Rechtsbündig in der Spalte - Exakte Berechnung für perfekten Abstand ohne Overlap
+      const rightEdge = PDF_CONFIG.marginX + colWidth - 3;
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      const labelText = 'PRÜFER: ';
+      const labelWidth = pdf.getTextWidth(labelText);
+
+      pdf.setFontSize(11); // Kürzel ist größer
+      const valueText = block.teacherShort;
+      const valueWidth = pdf.getTextWidth(valueText);
+
+      const totalWidth = labelWidth + valueWidth;
+      const startX = rightEdge - totalWidth;
+
+      // Label zeichnen
+      pdf.setFontSize(9);
+      pdf.setTextColor(100);
+      pdf.text(labelText, startX, contentBaseY + 5);
+
+      // Kürzel zeichnen (Direkt nach dem Label)
+      pdf.setFontSize(11);
+      pdf.setTextColor(PDF_CONFIG.cyanRGB[0], PDF_CONFIG.cyanRGB[1], PDF_CONFIG.cyanRGB[2]);
+      pdf.text(valueText, startX + labelWidth, contentBaseY + 5);
+      pdf.setTextColor(0);
+
+      // Anzahl mit Plural-Logik
+      pdf.setFontSize(9);
+      pdf.setTextColor(0);
+      pdf.setFont('helvetica', 'bold');
+      const pluralSuffix = block.exams.length === 1 ? '' : 'en';
+      pdf.text(`Anzahl: ${block.exams.length} Prüfung${pluralSuffix}`, PDF_CONFIG.marginX + 3, contentBaseY + 10);
+
+      // Prüfungs-Tabelle
+      const tableY = contentBaseY + 22;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Zeit', PDF_CONFIG.marginX, tableY);
+      pdf.text('Prüfling', PDF_CONFIG.marginX + 20, tableY);
+      pdf.setLineWidth(0.4);
+      pdf.line(PDF_CONFIG.marginX, tableY + 2, PDF_CONFIG.marginX + colWidth, tableY + 2);
+
+      block.exams.forEach((exam, eIdx) => {
+        const rowY = tableY + 10 + eIdx * 9;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(11);
+        pdf.text(minToTime(examSlotToMin(exam.startTime)), PDF_CONFIG.marginX, rowY);
+
+        const s = state.students.find((s) => s.id === exam.studentId);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(
+          s?.lastName.substring(0, 3).toUpperCase() || '???',
+          PDF_CONFIG.marginX + 22,
+          rowY
+        );
+
+        pdf.setLineWidth(0.1);
+        pdf.setDrawColor(230);
+        pdf.line(PDF_CONFIG.marginX, rowY + 2, PDF_CONFIG.marginX + colWidth, rowY + 2);
+        pdf.setDrawColor(0);
+      });
+
+      // --- RECHTE SPALTE (BEISITZER) ---
+      const beisitzerX = PDF_CONFIG.marginX + 80;
+      const beisitzerWidth = PDF_CONFIG.pageWidth - PDF_CONFIG.marginX - beisitzerX;
+
+      // Rahmen um Beisitzer-Sektion mit abgerundeten Ecken
+      pdf.setDrawColor(200);
+      pdf.setLineWidth(0.2);
+      pdf.roundedRect(beisitzerX - 4, contentBaseY, beisitzerWidth + 8, 90, 4, 4, 'S');
+      pdf.setDrawColor(0);
+
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Beisitzer:', beisitzerX, contentBaseY + 8);
+      pdf.setLineWidth(0.5);
+      pdf.line(beisitzerX, contentBaseY + 10, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, contentBaseY + 10);
+
+      pdf.setFontSize(11);
+      for (let i = 1; i <= 6; i++) {
+        const rowY = contentBaseY + 24 + (i - 1) * 11;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${i}.`, beisitzerX, rowY);
+        pdf.setLineWidth(0.2);
+        pdf.line(beisitzerX + 8, rowY + 1, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, rowY + 1);
+      }
+
+      // Mittellinie (halbe Seite)
+      if (isFirstOnPage) {
+        pdf.setDrawColor(180);
+        pdf.setLineWidth(0.1);
+        pdf.setLineDashPattern([2, 2], 0);
+        pdf.line(5, PDF_CONFIG.pageHeight / 2, PDF_CONFIG.pageWidth - 5, PDF_CONFIG.pageHeight / 2);
+        pdf.setLineDashPattern([], 0);
+        pdf.setDrawColor(0);
+      }
+    });
+
+    this._drawFooter(pdf);
+    pdf.save(`${filename}.pdf`);
+  },
 };
