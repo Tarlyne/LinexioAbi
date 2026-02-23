@@ -1,5 +1,5 @@
 import { Exam, Teacher, Supervision, AppState, Subject } from '../types';
-import { TIME_CONFIG, timeToMin, examSlotToMin } from './TimeService';
+import { TIME_CONFIG, timeToMin, examSlotToMin, getPrepDuration } from './TimeService';
 
 export const EXAM_DURATION_SLOTS = TIME_CONFIG.EXAM_DURATION_SLOTS;
 export const SLOT_MINUTES = TIME_CONFIG.SLOT_MINUTES;
@@ -46,7 +46,8 @@ export const calculatePrepLoadSimulation = (
     if (!roomLoad[roomId]) roomLoad[roomId] = {};
 
     const examStartMin = examSlotToMin(exam.startTime);
-    const prepStartMin = examStartMin - 20;
+    const prepDuration = getPrepDuration(exam.hasNachteilsausgleich);
+    const prepStartMin = examStartMin - prepDuration;
 
     for (let t = prepStartMin; t < examStartMin; t += 10) {
       roomLoad[roomId][t] = (roomLoad[roomId][t] || 0) + 1;

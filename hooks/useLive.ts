@@ -45,7 +45,7 @@ export const useLive = () => {
         for (const exam of exams) {
           if (exam.startTime <= 0 || Math.floor((exam.startTime - 1) / 1000) !== currentDayIdx || exam.status === 'completed') continue;
 
-          const times = getExamTimes(exam.startTime, currentTime);
+          const times = getExamTimes(exam.startTime, currentTime, exam.hasNachteilsausgleich);
           const diffToStart = (times.examStart.getTime() - currentTime.getTime()) / 1000;
 
           // If we are within 3 minutes of the exam start, we might be in a critical phase (Taxi, Prep)
@@ -76,7 +76,7 @@ export const useLive = () => {
           e.status !== 'completed'
       )
       .map((exam) => {
-        const times = getExamTimes(exam.startTime, now);
+        const times = getExamTimes(exam.startTime, now, exam.hasNachteilsausgleich);
         const { phase, label, isBlinking } = getLivePhase(now, times, !!exam.isPresent);
 
         let targetTime: Date | null = null;

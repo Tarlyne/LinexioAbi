@@ -185,8 +185,8 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
 
         <div
           className={`text-[10px] font-black px-1.5 py-0.5 rounded border transition-all shrink-0 ${assignedRole
-              ? 'bg-white/10 border-white/10 text-white'
-              : 'bg-slate-950/40 border-slate-800 text-slate-600'
+            ? 'bg-white/10 border-white/10 text-white'
+            : 'bg-slate-950/40 border-slate-800 text-slate-600'
             }`}
         >
           {Math.round(stats.points)}
@@ -328,37 +328,70 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                   </div>
                 )}
 
-                {/* Sicherungsprüfung Toggle */}
-                <label className="flex items-center gap-3 cursor-pointer group px-4 py-3 bg-amber-500/5 border border-amber-500/20 rounded-xl hover:bg-amber-500/10 transition-all mt-3">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <ShieldCheck size={16} className="text-amber-500 shrink-0" />
-                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">
-                      Sicherungsprüfung
-                    </span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={editingExam?.isBackupExam || false}
-                    onChange={(e) =>
-                      setEditingExam((prev: any) => ({
-                        ...prev,
-                        isBackupExam: e.target.checked,
-                      }))
-                    }
-                    className="sr-only"
-                  />
-                  <div
-                    className={`w-10 h-6 rounded-full transition-all flex items-center px-1 border ${editingExam?.isBackupExam
+                {/* Nachteilsausgleich + Sicherungsprüfung Toggles */}
+                <div className="flex gap-2 mt-3">
+                  <label className="flex-1 flex items-center gap-2 cursor-pointer group px-3 py-2.5 bg-indigo-500/5 border border-indigo-500/20 rounded-xl hover:bg-indigo-500/10 transition-all">
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <AlertCircle size={14} className="text-indigo-500 shrink-0" />
+                      <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest leading-tight">
+                        NTA
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editingExam?.hasNachteilsausgleich || false}
+                      onChange={(e) =>
+                        setEditingExam((prev: any) => ({
+                          ...prev,
+                          hasNachteilsausgleich: e.target.checked,
+                        }))
+                      }
+                      className="sr-only"
+                    />
+                    <div
+                      className={`w-9 h-5 rounded-full transition-all flex items-center px-0.5 border ${editingExam?.hasNachteilsausgleich
+                        ? 'bg-indigo-600 border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.4)]'
+                        : 'bg-slate-800 border-slate-700'
+                        }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${editingExam?.hasNachteilsausgleich ? 'translate-x-3.5' : 'translate-x-0'
+                          }`}
+                      />
+                    </div>
+                  </label>
+
+                  <label className="flex-1 flex items-center gap-2 cursor-pointer group px-3 py-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl hover:bg-amber-500/10 transition-all">
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <ShieldCheck size={14} className="text-amber-500 shrink-0" />
+                      <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest leading-tight">
+                        Sicherung
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editingExam?.isBackupExam || false}
+                      onChange={(e) =>
+                        setEditingExam((prev: any) => ({
+                          ...prev,
+                          isBackupExam: e.target.checked,
+                        }))
+                      }
+                      className="sr-only"
+                    />
+                    <div
+                      className={`w-9 h-5 rounded-full transition-all flex items-center px-0.5 border ${editingExam?.isBackupExam
                         ? 'bg-amber-600 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
                         : 'bg-slate-800 border-slate-700'
-                      }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${editingExam?.isBackupExam ? 'translate-x-4' : 'translate-x-0'
                         }`}
-                    />
-                  </div>
-                </label>
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${editingExam?.isBackupExam ? 'translate-x-3.5' : 'translate-x-0'
+                          }`}
+                      />
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -470,8 +503,8 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
                           type="button"
                           onClick={() => setShowOthers(!showOthers)}
                           className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${showOthers
-                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                              : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
+                            ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
+                            : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
                             }`}
                         >
                           {showOthers ? <EyeOff size={14} /> : <Eye size={14} />}

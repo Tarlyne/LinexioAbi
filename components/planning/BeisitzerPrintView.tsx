@@ -206,7 +206,7 @@ export const BeisitzerPrintView: React.FC<BeisitzerPrintViewProps> = ({
                                     <h3 className="text-lg font-black mb-4 border-b-2 border-slate-900 pb-1 uppercase tracking-wider">Beisitzer:</h3>
                                     <table className="w-full text-sm">
                                         <tbody>
-                                            {[1, 2, 3, 4, 5, 6].map(num => (
+                                            {[1, 2, 3, 4, 5].map(num => (
                                                 <tr key={num}>
                                                     <td className="py-2.5 w-10 font-bold text-base">{num}.</td>
                                                     <td className="py-2.5 border-b-2 border-slate-200"></td>

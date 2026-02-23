@@ -9,7 +9,8 @@ const createExam = (
     studentId: string,
     startTime: number,
     isBackupExam: boolean = false,
-    roomId: string = 'room-1'
+    roomId: string = 'room-1',
+    hasNachteilsausgleich: boolean = false,
 ): Exam => ({
     id,
     studentId,
@@ -19,6 +20,7 @@ const createExam = (
     status: 'scheduled',
     roomId,
     isBackupExam,
+    hasNachteilsausgleich,
 });
 
 describe('checkExamCollision - Student Collisions', () => {

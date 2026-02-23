@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { AppState, Room, Exam, Supervision } from '../types';
-import { minToTime, examSlotToMin } from '../utils/TimeService';
+import { minToTime, examSlotToMin, getPrepDuration } from '../utils/TimeService';
 
 /**
  * PDF Export Service (Native Drawing Engine)
@@ -23,16 +23,28 @@ const PDF_CONFIG = {
 export const PdfExportService = {
   // --- INTERNAL HELPERS ---
 
-  _drawFooter(pdf: jsPDF) {
+  _drawFooter(pdf: jsPDF, hasNTA = false) {
     const now = new Date();
     const footerText = `Erstellt mit LinexioAbi am ${now.toLocaleDateString('de-DE')}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+    const pageCount = pdf.getNumberOfPages();
 
-    pdf.setFontSize(PDF_CONFIG.footerFontSize);
-    pdf.setTextColor(120);
-    pdf.setFont('helvetica', 'italic');
-    const x = pdf.internal.pageSize.getWidth() - PDF_CONFIG.marginX;
-    const y = pdf.internal.pageSize.getHeight() - 10;
-    pdf.text(footerText, x, y, { align: 'right' });
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i);
+      const y = pdf.internal.pageSize.getHeight() - 10;
+
+      if (hasNTA) {
+        pdf.setFontSize(PDF_CONFIG.footerFontSize);
+        pdf.setTextColor(100);
+        pdf.setFont('helvetica', 'italic');
+        pdf.text('* = Nachteilsausgleich (Vorbereitungszeit: 25 Min.)', PDF_CONFIG.marginX, y);
+      }
+
+      pdf.setFontSize(PDF_CONFIG.footerFontSize);
+      pdf.setTextColor(120);
+      pdf.setFont('helvetica', 'italic');
+      const x = pdf.internal.pageSize.getWidth() - PDF_CONFIG.marginX;
+      pdf.text(footerText, x, y, { align: 'right' });
+    }
   },
 
   _drawHeader(pdf: jsPDF, prefix: string, coloredPart: string, dateStr: string) {
@@ -192,9 +204,10 @@ export const PdfExportService = {
         x += colWidths[2];
         pdf.line(x, currentY, x, currentY + PDF_CONFIG.rowHeight);
         pdf.setFontSize(9.5);
+        const studentName1 = state.students.find((s) => s.id === exam.studentId)?.lastName || '???';
         this._drawCell(
           pdf,
-          state.students.find((s) => s.id === exam.studentId)?.lastName || '???',
+          exam.hasNachteilsausgleich ? `${studentName1}*` : studentName1,
           x,
           currentY,
           colWidths[3],
@@ -231,7 +244,8 @@ export const PdfExportService = {
       if (gIdx < roomsWithExams.length - 1) currentY += 5;
     });
 
-    this._drawFooter(pdf);
+    const hasNTA1 = roomsWithExams.some((g) => g.exams.some((e) => e.hasNachteilsausgleich));
+    this._drawFooter(pdf, hasNTA1);
     pdf.save(`${filename}.pdf`);
   },
 
@@ -316,8 +330,9 @@ export const PdfExportService = {
 
         let cellX = PDF_CONFIG.marginX;
         pdf.setFont('helvetica', 'bold');
+        const prepDur = getPrepDuration(exam.hasNachteilsausgleich);
         pdf.text(
-          minToTime(examSlotToMin(exam.startTime) - 20),
+          minToTime(examSlotToMin(exam.startTime) - prepDur),
           cellX + colWidths[0] / 2,
           currentY + PDF_CONFIG.rowHeight / 2,
           { align: 'center', baseline: 'middle' }
@@ -328,8 +343,9 @@ export const PdfExportService = {
 
         pdf.setFont('helvetica', 'normal');
         const s = state.students.find((s) => s.id === exam.studentId);
+        const ntaSuffix = exam.hasNachteilsausgleich ? '*' : '';
         pdf.text(
-          `${s?.lastName || '???'}, ${s?.firstName || ''}`,
+          `${s?.lastName || '???'}, ${s?.firstName || ''}${ntaSuffix}`,
           cellX + 3,
           currentY + PDF_CONFIG.rowHeight / 2,
           { baseline: 'middle' }
@@ -348,8 +364,10 @@ export const PdfExportService = {
         currentY += PDF_CONFIG.rowHeight;
       });
 
-      this._drawFooter(pdf);
     });
+
+    const hasNTA2 = dayExams.some((e) => e.hasNachteilsausgleich);
+    this._drawFooter(pdf, hasNTA2);
 
     pdf.save(`${filename}.pdf`);
   },
@@ -684,9 +702,10 @@ export const PdfExportService = {
         pdf.text(minToTime(examSlotToMin(exam.startTime)), PDF_CONFIG.marginX, rowY);
 
         const s = state.students.find((s) => s.id === exam.studentId);
+        const ntaMarker = exam.hasNachteilsausgleich ? '*' : '';
         pdf.setFont('helvetica', 'bold');
         pdf.text(
-          s?.lastName.substring(0, 3).toUpperCase() || '???',
+          (s?.lastName.substring(0, 3).toUpperCase() || '???') + ntaMarker,
           PDF_CONFIG.marginX + 22,
           rowY
         );
@@ -714,7 +733,7 @@ export const PdfExportService = {
       pdf.line(beisitzerX, contentBaseY + 10, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, contentBaseY + 10);
 
       pdf.setFontSize(11);
-      for (let i = 1; i <= 6; i++) {
+      for (let i = 1; i <= 5; i++) {
         const rowY = contentBaseY + 24 + (i - 1) * 11;
         pdf.setFont('helvetica', 'bold');
         pdf.text(`${i}.`, beisitzerX, rowY);
@@ -733,7 +752,8 @@ export const PdfExportService = {
       }
     });
 
-    this._drawFooter(pdf);
+    const hasNTA3 = blocks.some((b) => b.exams.some((e) => e.hasNachteilsausgleich));
+    this._drawFooter(pdf, hasNTA3);
     pdf.save(`${filename}.pdf`);
   },
 };

@@ -22,7 +22,15 @@ export const TIME_CONFIG = {
   TAXI_1_PREP: 22,
   START_PREP: 20,
   TAXI_2_EXAM: 2,
+  NTA_EXTRA_PREP_MINUTES: 5,
 };
+
+/**
+ * Returns the prep duration in minutes for an exam.
+ * Normal: 20 min, Nachteilsausgleich: 25 min.
+ */
+export const getPrepDuration = (hasNachteilsausgleich?: boolean): number =>
+  TIME_CONFIG.START_PREP + (hasNachteilsausgleich ? TIME_CONFIG.NTA_EXTRA_PREP_MINUTES : 0);
 
 export interface ExamTimes {
   examStart: Date;
@@ -60,15 +68,18 @@ export const examSlotToMin = (startTimeCoordinate: number): number => {
 /**
  * Calculates all relevant trigger times for a specific exam.
  */
-export const getExamTimes = (startTimeCoordinate: number, referenceDate: Date): ExamTimes => {
+export const getExamTimes = (startTimeCoordinate: number, referenceDate: Date, hasNachteilsausgleich?: boolean): ExamTimes => {
   const totalMin = examSlotToMin(startTimeCoordinate);
   const examStart = new Date(referenceDate);
   examStart.setHours(Math.floor(totalMin / 60), totalMin % 60, 0, 0);
 
+  const prepDuration = getPrepDuration(hasNachteilsausgleich);
+  const taxi1Duration = prepDuration + 2; // 2 min taxi before prep
+
   return {
     examStart,
-    prepStart: new Date(examStart.getTime() - TIME_CONFIG.START_PREP * 60000),
-    taxi1Start: new Date(examStart.getTime() - TIME_CONFIG.TAXI_1_PREP * 60000),
+    prepStart: new Date(examStart.getTime() - prepDuration * 60000),
+    taxi1Start: new Date(examStart.getTime() - taxi1Duration * 60000),
     taxi2Start: new Date(examStart.getTime() - TIME_CONFIG.TAXI_2_EXAM * 60000),
     checkInDeadline: new Date(examStart.getTime() - TIME_CONFIG.DEADLINE_CHECK_IN * 60000),
   };
