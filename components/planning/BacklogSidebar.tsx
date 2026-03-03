@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Search, FileJson, Layers, Check, AlertTriangle, User, Settings } from 'lucide-react';
+import { Search, FileJson, Layers, Check, AlertTriangle, User, Settings, GripVertical } from 'lucide-react';
 import { Exam, Student, Teacher, Room } from '../../types';
 import { PlanningSortOption } from '../../hooks/usePlanning';
 import { useDnD } from '../../context/DnDContext';
@@ -81,89 +81,103 @@ const BacklogExamCard = React.memo<BacklogExamCardProps>(({
   return (
     <div
       onPointerDown={(e) => {
+        // On touch devices, drag is only initiated via the handle
+        if (e.pointerType === 'touch') return;
         if (e.button !== 0) return;
         startDrag(exam.id, 'exam', e, { fromBacklog: true, groupCount }, ghostUI);
       }}
-      className={`draggable-item p-3 border rounded-xl hover:border-cyan-500/40 transition-all group relative flex flex-col overflow-hidden ${isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'} ${hasWarning ? 'bg-amber-900/20 border-amber-500/30' : isNakedDraft ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/40 border-slate-700/50'}`}
+      className={`draggable-item border rounded-xl hover:border-cyan-500/40 transition-all group relative flex flex-col overflow-hidden ${isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'} ${hasWarning ? 'bg-amber-900/20 border-amber-500/30' : isNakedDraft ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/40 border-slate-700/50'}`}
     >
-      {(exam.isBackupExam || exam.hasNachteilsausgleich) && (
-        exam.isBackupExam && exam.hasNachteilsausgleich ? (
-          <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl overflow-hidden">
-            <div className="w-full h-1/2 bg-indigo-500 opacity-70"></div>
-            <div className="w-full h-1/2 bg-amber-500 opacity-60"></div>
-          </div>
-        ) : exam.hasNachteilsausgleich ? (
-          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-70 rounded-l-xl"></div>
-        ) : (
-          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 opacity-60 rounded-l-xl"></div>
-        )
-      )}
-      <div className="flex justify-between items-start mb-1">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1 pointer-events-none">
-          <span
-            className={`text-sm font-bold truncate pr-1 transition-colors ${isNakedDraft ? 'text-red-400/80 italic' : 'text-slate-200 group-hover:text-white'}`}
-          >
-            {student?.lastName}, {student?.firstName}
-          </span>
-          <div className="shrink-0 flex items-center gap-1">
-            {groupCount > 1 && (
-              <Layers
-                size={11}
-                className="text-indigo-500"
-                title={`${groupCount}er Block`}
-              />
-            )}
-            {hasWarning ? (
-              <AlertTriangle size={12} className="text-amber-500" />
-            ) : isComplete ? (
-              <Check size={12} className="text-emerald-500" />
-            ) : (
-              <AlertTriangle size={12} className="text-red-500" />
-            )}
-          </div>
-        </div>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onEditExam(exam);
-          }}
-          className="w-6 h-6 -mr-1 -mt-1 rounded-lg flex items-center justify-center text-slate-600 hover:text-white hover:bg-white/5 active:scale-90 transition-all pointer-events-auto"
-        >
-          <Settings size={14} />
-        </button>
-      </div>
-
+      {/* Touch-only drag handle */}
       <div
-        className={`text-[10px] font-bold uppercase tracking-wider pointer-events-none truncate mb-2 ${isNakedDraft ? 'text-red-400/60' : 'text-cyan-400'}`}
+        className="touch-drag-handle w-full justify-center py-1"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          startDrag(exam.id, 'exam', e, { fromBacklog: true, groupCount }, ghostUI);
+        }}
       >
-        {exam.subject || 'NICHT ZUGEWIESEN'}{' '}
-        {exam.groupId && <span className="text-indigo-400 ml-1">[{exam.groupId}]</span>}
-        {prepRoom && (
-          <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>
-        )}
+        <GripVertical size={13} className="text-slate-500" />
       </div>
+      <div className="p-3 pt-0 flex flex-col flex-1">
+        {(exam.isBackupExam || exam.hasNachteilsausgleich) && (
+          exam.isBackupExam && exam.hasNachteilsausgleich ? (
+            <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl overflow-hidden">
+              <div className="w-full h-1/2 bg-indigo-500 opacity-70"></div>
+              <div className="w-full h-1/2 bg-amber-500 opacity-60"></div>
+            </div>
+          ) : exam.hasNachteilsausgleich ? (
+            <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-70 rounded-l-xl"></div>
+          ) : (
+            <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 opacity-60 rounded-l-xl"></div>
+          )
+        )}
+        <div className="flex justify-between items-start mb-1">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 pointer-events-none">
+            <span
+              className={`text-sm font-bold truncate pr-1 transition-colors ${isNakedDraft ? 'text-red-400/80 italic' : 'text-slate-200 group-hover:text-white'}`}
+            >
+              {student?.lastName}, {student?.firstName}
+            </span>
+            <div className="shrink-0 flex items-center gap-1">
+              {groupCount > 1 && (
+                <Layers
+                  size={11}
+                  className="text-indigo-500"
+                  title={`${groupCount}er Block`}
+                />
+              )}
+              {hasWarning ? (
+                <AlertTriangle size={12} className="text-amber-500" />
+              ) : isComplete ? (
+                <Check size={12} className="text-emerald-500" />
+              ) : (
+                <AlertTriangle size={12} className="text-red-500" />
+              )}
+            </div>
+          </div>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditExam(exam);
+            }}
+            className="w-6 h-6 -mr-1 -mt-1 rounded-lg flex items-center justify-center text-slate-600 hover:text-white hover:bg-white/5 active:scale-90 transition-all pointer-events-auto"
+          >
+            <Settings size={14} />
+          </button>
+        </div>
 
-      <div className="grid grid-cols-3 gap-1 mt-auto pt-1.5 border-t border-slate-700/30 pointer-events-none overflow-hidden">
-        <div className="flex justify-center">
-          <div
-            className={`bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded text-[9px] font-bold text-center min-w-[34px] ${isNakedDraft ? 'text-slate-600' : 'text-cyan-300'}`}
-          >
-            {teacher?.shortName || '?'}
-          </div>
+        <div
+          className={`text-[10px] font-bold uppercase tracking-wider pointer-events-none truncate mb-2 ${isNakedDraft ? 'text-red-400/60' : 'text-cyan-400'}`}
+        >
+          {exam.subject || 'NICHT ZUGEWIESEN'}{' '}
+          {exam.groupId && <span className="text-indigo-400 ml-1">[{exam.groupId}]</span>}
+          {prepRoom && (
+            <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>
+          )}
         </div>
-        <div className="flex justify-center">
-          <div
-            className={`px-2 py-0.5 rounded text-[9px] font-bold text-center border transition-all min-w-[34px] ${protocol ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300' : 'border-transparent text-transparent'}`}
-          >
-            {protocol?.shortName || '---'}
+
+        <div className="grid grid-cols-3 gap-1 mt-auto pt-1.5 border-t border-slate-700/30 pointer-events-none overflow-hidden">
+          <div className="flex justify-center">
+            <div
+              className={`bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded text-[9px] font-bold text-center min-w-[34px] ${isNakedDraft ? 'text-slate-600' : 'text-cyan-300'}`}
+            >
+              {teacher?.shortName || '?'}
+            </div>
           </div>
-        </div>
-        <div className="flex justify-center">
-          <div
-            className={`px-2 py-0.5 rounded text-[9px] font-bold text-center border transition-all min-w-[34px] ${chair ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'border-transparent text-transparent'}`}
-          >
-            {chair?.shortName || '---'}
+          <div className="flex justify-center">
+            <div
+              className={`px-2 py-0.5 rounded text-[9px] font-bold text-center border transition-all min-w-[34px] ${protocol ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300' : 'border-transparent text-transparent'}`}
+            >
+              {protocol?.shortName || '---'}
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <div
+              className={`px-2 py-0.5 rounded text-[9px] font-bold text-center border transition-all min-w-[34px] ${chair ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'border-transparent text-transparent'}`}
+            >
+              {chair?.shortName || '---'}
+            </div>
           </div>
         </div>
       </div>

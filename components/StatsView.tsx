@@ -14,6 +14,7 @@ import {
   GraduationCap,
   Download,
   RotateCcw,
+  GripVertical,
 } from 'lucide-react';
 import {
   checkTeacherAvailability,
@@ -100,6 +101,8 @@ const SupervisionCard = React.memo<SupervisionCardProps>(({
       })}
       ref={cardRef}
       onPointerDown={(e) => {
+        // On touch devices, drag is only initiated via the handle
+        if (e.pointerType === 'touch') return;
         if (e.button !== 0) return;
         startDrag(
           sup.teacherId,
@@ -109,7 +112,7 @@ const SupervisionCard = React.memo<SupervisionCardProps>(({
           ghostUI
         );
       }}
-      className={`draggable-item absolute inset-x-1 rounded-xl border flex items-center justify-center shadow-2xl pointer-events-auto transition-all duration-300
+      className={`draggable-item absolute inset-x-1 rounded-xl border flex flex-col items-center justify-center shadow-2xl pointer-events-auto transition-all duration-300
         ${hasHighlight
           ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] z-30'
           : 'bg-[#1e293b] border-slate-700/50 hover:border-cyan-500/50'
@@ -123,6 +126,16 @@ const SupervisionCard = React.memo<SupervisionCardProps>(({
         pointerEvents: activeDraggingSupId && !isDraggingReal ? 'none' : 'auto',
       }}
     >
+      {/* Touch-only drag handle for supervision cards */}
+      <div
+        className="touch-drag-handle w-full justify-center py-0.5 absolute top-0 left-0 right-0"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          startDrag(sup.teacherId, 'teacher', e, { supId: sup.id }, ghostUI);
+        }}
+      >
+        <GripVertical size={12} className="text-slate-500" />
+      </div>
       <span
         className={`text-[11px] font-black tracking-widest drop-shadow-md pointer-events-none text-center ${hasHighlight ? 'text-cyan-300' : 'text-slate-200'}`}
       >
@@ -550,12 +563,24 @@ export const StatsView: React.FC = () => {
                 <div
                   key={teacher.id}
                   onPointerDown={(e) => {
+                    // On touch devices, drag is only initiated via the handle
+                    if (e.pointerType === 'touch') return;
                     if (e.button !== 0) return;
                     startDrag(teacher.id, 'teacher', e, { supId: null }, ghostUI);
                   }}
                   className={`draggable-item py-1.5 px-2.5 rounded-xl border flex items-center gap-3 transition-all duration-300 hover:border-cyan-500/50 bg-[#1e293b] border-slate-700/50 shadow-sm 
                     ${isDraggingThis ? 'opacity-20 scale-95' : ''}`}
                 >
+                  {/* Touch-only drag handle for teacher list */}
+                  <div
+                    className="touch-drag-handle shrink-0 px-0.5"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      startDrag(teacher.id, 'teacher', e, { supId: null }, ghostUI);
+                    }}
+                  >
+                    <GripVertical size={14} className="text-slate-600" />
+                  </div>
                   <div className="flex flex-col min-w-0 flex-1 pointer-events-none">
                     <span className="text-[14.5px] font-bold truncate leading-tight text-slate-200">
                       {teacher.lastName}, {teacher.firstName}

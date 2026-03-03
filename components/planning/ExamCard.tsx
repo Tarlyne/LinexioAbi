@@ -1,6 +1,6 @@
 import React from 'react';
 import { Exam, Student, Teacher, Room } from '../../types';
-import { Check, AlertCircle, AlertTriangle, User, Settings, Layers } from 'lucide-react';
+import { Check, AlertCircle, AlertTriangle, User, Settings, Layers, GripVertical } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useData } from '../../context/DataContext';
 import { useDnD } from '../../context/DnDContext';
@@ -109,6 +109,8 @@ export const ExamCard = React.memo<ExamCardProps>(({
   return (
     <div
       onPointerDown={(e) => {
+        // On touch devices, drag is only initiated via the handle
+        if (e.pointerType === 'touch') return;
         if (e.button !== 0) return;
         startDrag(exam.id, 'exam', e, { currentSlot: exam.startTime, groupCount }, ghostUI);
       }}
@@ -120,7 +122,7 @@ export const ExamCard = React.memo<ExamCardProps>(({
         right: 4,
         pointerEvents: isAnyOtherDragging ? 'none' : 'auto',
       }}
-      className={`draggable-item rounded-xl p-3 shadow-2xl border transition-all duration-300 z-[35] overflow-hidden flex flex-col group exam-card-shadow relative
+      className={`draggable-item rounded-xl shadow-2xl border transition-all duration-300 z-[35] overflow-hidden flex flex-col group exam-card-shadow relative
         ${hasConflict
           ? 'bg-red-900/60 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]'
           : hasWarning
@@ -132,6 +134,16 @@ export const ExamCard = React.memo<ExamCardProps>(({
         ${isSpotlightActive && hasSpotlightMatch ? 'ring-1 ring-cyan-400 z-[40]' : ''}
         ${isDraggingReal ? 'opacity-20 scale-95' : 'opacity-100'}`}
     >
+      {/* Touch-only drag handle – invisible on desktop, grip on iPad/touch */}
+      <div
+        className="touch-drag-handle w-full justify-center py-0.5 -mt-0.5 mb-0.5"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          startDrag(exam.id, 'exam', e, { currentSlot: exam.startTime, groupCount }, ghostUI);
+        }}
+      >
+        <GripVertical size={14} className="text-slate-500" />
+      </div>
       {(exam.isBackupExam || exam.hasNachteilsausgleich) && (
         exam.isBackupExam && exam.hasNachteilsausgleich ? (
           <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl overflow-hidden">
@@ -144,7 +156,7 @@ export const ExamCard = React.memo<ExamCardProps>(({
           <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 opacity-60 rounded-l-xl"></div>
         )
       )}
-      <div className="flex-1 flex flex-col min-w-0 pointer-events-none mb-1">
+      <div className="flex-1 flex flex-col min-w-0 pointer-events-none px-3 pb-3 mb-1">
         <div className="flex justify-between items-start mb-1">
           <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-1">
             <span

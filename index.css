@@ -94,6 +94,23 @@ input::-webkit-credentials-auto-fill-button {
     cursor: grabbing;
 }
 
+/* Touch-Drag-Handle: only visible on touch devices (iPad, Tablet) */
+/* Hidden on desktop (pointer: fine = mouse), visible on touch (pointer: coarse) */
+.touch-drag-handle {
+    display: none !important;
+}
+
+@media (pointer: coarse) {
+    .touch-drag-handle {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        touch-action: none !important;
+        /* Prevent scroll interference on handle */
+        cursor: grab;
+    }
+}
+
 body {
     /* Native Font Stack: Nutzt San Francisco auf iOS/iPadOS/macOS, Segoe UI auf Windows */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
