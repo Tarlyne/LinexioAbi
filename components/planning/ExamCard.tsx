@@ -156,7 +156,7 @@ export const ExamCard = React.memo<ExamCardProps>(({
           <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 opacity-60 rounded-l-xl"></div>
         )
       )}
-      <div className="flex-1 flex flex-col min-w-0 pointer-events-none px-3 pb-3 mb-1">
+      <div className="flex-1 flex flex-col min-w-0 pointer-events-none px-3 pt-2 pb-2 mb-1">
         <div className="flex justify-between items-start mb-1">
           <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-1">
             <span

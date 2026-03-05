@@ -98,7 +98,7 @@ const BacklogExamCard = React.memo<BacklogExamCardProps>(({
       >
         <GripVertical size={13} className="text-slate-500" />
       </div>
-      <div className="p-3 pt-0 flex flex-col flex-1">
+      <div className="p-3 pt-2 flex flex-col flex-1">
         {(exam.isBackupExam || exam.hasNachteilsausgleich) && (
           exam.isBackupExam && exam.hasNachteilsausgleich ? (
             <div className="absolute top-0 left-0 w-1 h-full rounded-l-xl overflow-hidden">
