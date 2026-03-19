@@ -16,13 +16,19 @@ export const usePlanning = () => {
     deleteExam,
     checkCollision,
     checkConsistency,
+    lastPlanningDay,
   } = useApp();
   const { days, rooms, teachers, students, subjects } = useData();
   const { showToast } = useUI();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<PlanningSortOption>('name');
-  const [activeDay, setActiveDay] = useState(0);
+  const [activeDay, setActiveDayState] = useState(() => lastPlanningDay.current);
+
+  const setActiveDay = useCallback((day: number) => {
+    lastPlanningDay.current = day;
+    setActiveDayState(day);
+  }, [lastPlanningDay]);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingExam, setEditingExam] = useState<Partial<Exam> | null>(null);

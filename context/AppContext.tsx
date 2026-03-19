@@ -56,6 +56,8 @@ interface AppContextType {
   checkCollision: (exam: Exam) => { hasConflict: boolean; reason?: string };
   checkConsistency: (exam: Exam) => { hasWarning: boolean; reason?: string };
   syncDefaultExams: () => void;
+  lastPlanningDay: React.MutableRefObject<number>;
+  lastSupervisionDay: React.MutableRefObject<number>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -67,6 +69,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Connect to Zustand Store
   const store = useAppStore();
+
+  // Persistent day-selection memory (survives tab switches, no re-renders)
+  const lastPlanningDay = useRef(0);
+  const lastSupervisionDay = useRef(0);
 
   // Load initial data logic - bridged to store
   const loadDecryptedData = useCallback((saved: AppState) => {
@@ -179,7 +185,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     getTeacherStats, exportState, importState, getFullState,
     checkCollision, checkConsistency,
     syncDefaultExams,
-    resetForNewYear, factoryReset
+    resetForNewYear, factoryReset,
+    lastPlanningDay, lastSupervisionDay,
   }), [store, teachers, students, rooms, days, subjects, isLocked]);
   // ^ Depending on 'store' object causes re-renders on any store change, mimicking old behavior (Correct for compatibility)
 

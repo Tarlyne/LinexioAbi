@@ -155,12 +155,18 @@ export const StatsView: React.FC = () => {
     getTeacherStats,
     undo,
     canUndo,
+    lastSupervisionDay,
   } = useApp();
   const { days, rooms, teachers, subjects } = useData();
   const { showToast } = useUI();
   const { startDrag, activeDrag, dropTarget } = useDnD();
 
-  const [activeDayIdx, setActiveDayIdx] = useState(0);
+  const [activeDayIdx, setActiveDayIdxState] = useState(() => lastSupervisionDay.current);
+
+  const setActiveDayIdx = useCallback((idx: number) => {
+    lastSupervisionDay.current = idx;
+    setActiveDayIdxState(idx);
+  }, [lastSupervisionDay]);
   const [searchTerm, setSearchTerm] = useState('');
   const [hoveredSlot, setHoveredSlot] = useState<{
     stationId: string;

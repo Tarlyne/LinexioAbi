@@ -153,6 +153,11 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
     const stats = getTeacherStats(teacher.id);
     const cardColor = assignedRole ? getRoleColor(assignedRole) : 'transparent';
 
+    const hasDuplicateLastName = teachers.filter((t) => t.lastName === teacher.lastName).length > 1;
+    const displayName = hasDuplicateLastName
+      ? `${teacher.lastName}, ${teacher.firstName.charAt(0)}.`
+      : teacher.lastName;
+
     return (
       <button
         key={teacher.id}
@@ -160,27 +165,28 @@ export const ExamEditorModal: React.FC<ExamEditorModalProps> = ({
         disabled={isUsedInOtherRole}
         onClick={() => handleTeacherClick(teacher.id)}
         className={`w-full text-left p-2.5 rounded-xl border transition-all duration-200 flex items-center justify-between gap-2.5 relative overflow-hidden group/card
-          ${assignedRole
-            ? 'shadow-lg scale-[1.02] z-10'
-            : isUsedInOtherRole
-              ? 'opacity-20 cursor-not-allowed border-slate-800'
-              : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60'
+          ${
+            assignedRole
+              ? 'shadow-lg scale-[1.02] z-10'
+              : isUsedInOtherRole
+                ? 'opacity-20 cursor-not-allowed border-slate-800'
+                : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/60'
           }
         `}
         style={
           assignedRole
             ? {
-              borderColor: cardColor,
-              backgroundColor: `${cardColor}26`, // 15% opacity
-              boxShadow: isSelected ? `0 0 15px ${cardColor}40` : 'none',
-            }
+                borderColor: cardColor,
+                backgroundColor: `${cardColor}26`, // 15% opacity
+                boxShadow: isSelected ? `0 0 15px ${cardColor}40` : 'none',
+              }
             : {}
         }
       >
         <span
           className={`text-[13.5px] font-bold truncate leading-tight flex-1 ${assignedRole ? 'text-white' : 'text-slate-200'}`}
         >
-          {teacher.lastName}
+          {displayName}
         </span>
 
         <div

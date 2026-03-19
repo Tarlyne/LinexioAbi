@@ -247,6 +247,8 @@ export const checkExamConsistency = (
     const groupExams = allExams.filter(
       (e) =>
         e.groupId === exam.groupId &&
+        e.subject === exam.subject &&
+        e.teacherId === exam.teacherId &&
         e.startTime > 0 &&
         Math.floor((e.startTime - 1) / 1000) === dayIndex
     );

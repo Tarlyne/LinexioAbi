@@ -21,9 +21,9 @@ export const GridTimeColumn: React.FC<GridTimeColumnProps> = ({
 }) => {
   const containerStyle = useFlexibleGrid
     ? {
-        display: 'grid',
-        gridTemplateRows: `repeat(${timeSlots.length}, minmax(${slotHeight}px, 1fr))`,
-      }
+      display: 'grid',
+      gridTemplateRows: `repeat(${timeSlots.length}, minmax(${slotHeight}px, 1fr))`,
+    }
     : {};
 
   return (
@@ -35,7 +35,7 @@ export const GridTimeColumn: React.FC<GridTimeColumnProps> = ({
         <div
           key={time}
           style={!useFlexibleGrid ? { height: slotHeight } : {}}
-          className="w-full flex items-center justify-center border-b border-slate-800/40 relative"
+          className="w-full flex items-start justify-center pt-0.5 border-b border-slate-800/40 relative"
         >
           {renderSlot(time, idx)}
         </div>
