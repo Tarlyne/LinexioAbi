@@ -756,4 +756,173 @@ export const PdfExportService = {
     this._drawFooter(pdf, hasNTA3);
     pdf.save(`${filename}.pdf`);
   },
+
+  async generateProtocolPdf(
+    state: AppState,
+    activeDayIdx: number,
+    filename: string,
+    pointsData: Record<string, { achieved: string; required: string }>,
+    logoBase64: string
+  ): Promise<void> {
+    const activeDay = state.days[activeDayIdx];
+    if (!activeDay) return;
+
+    const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const contentWidth = PDF_CONFIG.pageWidth - 2 * PDF_CONFIG.marginX;
+    const currentYear = new Date(activeDay.date).getFullYear();
+    const dateStr = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(activeDay.date));
+
+    const dayExams = state.exams
+      .filter((e) => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === activeDayIdx && e.status !== 'cancelled')
+      .sort((a, b) => a.startTime - b.startTime);
+
+    dayExams.forEach((exam, eIdx) => {
+      if (eIdx > 0) pdf.addPage();
+
+      const s = state.students.find(s => s.id === exam.studentId);
+      const studentName = s ? `${s.lastName}, ${s.firstName}` : '???';
+      const teacher = state.teachers.find(t => t.id === exam.teacherId)?.shortName || '-';
+      const chair = state.teachers.find(t => t.id === exam.chairId)?.shortName || '-';
+      const protocol = state.teachers.find(t => t.id === exam.protocolId)?.shortName || '-';
+
+      const drawSchoolHeader = () => {
+        let currentY = PDF_CONFIG.marginY;
+        if (logoBase64) {
+          try {
+            pdf.addImage(logoBase64, 'JPEG', PDF_CONFIG.marginX, currentY, 25, 25);
+          } catch (e) {
+            console.warn('Could not add logo to PDF', e);
+          }
+        }
+
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0);
+        const addressX = PDF_CONFIG.marginX + 30;
+        pdf.text('Evangelisches Gymnasium Bad Marienberg', addressX, currentY + 4);
+        pdf.text('Erlenweg 5', addressX, currentY + 9);
+        pdf.text('56470 Bad Marienberg', addressX, currentY + 14);
+        pdf.text('02661 / 980870', addressX, currentY + 19);
+
+        const dateText = `Bad Marienberg, ${dateStr}`;
+        pdf.text(dateText, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, currentY + 4, { align: 'right' });
+
+        return currentY + 40;
+      };
+
+      let y = drawSchoolHeader();
+
+      pdf.setFontSize(17);
+      pdf.setFont('helvetica', 'bold');
+      // Linksbündig, auf Höhe von col1X (PDF_CONFIG.marginX)
+      pdf.text(`Niederschrift zur mündlichen Abiturprüfung ${currentYear}`, PDF_CONFIG.marginX, y, { align: 'left' });
+      y += 12;
+
+      pdf.setFontSize(11);
+      const col1X = PDF_CONFIG.marginX;
+      const col2X = PDF_CONFIG.pageWidth / 2;
+
+      const drawInfoRow = (label1: string, val1: string, label2: string, val2: string, rowY: number) => {
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(label1, col1X, rowY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(val1, col1X + 22, rowY);
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(label2, col2X, rowY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(val2, col2X + 35, rowY);
+      };
+
+      const startMin = examSlotToMin(exam.startTime);
+      const startTime = minToTime(startMin);
+      const endTime = minToTime(startMin + 20);
+
+      drawInfoRow('Fach:', exam.subject, 'Prüfling:', studentName, y);
+      y += 8;
+
+      drawInfoRow('PrüferIn:', teacher, 'Beginn:', `${startTime} Uhr`, y);
+      y += 8;
+
+      drawInfoRow('Protokoll:', protocol, 'Ende:', `${endTime} Uhr`, y);
+      y += 8;
+
+      drawInfoRow('Vorsitz:', chair, '', '', y);
+      y += 14;
+
+      const enteredPoints = pointsData[exam.id] || { achieved: '', required: '' };
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`erreichte Punkte:   ${enteredPoints.achieved || '---'}`, col1X, y);
+      pdf.text(`benötigte Punkte:   ${enteredPoints.required || '---'}`, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, y, { align: 'right' });
+
+      y += 14;
+
+      pdf.setFontSize(13);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Verlauf der Prüfung:', col1X, y);
+      y += 4;
+
+      const drawProtocolTable = (startY: number, endY: number) => {
+        const lineSpacing = 10;
+        const leftColWidth = contentWidth * 0.75;
+        const middleX = PDF_CONFIG.marginX + leftColWidth;
+
+        // Berechne exakt passendes Ende, damit keine halbe Zeile entsteht
+        const adjustedEndY = startY + Math.floor((endY - startY) / lineSpacing) * lineSpacing;
+
+        pdf.setLineWidth(0.2);
+        pdf.setDrawColor(0);
+        pdf.rect(PDF_CONFIG.marginX, startY, contentWidth, adjustedEndY - startY, 'D');
+        pdf.line(middleX, startY, middleX, adjustedEndY);
+
+        let currentLineY = startY + lineSpacing;
+        while (currentLineY < adjustedEndY) {
+          pdf.line(PDF_CONFIG.marginX, currentLineY, middleX, currentLineY);
+          currentLineY += lineSpacing;
+        }
+      };
+
+      drawProtocolTable(y, PDF_CONFIG.pageHeight - PDF_CONFIG.marginY);
+
+      pdf.addPage();
+      drawProtocolTable(PDF_CONFIG.marginY, PDF_CONFIG.pageHeight - PDF_CONFIG.marginY);
+
+      pdf.addPage();
+      const table3Height = (PDF_CONFIG.pageHeight - PDF_CONFIG.marginY * 2) * 0.75;
+      drawProtocolTable(PDF_CONFIG.marginY, PDF_CONFIG.marginY + table3Height);
+
+      let py = PDF_CONFIG.marginY + table3Height + 15;
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Note: _______________________', PDF_CONFIG.marginX, py);
+      pdf.text('MSS-Punkte: _____________________', PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, py, { align: 'right' });
+
+      py += 35;
+      const thirdWidth = contentWidth / 3;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+
+      const drawSignature = (title: string, xPos: number) => {
+        pdf.line(xPos, py, xPos + thirdWidth - 10, py);
+        pdf.text(title, xPos + (thirdWidth - 10) / 2, py + 5, { align: 'center' });
+      };
+
+      drawSignature('Vorsitz', PDF_CONFIG.marginX);
+      drawSignature('PrüferIn', PDF_CONFIG.marginX + thirdWidth);
+      drawSignature('ProtokollantIn', PDF_CONFIG.marginX + 2 * thirdWidth);
+    });
+
+    const pageCount = pdf.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i);
+      const pageNumInExam = ((i - 1) % 3) + 1;
+      const y = PDF_CONFIG.pageHeight - 10;
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(100);
+      pdf.text(`Seite ${pageNumInExam} von 3`, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, y, { align: 'right' });
+    }
+
+    pdf.save(`${filename}.pdf`);
+  },
 };

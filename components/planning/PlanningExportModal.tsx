@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Modal } from '../Modal';
+import { minToTime, examSlotToMin } from '../../utils/TimeService';
 import {
   X,
   Printer,
@@ -35,8 +36,9 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
   appState,
 }) => {
   const { showToast } = useUI();
-  const [exportType, setExportType] = useState<'exam' | 'prep' | 'beisitzer'>('exam');
+  const [exportType, setExportType] = useState<'exam' | 'prep' | 'beisitzer' | 'protocol'>('exam');
   const [isExporting, setIsExporting] = useState(false);
+  const [protocolPoints, setProtocolPoints] = useState<Record<string, { achieved: string; required: string }>>({});
 
   const preflightIssues = useMemo(() => {
     return runPreflightCheck(appState, activeDayIdx);
@@ -57,7 +59,7 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
   const handleExport = async () => {
     setIsExporting(true);
     const dayLabel = appState.days[activeDayIdx]?.label || 'Prüfungsplan';
-    const prefixes = { exam: 'Pruefungsplan', prep: 'Vorbereitungsplan', beisitzer: 'Beisitzerliste' };
+    const prefixes = { exam: 'Pruefungsplan', prep: 'Vorbereitungsplan', beisitzer: 'Beisitzerliste', protocol: 'Protokolle' };
     const prefix = prefixes[exportType];
     const filename = `${prefix}_${dayLabel.replace(/\s/g, '_')}`;
 
@@ -66,8 +68,33 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
         await PdfExportService.generateAndDownload(appState, activeDayIdx, filename);
       } else if (exportType === 'prep') {
         await PdfExportService.generatePrepRoomPdf(appState, activeDayIdx, filename);
-      } else {
+      } else if (exportType === 'beisitzer') {
         await PdfExportService.generateBeisitzerPdf(appState, activeDayIdx, filename);
+      } else if (exportType === 'protocol') {
+        let logoBase64 = '';
+        try {
+          const baseUrl = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL 
+            ? import.meta.env.BASE_URL 
+            : '/';
+          const response = await fetch(`${baseUrl}Facettenkreuz.jpg`);
+          if (response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('image')) {
+              const blob = await response.blob();
+              logoBase64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+            } else {
+              console.warn('Datei gefunden, ist aber kein Bild (evtl. index.html Fallback). Typ:', contentType);
+            }
+          }
+        } catch (e) {
+          console.warn('Logo konnte nicht geladen werden', e);
+        }
+        await PdfExportService.generateProtocolPdf(appState, activeDayIdx, filename, protocolPoints, logoBase64);
       }
       showToast('PDF erfolgreich generiert.', 'success');
     } catch (err) {
@@ -88,18 +115,18 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
             <div className="w-[420px] shrink-0">
               <h3 className="text-lg font-bold text-white tracking-tight">Export-Vorschau</h3>
               <p className="text-xs text-cyan-500/80 font-medium whitespace-nowrap overflow-hidden text-ellipsis">
-                {exportType === 'exam' ? 'Prüfungsplan' : exportType === 'prep' ? 'Vorbereitungsplan' : 'Beisitzerliste'} für{' '}
+                {exportType === 'exam' ? 'Prüfungsplan' : exportType === 'prep' ? 'Vorbereitungsplan' : exportType === 'beisitzer' ? 'Beisitzerliste' : 'Protokolle'} für{' '}
                 {formattedDayInfo}
               </p>
             </div>
           </div>
 
-          <div className="segmented-control-wrapper w-[320px] h-9">
+          <div className="segmented-control-wrapper w-[420px] h-9">
             <div
               className="segmented-control-slider"
               style={{
-                width: 'calc((100% - 6px) / 3)',
-                transform: `translateX(calc(${exportType === 'exam' ? 0 : exportType === 'prep' ? 1 : 2} * 100%))`,
+                width: 'calc((100% - 8px) / 4)',
+                transform: `translateX(calc(${exportType === 'exam' ? 0 : exportType === 'prep' ? 1 : exportType === 'beisitzer' ? 2 : 3} * 100%))`,
               }}
             />
             <button
@@ -119,6 +146,12 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
               className={`segmented-control-item ${exportType === 'beisitzer' ? 'text-white' : 'text-slate-500'}`}
             >
               Beisitzer
+            </button>
+            <button
+              onClick={() => setExportType('protocol')}
+              className={`segmented-control-item ${exportType === 'protocol' ? 'text-white' : 'text-slate-500'}`}
+            >
+              Protokolle
             </button>
           </div>
 
@@ -208,8 +241,50 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
                 <ExportPrintView activeDayIdx={activeDayIdx} isPreview={true} />
               ) : exportType === 'prep' ? (
                 <PrepRoomPrintView activeDayIdx={activeDayIdx} isPreview={true} />
-              ) : (
+              ) : exportType === 'beisitzer' ? (
                 <BeisitzerPrintView activeDayIdx={activeDayIdx} isPreview={true} />
+              ) : (
+                <div className="bg-slate-900/40 p-8 rounded-2xl border border-slate-700/30 text-white shadow-inner">
+                  <h2 className="text-xl font-bold text-white mb-2 tracking-tight">Punkte-Erfassung für Protokolle</h2>
+                  <p className="text-sm text-slate-400 mb-6 font-medium">Bitte ergänze hier die <em className="text-cyan-400/80">erreichten</em> und <em className="text-cyan-400/80">benötigten</em> Punkte für die Prüfungen. Diese Werte werden beim PDF-Export direkt in die Protokolle gedruckt (als Blanko-Seiten).</p>
+                  
+                  <div className="space-y-3">
+                    {appState.exams
+                      .filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === activeDayIdx && e.status !== 'cancelled')
+                      .sort((a, b) => a.startTime - b.startTime)
+                      .map((exam) => {
+                        const student = appState.students.find(s => s.id === exam.studentId);
+                        const timeFormatted = minToTime(examSlotToMin(exam.startTime));
+                        
+                        return (
+                          <div key={exam.id} className="flex items-center gap-4 p-3 glass-nocturne border border-slate-700/50 hover:border-cyan-500/30 transition-colors rounded-xl">
+                            <div className="w-20 text-sm font-bold text-slate-400">{timeFormatted} Uhr</div>
+                            <div className="flex-1 text-sm font-bold text-cyan-50 truncate">{student?.lastName}, {student?.firstName}</div>
+                            <div className="w-40 shrink-0">
+                              <label className="text-[10px] uppercase tracking-wider font-bold text-cyan-500/80 mb-1 block leading-none">Erreichte Pkt.</label>
+                              <input 
+                                type="text"
+                                placeholder="..."
+                                className="w-full h-8 px-3 text-sm font-bold bg-slate-950/50 text-white placeholder-slate-600 border border-slate-700/80 rounded-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-inner"
+                                value={protocolPoints[exam.id]?.achieved || ''}
+                                onChange={(e) => setProtocolPoints(prev => ({ ...prev, [exam.id]: { ...prev[exam.id], achieved: e.target.value, required: prev[exam.id]?.required || '' } }))}
+                              />
+                            </div>
+                            <div className="w-40 shrink-0 border-l border-slate-700/50 pl-4">
+                              <label className="text-[10px] uppercase tracking-wider font-bold text-cyan-500/80 mb-1 block leading-none">Benötigte Pkt.</label>
+                              <input 
+                                type="text"
+                                placeholder="..."
+                                className="w-full h-8 px-3 text-sm font-bold bg-slate-950/50 text-white placeholder-slate-600 border border-slate-700/80 rounded-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-inner"
+                                value={protocolPoints[exam.id]?.required || ''}
+                                onChange={(e) => setProtocolPoints(prev => ({ ...prev, [exam.id]: { achieved: prev[exam.id]?.achieved || '', required: e.target.value } }))}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
               )}
             </div>
           </div>
