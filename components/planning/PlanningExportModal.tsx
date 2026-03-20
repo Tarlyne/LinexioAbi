@@ -17,6 +17,7 @@ import {
 import { PdfExportService } from '../../services/PdfExportService';
 import { runPreflightCheck } from '../../utils/validationEngine';
 import { ExportPrintView } from '../ExportPrintView';
+import { useApp } from '../../context/AppContext';
 import { PrepRoomPrintView } from '../PrepRoomPrintView';
 import { BeisitzerPrintView } from './BeisitzerPrintView';
 import { useUI } from '../../context/UIContext';
@@ -36,9 +37,9 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
   appState,
 }) => {
   const { showToast } = useUI();
+  const { updateExam } = useApp();
   const [exportType, setExportType] = useState<'exam' | 'prep' | 'beisitzer' | 'protocol'>('exam');
   const [isExporting, setIsExporting] = useState(false);
-  const [protocolPoints, setProtocolPoints] = useState<Record<string, { achieved: string; required: string }>>({});
 
   const preflightIssues = useMemo(() => {
     return runPreflightCheck(appState, activeDayIdx);
@@ -94,7 +95,7 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
         } catch (e) {
           console.warn('Logo konnte nicht geladen werden', e);
         }
-        await PdfExportService.generateProtocolPdf(appState, activeDayIdx, filename, protocolPoints, logoBase64);
+        await PdfExportService.generateProtocolPdf(appState, activeDayIdx, filename, logoBase64);
       }
       showToast('PDF erfolgreich generiert.', 'success');
     } catch (err) {
@@ -266,8 +267,8 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
                                 type="text"
                                 placeholder="..."
                                 className="w-full h-8 px-3 text-sm font-bold bg-slate-950/50 text-white placeholder-slate-600 border border-slate-700/80 rounded-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-inner"
-                                value={protocolPoints[exam.id]?.achieved || ''}
-                                onChange={(e) => setProtocolPoints(prev => ({ ...prev, [exam.id]: { ...prev[exam.id], achieved: e.target.value, required: prev[exam.id]?.required || '' } }))}
+                                value={exam.achievedPoints || ''}
+                                onChange={(e) => updateExam({ ...exam, achievedPoints: e.target.value })}
                               />
                             </div>
                             <div className="w-40 shrink-0 border-l border-slate-700/50 pl-4">
@@ -276,8 +277,8 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
                                 type="text"
                                 placeholder="..."
                                 className="w-full h-8 px-3 text-sm font-bold bg-slate-950/50 text-white placeholder-slate-600 border border-slate-700/80 rounded-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-inner"
-                                value={protocolPoints[exam.id]?.required || ''}
-                                onChange={(e) => setProtocolPoints(prev => ({ ...prev, [exam.id]: { achieved: prev[exam.id]?.achieved || '', required: e.target.value } }))}
+                                value={exam.requiredPoints || ''}
+                                onChange={(e) => updateExam({ ...exam, requiredPoints: e.target.value })}
                               />
                             </div>
                           </div>

@@ -131,7 +131,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
             >
               <div className="px-3 py-2 bg-slate-800/10 rounded-xl border border-slate-700/10">
                 <div className="text-[9px] text-slate-600 font-bold uppercase tracking-[0.2em]">
-                  Build V0.9.5
+                  Build V0.9.8
                 </div>
               </div>
             </div>

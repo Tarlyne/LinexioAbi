@@ -146,7 +146,11 @@ export const ExportPrintView: React.FC<ExportPrintViewProps> = ({
                         </td>
                         <td>
                           <div className="cell-wrap justify-start font-bold">
-                            {students.find((s) => s.id === exam.studentId)?.lastName || '???'}
+                            {(() => {
+                              const s = students.find((st) => st.id === exam.studentId);
+                              const name = s ? `${s.lastName}, ${s.firstName}` : '???';
+                              return exam.hasNachteilsausgleich ? `${name}*` : name;
+                            })()}
                           </div>
                         </td>
                         <td>

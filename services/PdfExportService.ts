@@ -169,7 +169,8 @@ export const PdfExportService = {
           lastComm = comm;
         }
         if (zebra) {
-          pdf.setFillColor(248, 250, 252);
+          // #e2e8f0 for a darker, more noticeable zebra
+          pdf.setFillColor(226, 232, 240);
           pdf.rect(PDF_CONFIG.marginX, currentY, contentWidth, PDF_CONFIG.rowHeight, 'F');
         }
         pdf.setDrawColor(0);
@@ -204,7 +205,8 @@ export const PdfExportService = {
         x += colWidths[2];
         pdf.line(x, currentY, x, currentY + PDF_CONFIG.rowHeight);
         pdf.setFontSize(9.5);
-        const studentName1 = state.students.find((s) => s.id === exam.studentId)?.lastName || '???';
+        const student = state.students.find((st) => st.id === exam.studentId);
+        const studentName1 = student ? `${student.lastName}, ${student.firstName}` : '???';
         this._drawCell(
           pdf,
           exam.hasNachteilsausgleich ? `${studentName1}*` : studentName1,
@@ -761,7 +763,6 @@ export const PdfExportService = {
     state: AppState,
     activeDayIdx: number,
     filename: string,
-    pointsData: Record<string, { achieved: string; required: string }>,
     logoBase64: string
   ): Promise<void> {
     const activeDay = state.days[activeDayIdx];
@@ -849,11 +850,10 @@ export const PdfExportService = {
 
       drawInfoRow('Vorsitz:', chair, '', '', y);
       y += 14;
-
-      const enteredPoints = pointsData[exam.id] || { achieved: '', required: '' };
+      
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`erreichte Punkte:   ${enteredPoints.achieved || '---'}`, col1X, y);
-      pdf.text(`benötigte Punkte:   ${enteredPoints.required || '---'}`, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, y, { align: 'right' });
+      pdf.text(`erreichte Punkte:   ${exam.achievedPoints || '---'}`, col1X, y);
+      pdf.text(`benötigte Punkte:   ${exam.requiredPoints || '---'}`, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, y, { align: 'right' });
 
       y += 14;
 

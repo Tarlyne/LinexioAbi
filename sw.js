@@ -1,8 +1,7 @@
+/* LinexioAbi Service Worker V4.8 - Root Protocol */
+/* Build Timestamp: 2026-03-20-1412 */
 
-/* LinexioAbi Service Worker V4.7 - Root Protocol */
-/* Build Timestamp: 2026-03-05-0754 */
-
-const CACHE_NAME = 'linexioabi-cache-v4.7';
+const CACHE_NAME = 'linexioabi-cache-v4.8';
 const BASE_PATH = '/LinexioAbi/';
 
 const STATIC_ASSETS = [

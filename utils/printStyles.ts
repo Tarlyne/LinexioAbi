@@ -52,7 +52,7 @@ export const PRINT_STYLES = `
   .justify-center { justify-content: center; }
   .justify-start { justify-content: flex-start; }
 
-  .print-zebra { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; }
+  .print-zebra { background-color: #e2e8f0 !important; -webkit-print-color-adjust: exact; }
   
   .header-grid { 
     display: flex !important; 

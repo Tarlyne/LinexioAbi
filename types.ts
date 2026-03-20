@@ -62,6 +62,8 @@ export interface Exam {
   isPresent?: boolean;
   isBackupExam?: boolean; // Kennzeichnet eine Sicherungsprüfung
   hasNachteilsausgleich?: boolean; // Kennzeichnet Nachteilsausgleich (+5 Min. Vorbereitung)
+  achievedPoints?: string;
+  requiredPoints?: string;
 }
 
 export interface Supervision {
