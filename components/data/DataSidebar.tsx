@@ -46,7 +46,7 @@ export const DataSidebar: React.FC<DataSidebarProps> = ({ activeTab, onFileUploa
             </div>
             <p className="text-[11px] text-slate-500 font-mono leading-relaxed">
               {activeTab === 'teachers'
-                ? 'Nachname; Vorname; Kürzel; Fach 1; Fach 2; Fach 3; Teilzeit (ja/leer)'
+                ? 'Nachname; Vorname; Kürzel; Fach 1; Fach 2; Fach 3; Teilzeit (ja/leer); LK (ja/leer)'
                 : 'Nachname; Vorname'}
             </p>
           </div>

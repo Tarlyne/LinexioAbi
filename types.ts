@@ -26,6 +26,7 @@ export interface Teacher {
   shortName: string;
   isPartTime: boolean;
   isLeadership?: boolean; // Neu: Kennzeichnung für Schulleitung
+  hasLK?: boolean; // Kennzeichnet Lehrkräfte mit LK-Korrektur (Deputat +4)
   subjectIds?: string[];
   notes?: string;
   targetHours?: number;
@@ -64,6 +65,7 @@ export interface Exam {
   hasNachteilsausgleich?: boolean; // Kennzeichnet Nachteilsausgleich (+5 Min. Vorbereitung)
   achievedPoints?: string;
   requiredPoints?: string;
+  protocolRemark?: string;
 }
 
 export interface Supervision {

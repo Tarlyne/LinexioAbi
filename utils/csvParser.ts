@@ -36,7 +36,7 @@ export const parseTeachersCSV = (
 
   const teachers = lines.map((line, index) => {
     const parts = line.split(';').map((s) => s?.trim());
-    const [lastName, firstName, shortName, f1, f2, f3, isPartTime] = parts;
+    const [lastName, firstName, shortName, f1, f2, f3, isPartTime, rawLK] = parts;
 
     const subjectIds: string[] = [];
     [f1, f2, f3].forEach((fName) => {
@@ -56,6 +56,7 @@ export const parseTeachersCSV = (
       firstName: firstName || '',
       shortName: shortName || '',
       isPartTime: isPartTime?.toLowerCase() === 'ja',
+      hasLK: rawLK?.toLowerCase() === 'ja' || rawLK?.toLowerCase() === 'x',
       subjectIds,
     };
   });

@@ -80,6 +80,22 @@ export const TeacherForm: React.FC<TeacherFormProps> = ({ formData, updateField,
           <label className="flex items-center gap-3 cursor-pointer group">
             <input
               type="checkbox"
+              checked={formData.hasLK || false}
+              onChange={(e) => updateField('hasLK', e.target.checked)}
+              className="sr-only"
+            />
+            <div
+              className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${formData.hasLK ? 'bg-indigo-600 border-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'bg-slate-900/50 border-slate-700 group-hover:border-slate-500'}`}
+            >
+              {formData.hasLK && <Check size={14} className="text-white" />}
+            </div>
+            <span className="text-xs font-semibold text-slate-300 group-hover:text-white">
+              LK
+            </span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
               checked={formData.isLeadership || false}
               onChange={(e) => updateField('isLeadership', e.target.checked)}
               className="sr-only"

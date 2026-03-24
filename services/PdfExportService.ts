@@ -773,9 +773,22 @@ export const PdfExportService = {
     const currentYear = new Date(activeDay.date).getFullYear();
     const dateStr = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(activeDay.date));
 
-    const dayExams = state.exams
-      .filter((e) => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === activeDayIdx && e.status !== 'cancelled')
-      .sort((a, b) => a.startTime - b.startTime);
+    const dayExamsUnsorted = state.exams.filter(
+      (e) =>
+        e.startTime > 0 &&
+        Math.floor((e.startTime - 1) / 1000) === activeDayIdx &&
+        e.status !== 'cancelled'
+    );
+
+    // Exakt gleiche Sortierung wie in der Eingabemaske: Zuerst Raum, dann Zeit
+    const dayExams = dayExamsUnsorted.sort((a, b) => {
+      const roomA = state.rooms.find(r => r.id === a.roomId)?.name || '';
+      const roomB = state.rooms.find(r => r.id === b.roomId)?.name || '';
+      const roomCompare = roomA.localeCompare(roomB, undefined, { numeric: true });
+      
+      if (roomCompare !== 0) return roomCompare;
+      return a.startTime - b.startTime;
+    });
 
     dayExams.forEach((exam, eIdx) => {
       if (eIdx > 0) pdf.addPage();
@@ -850,12 +863,27 @@ export const PdfExportService = {
 
       drawInfoRow('Vorsitz:', chair, '', '', y);
       y += 14;
-      
+
       pdf.setFont('helvetica', 'bold');
       pdf.text(`erreichte Punkte:   ${exam.achievedPoints || '---'}`, col1X, y);
       pdf.text(`benötigte Punkte:   ${exam.requiredPoints || '---'}`, PDF_CONFIG.pageWidth - PDF_CONFIG.marginX, y, { align: 'right' });
 
       y += 14;
+
+      if (exam.protocolRemark && exam.protocolRemark.trim() !== '') {
+        pdf.setFont('helvetica', 'italic');
+        pdf.setFontSize(10);
+        
+        // Bemerkung wird zentriert ausgegeben. Falls zu lang, Zeilenumbruch.
+        const remarkLines = pdf.splitTextToSize(`Bemerkung: ${exam.protocolRemark}`, contentWidth);
+        
+        remarkLines.forEach((line: string) => {
+          pdf.text(line, PDF_CONFIG.pageWidth / 2, y, { align: 'center' });
+          y += 5;
+        });
+        
+        y += 6; // Extra padding
+      }
 
       pdf.setFontSize(13);
       pdf.setFont('helvetica', 'bold');

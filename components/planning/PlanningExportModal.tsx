@@ -13,6 +13,8 @@ import {
   AlertCircle,
   AlertTriangle,
   Info,
+  MapPin,
+  MessageSquarePlus,
 } from 'lucide-react';
 import { PdfExportService } from '../../services/PdfExportService';
 import { runPreflightCheck } from '../../utils/validationEngine';
@@ -40,6 +42,16 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
   const { updateExam } = useApp();
   const [exportType, setExportType] = useState<'exam' | 'prep' | 'beisitzer' | 'protocol'>('exam');
   const [isExporting, setIsExporting] = useState(false);
+  const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<string>>(new Set());
+
+  const toggleRemark = (examId: string) => {
+    setExpandedRemarkIds(prev => {
+      const next = new Set(prev);
+      if (next.has(examId)) next.delete(examId);
+      else next.add(examId);
+      return next;
+    });
+  };
 
   const preflightIssues = useMemo(() => {
     return runPreflightCheck(appState, activeDayIdx);
@@ -74,8 +86,8 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
       } else if (exportType === 'protocol') {
         let logoBase64 = '';
         try {
-          const baseUrl = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL 
-            ? import.meta.env.BASE_URL 
+          const baseUrl = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL
+            ? import.meta.env.BASE_URL
             : '/';
           const response = await fetch(`${baseUrl}Facettenkreuz.jpg`);
           if (response.ok) {
@@ -248,42 +260,85 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
                 <div className="bg-slate-900/40 p-8 rounded-2xl border border-slate-700/30 text-white shadow-inner">
                   <h2 className="text-xl font-bold text-white mb-2 tracking-tight">Punkte-Erfassung für Protokolle</h2>
                   <p className="text-sm text-slate-400 mb-6 font-medium">Bitte ergänze hier die <em className="text-cyan-400/80">erreichten</em> und <em className="text-cyan-400/80">benötigten</em> Punkte für die Prüfungen. Diese Werte werden beim PDF-Export direkt in die Protokolle gedruckt (als Blanko-Seiten).</p>
-                  
-                  <div className="space-y-3">
-                    {appState.exams
-                      .filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === activeDayIdx && e.status !== 'cancelled')
-                      .sort((a, b) => a.startTime - b.startTime)
-                      .map((exam) => {
-                        const student = appState.students.find(s => s.id === exam.studentId);
-                        const timeFormatted = minToTime(examSlotToMin(exam.startTime));
-                        
-                        return (
-                          <div key={exam.id} className="flex items-center gap-4 p-3 glass-nocturne border border-slate-700/50 hover:border-cyan-500/30 transition-colors rounded-xl">
-                            <div className="w-20 text-sm font-bold text-slate-400">{timeFormatted} Uhr</div>
-                            <div className="flex-1 text-sm font-bold text-cyan-50 truncate">{student?.lastName}, {student?.firstName}</div>
-                            <div className="w-40 shrink-0">
-                              <label className="text-[10px] uppercase tracking-wider font-bold text-cyan-500/80 mb-1 block leading-none">Erreichte Pkt.</label>
-                              <input 
-                                type="text"
-                                placeholder="..."
-                                className="w-full h-8 px-3 text-sm font-bold bg-slate-950/50 text-white placeholder-slate-600 border border-slate-700/80 rounded-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-inner"
-                                value={exam.achievedPoints || ''}
-                                onChange={(e) => updateExam({ ...exam, achievedPoints: e.target.value })}
-                              />
-                            </div>
-                            <div className="w-40 shrink-0 border-l border-slate-700/50 pl-4">
-                              <label className="text-[10px] uppercase tracking-wider font-bold text-cyan-500/80 mb-1 block leading-none">Benötigte Pkt.</label>
-                              <input 
-                                type="text"
-                                placeholder="..."
-                                className="w-full h-8 px-3 text-sm font-bold bg-slate-950/50 text-white placeholder-slate-600 border border-slate-700/80 rounded-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-inner"
-                                value={exam.requiredPoints || ''}
-                                onChange={(e) => updateExam({ ...exam, requiredPoints: e.target.value })}
-                              />
-                            </div>
+                  <div className="space-y-6">
+                    {(() => {
+                      const dayExams = appState.exams.filter(e => e.startTime > 0 && Math.floor((e.startTime - 1) / 1000) === activeDayIdx && e.status !== 'cancelled');
+                      
+                      const examsByRoomInfo = appState.rooms
+                        .filter(r => r.type === 'Prüfungsraum' && dayExams.some(e => e.roomId === r.id))
+                        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+                        .map(room => ({
+                          room,
+                          exams: dayExams.filter(e => e.roomId === room.id).sort((a, b) => a.startTime - b.startTime)
+                        }));
+
+                      return examsByRoomInfo.map(group => (
+                        <div key={group.room.id} className="space-y-3">
+                          <div className="flex items-center gap-2 mb-2 pb-1 border-b border-slate-700/50">
+                            <MapPin size={16} className="text-cyan-400" />
+                            <h3 className="text-sm font-bold text-slate-200">{group.room.name}</h3>
                           </div>
-                        );
-                      })}
+                          
+                          {group.exams.map((exam) => {
+                            const student = appState.students.find(s => s.id === exam.studentId);
+                            const timeFormatted = minToTime(examSlotToMin(exam.startTime));
+                            const isRemarkExpanded = expandedRemarkIds.has(exam.id) || exam.protocolRemark;
+                            
+                            return (
+                              <div key={exam.id} className="flex flex-col gap-2 p-3 glass-nocturne border border-slate-700/50 hover:border-cyan-500/30 transition-colors rounded-xl overflow-hidden">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-20 text-sm font-bold text-slate-400">{timeFormatted} Uhr</div>
+                                  <div className="flex-1 text-sm font-bold text-cyan-50 truncate">{student?.lastName}, {student?.firstName}</div>
+                                  <div className="w-32 shrink-0">
+                                    <label className="text-[10px] uppercase tracking-wider font-bold text-cyan-500/80 mb-1 block leading-none">Erreichte Pkt.</label>
+                                    <input 
+                                      type="text"
+                                      placeholder="..."
+                                      className="w-full h-8 px-3 text-sm font-bold bg-slate-950/50 text-white placeholder-slate-600 border border-slate-700/80 rounded-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-inner"
+                                      value={exam.achievedPoints || ''}
+                                      onChange={(e) => updateExam({ ...exam, achievedPoints: e.target.value })}
+                                    />
+                                  </div>
+                                  <div className="w-32 shrink-0 border-l border-slate-700/50 pl-4">
+                                    <label className="text-[10px] uppercase tracking-wider font-bold text-cyan-500/80 mb-1 block leading-none">Benötigte Pkt.</label>
+                                    <input 
+                                      type="text"
+                                      placeholder="..."
+                                      className="w-full h-8 px-3 text-sm font-bold bg-slate-950/50 text-white placeholder-slate-600 border border-slate-700/80 rounded-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-inner"
+                                      value={exam.requiredPoints || ''}
+                                      onChange={(e) => updateExam({ ...exam, requiredPoints: e.target.value })}
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={() => toggleRemark(exam.id)}
+                                    className={`ml-2 w-8 h-8 flex items-center justify-center rounded-lg border transition-all shrink-0 ${
+                                      isRemarkExpanded
+                                        ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
+                                        : 'bg-slate-800/50 border-slate-700 hover:border-cyan-500/50 text-slate-400 hover:text-cyan-400'
+                                    }`}
+                                    title="Bemerkung hinzufügen"
+                                  >
+                                    <MessageSquarePlus size={16} />
+                                  </button>
+                                </div>
+                                
+                                {isRemarkExpanded && (
+                                  <div className="pt-2 mt-1 border-t border-slate-700/30">
+                                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1 block leading-none">Besondere Bemerkung (Erscheint auf dem Protokoll)</label>
+                                    <textarea
+                                      placeholder="Hier eine Bemerkung für das Protokoll eintragen (optional)..."
+                                      className="w-full min-h-[60px] p-3 text-sm font-medium bg-slate-950/50 text-white placeholder-slate-600 border border-slate-700/80 rounded-lg focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-inner resize-y"
+                                      value={exam.protocolRemark || ''}
+                                      onChange={(e) => updateExam({ ...exam, protocolRemark: e.target.value })}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ));
+                    })()}
                   </div>
                 </div>
               )}

@@ -134,9 +134,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.location.reload();
   };
 
-  const getTeacherStats = useCallback((id: string) => ({
-    points: calculateTeacherPoints(id, store.exams, store.supervisions)
-  }), [store.exams, store.supervisions]);
+  const getTeacherStats = useCallback((id: string) => {
+    const basePoints = calculateTeacherPoints(id, store.exams, store.supervisions);
+    const teacher = teachers.find((t) => t.id === id);
+    const lkBonus = teacher?.hasLK ? 4 : 0;
+    return { points: basePoints + lkBonus };
+  }, [store.exams, store.supervisions, teachers]);
 
   const checkCollision = useCallback((exam: Exam) => checkExamCollision(exam, store.exams), [store.exams]);
   const checkConsistency = useCallback((exam: Exam) => checkExamConsistency(exam, store.exams), [store.exams]);
