@@ -193,7 +193,7 @@ export const ExamCard = React.memo<ExamCardProps>(({
         </div>
 
         <div
-          className={`text-[10px] font-bold uppercase tracking-widest truncate mb-2 transition-colors ${matchedSubject ? 'text-cyan-400 font-black' : 'text-cyan-500/80'
+          className={`text-[10px] font-bold uppercase tracking-widest truncate mb-2 touch-reduce-mb transition-colors ${matchedSubject ? 'text-cyan-400 font-black' : 'text-cyan-500/80'
             }`}
         >
           {exam.subject}
@@ -201,7 +201,7 @@ export const ExamCard = React.memo<ExamCardProps>(({
           {prepRoom && <span className="text-amber-500 ml-1.5 font-black">({prepRoom.name})</span>}
         </div>
 
-        <div className="mt-auto grid grid-cols-3 gap-1 border-t border-slate-800/60 pt-1.5 overflow-hidden">
+        <div className="mt-auto grid grid-cols-3 gap-1 border-t border-slate-800/60 pt-1.5 overflow-hidden touch-add-pb">
           <div className="flex flex-col items-center gap-0.5 min-w-0">
             <span className="text-[7px] text-slate-300 font-bold uppercase leading-none">
               Prüfer

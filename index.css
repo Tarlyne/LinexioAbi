@@ -109,6 +109,14 @@ input::-webkit-credentials-auto-fill-button {
         /* Prevent scroll interference on handle */
         cursor: grab;
     }
+
+    /* iPad/Touch spacing tweaks for ExamCards */
+    .touch-reduce-mb {
+        margin-bottom: 2px !important; /* Reduces standard mb-2 (8px) to 2px */
+    }
+    .touch-add-pb {
+        padding-bottom: 4px !important; /* Adds 4px padding at the bottom */
+    }
 }
 
 body {
