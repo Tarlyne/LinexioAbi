@@ -3,6 +3,7 @@ import { Modal } from '../Modal';
 import { minToTime, examSlotToMin } from '../../utils/TimeService';
 import {
   X,
+  FileSpreadsheet,
   Printer,
   FileText,
   FileCheck,
@@ -17,6 +18,7 @@ import {
   MessageSquarePlus,
 } from 'lucide-react';
 import { PdfExportService } from '../../services/PdfExportService';
+import { ExcelExportService } from '../../services/ExcelExportService';
 import { runPreflightCheck } from '../../utils/validationEngine';
 import { ExportPrintView } from '../ExportPrintView';
 import { useApp } from '../../context/AppContext';
@@ -42,6 +44,7 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
   const { updateExam } = useApp();
   const [exportType, setExportType] = useState<'exam' | 'prep' | 'beisitzer' | 'protocol'>('exam');
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [expandedRemarkIds, setExpandedRemarkIds] = useState<Set<string>>(new Set());
 
   const toggleRemark = (examId: string) => {
@@ -69,12 +72,15 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
     return `${day.label} (${dateStr})`;
   }, [appState.days, activeDayIdx]);
 
+  const buildFilename = (prefix: string) => {
+    const dayLabel = appState.days[activeDayIdx]?.label || 'Prüfungsplan';
+    return `${prefix}_${dayLabel.replace(/\s/g, '_')}`;
+  };
+
   const handleExport = async () => {
     setIsExporting(true);
-    const dayLabel = appState.days[activeDayIdx]?.label || 'Prüfungsplan';
     const prefixes = { exam: 'Pruefungsplan', prep: 'Vorbereitungsplan', beisitzer: 'Beisitzerliste', protocol: 'Protokolle' };
-    const prefix = prefixes[exportType];
-    const filename = `${prefix}_${dayLabel.replace(/\s/g, '_')}`;
+    const filename = buildFilename(prefixes[exportType]);
 
     try {
       if (exportType === 'exam') {
@@ -117,6 +123,20 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
     }
   };
 
+  const handleExcelExport = async () => {
+    setIsExportingExcel(true);
+    const filename = buildFilename('Beisitzerliste');
+    try {
+      await ExcelExportService.generateBeisitzerExcel(appState, activeDayIdx, filename);
+      showToast('Excel-Datei erfolgreich generiert.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Excel-Export fehlgeschlagen.', 'error');
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="max-w-[1200px]">
       <div className="flex flex-col gap-6 h-[85vh] overflow-hidden">
@@ -125,7 +145,7 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
             <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20 text-cyan-400">
               {exportType === 'exam' ? <FileText size={20} /> : <FileCheck size={20} />}
             </div>
-            <div className="w-[420px] shrink-0">
+            <div className="w-[280px] shrink-0">
               <h3 className="text-lg font-bold text-white tracking-tight">Export-Vorschau</h3>
               <p className="text-xs text-cyan-500/80 font-medium whitespace-nowrap overflow-hidden text-ellipsis">
                 {exportType === 'exam' ? 'Prüfungsplan' : exportType === 'prep' ? 'Vorbereitungsplan' : exportType === 'beisitzer' ? 'Beisitzerliste' : 'Protokolle'} für{' '}
@@ -134,7 +154,7 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
             </div>
           </div>
 
-          <div className="segmented-control-wrapper w-[420px] h-9">
+          <div className="segmented-control-wrapper w-[420px] h-9 flex-shrink-0">
             <div
               className="segmented-control-slider"
               style={{
@@ -169,6 +189,19 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExcelExport}
+              disabled={isExportingExcel || exportType !== 'beisitzer'}
+              className={`flex items-center gap-2 whitespace-nowrap px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 transition-colors ${exportType !== 'beisitzer' ? 'invisible' : 'disabled:opacity-50'}`}
+              title="Als Excel-Datei exportieren (für digitale Nutzung auf Teams)"
+            >
+              {isExportingExcel ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <FileSpreadsheet size={16} />
+              )}
+              {isExportingExcel ? 'Generiere...' : 'als Excel'}
+            </button>
             <button
               onClick={handleExport}
               disabled={isExporting}
