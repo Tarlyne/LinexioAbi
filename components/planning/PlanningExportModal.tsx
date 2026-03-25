@@ -288,7 +288,14 @@ export const PlanningExportModal: React.FC<PlanningExportModalProps> = ({
                               <div key={exam.id} className="flex flex-col gap-2 p-3 glass-nocturne border border-slate-700/50 hover:border-cyan-500/30 transition-colors rounded-xl overflow-hidden">
                                 <div className="flex items-center gap-4">
                                   <div className="w-20 text-sm font-bold text-slate-400">{timeFormatted} Uhr</div>
-                                  <div className="flex-1 text-sm font-bold text-cyan-50 truncate">{student?.lastName}, {student?.firstName}</div>
+                                  <div className="flex-1 flex flex-col justify-center min-w-0">
+                                    <div className="text-sm font-bold text-cyan-50 truncate">
+                                      {student?.lastName}, {student?.firstName}
+                                    </div>
+                                    <div className="text-[11px] font-bold text-cyan-400 mt-0.5 truncate">
+                                      {exam.subject}
+                                    </div>
+                                  </div>
                                   <div className="w-32 shrink-0">
                                     <label className="text-[10px] uppercase tracking-wider font-bold text-cyan-500/80 mb-1 block leading-none">Erreichte Pkt.</label>
                                     <input 
